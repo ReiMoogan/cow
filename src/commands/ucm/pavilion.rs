@@ -172,15 +172,16 @@ async fn print_pavilion_times(ctx: &Context, msg: &Message) -> Result<(), Error>
     msg.channel_id.send_message(&ctx.http, |m| m.embed(|e| e
         .title("Pavilion/Yablokoff Times")
         .description("See `ucm pav announcements` for more info.")
-        .field("Weekdays", format!("Breakfast: {} - {}\nLunch: {} - {}\nDinner: {} - {}\nDinner (Yablokoff): {} - {}",
+        .field("Pavilion on Weekdays", format!("Breakfast: {} - {}\nLunch: {} - {}\nDinner: {} - {}",
             PavilionTime::breakfast_weekday_start().format("%l:%M %p"), PavilionTime::breakfast_end().format("%l:%M %p"),
             PavilionTime::lunch_start().format("%l:%M %p"), PavilionTime::lunch_end().format("%l:%M %p"),
-            PavilionTime::dinner_start().format("%l:%M %p"), PavilionTime::dinner_end().format("%l:%M %p"),
-            YablokoffTime::dinner_start().format("%l:%M %p"), YablokoffTime::dinner_end().format("%l:%M %p")), false)
-        .field("Weekends", format!("Breakfast: {} - {}\nLunch: {} - {}\nDinner: {} - {}",
+            PavilionTime::dinner_start().format("%l:%M %p"), PavilionTime::dinner_end().format("%l:%M %p")), false)
+        .field("Pavilion on Weekends", format!("Breakfast: {} - {}\nLunch: {} - {}\nDinner: {} - {}",
             PavilionTime::breakfast_weekend_start().format("%l:%M %p"), PavilionTime::breakfast_end().format("%l:%M %p"),
             PavilionTime::lunch_start().format("%l:%M %p"), PavilionTime::lunch_end().format("%l:%M %p"),
             PavilionTime::dinner_start().format("%l:%M %p"), PavilionTime::dinner_end().format("%l:%M %p")), false)
+        .field("Yablokoff on Weekdays", format!("Dinner: {} - {}",
+            YablokoffTime::dinner_start().format("%l:%M %p"), YablokoffTime::dinner_end().format("%l:%M %p")), false)
     )).await?;
 
     Ok(())
