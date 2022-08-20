@@ -1,7 +1,7 @@
 [package]
 name = "cow"
 description = "moo"
-version = "0.1.34"
+version = "0.1.35"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -21,7 +21,7 @@ env_logger = "0.9.0"
 chrono = "0.4.19"
 # SQL Server
 bb8 = "0.8.0"
-bb8-tiberius = "0.10.0"
+bb8-tiberius = "0.11.0"
 # Decimal data type (for SQL Server)
 rust_decimal = "1.23.1"
 rust_decimal_macros = "1.23.1"
@@ -62,7 +62,7 @@ version = "0.10.10"
 
 # SQL Server
 [dependencies.tiberius]
-version = "0.8.0"
+version = "0.9.0"
 default-features = false
 features = [
     "tds73",
@@ -70,6 +70,5 @@ features = [
     "rust_decimal",
     "bigdecimal",
     "integrated-auth-gssapi",
-    "vendored-openssl",
     "winauth"
 ]

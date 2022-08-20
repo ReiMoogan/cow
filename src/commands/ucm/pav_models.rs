@@ -30,7 +30,7 @@ impl TryFrom<u32> for Day {
     }
 }
 
-impl From<chrono::Weekday> for Day {
+impl From<Weekday> for Day {
     fn from(v: chrono::Weekday) -> Self {
         match v {
             Weekday::Mon => Day::Monday,
@@ -117,8 +117,19 @@ pub struct PavResult<T> {
 #[derive(Debug, Deserialize)]
 pub struct Location {
     // WHY DOES THIS HAVE BOTH _id AND id IN THE JSON???
+    // Turns out they send _id more than id >:[
     #[serde(rename = "_id")]
-    pub id: String
+    pub id: String,
+    #[serde(rename = "locationSpecialGroupIds")]
+    pub location_special_group_ids: Option<Vec<LocationSpecialGroupIds>>
+}
+
+#[derive(Debug, Deserialize)]
+pub struct LocationSpecialGroupIds {
+    #[serde(rename = "_id")]
+    pub id: String,
+    #[serde(rename = "name")]
+    pub name: String
 }
 
 #[derive(Debug, Deserialize)]
@@ -216,5 +227,25 @@ impl PavilionTime {
 
         // Give them the breakfast from the day after.
         (Day::from(datetime.weekday().succ()), Meal::Breakfast)
+    }
+}
+
+// Yablokoff Wallace Dining Center Times (also hard-coded)
+pub struct YablokoffTime;
+
+impl YablokoffTime {
+    #[inline(always)]
+    pub fn dinner_start() -> NaiveTime { NaiveTime::from_hms(15, 0, 0) }
+    #[inline(always)]
+    pub fn dinner_end() -> NaiveTime { NaiveTime::from_hms(0, 0, 0) }
+
+    pub fn is_dinner(datetime: &DateTime<Local>) -> bool {
+        let weekday = datetime.weekday();
+        let time = datetime.time();
+
+        // Midnight doesn't matter, since it's basically the next day.
+        // Also ensure it's not a weekend, since it's closed then.
+        return time > YablokoffTime::dinner_start() &&
+            !(matches!(weekday, Weekday::Sat) || matches!(weekday, Weekday::Sun));
     }
 }
