@@ -323,27 +323,6 @@ async fn process_bigzpoon(day: Day, meal: Meal, next_week: bool) -> Vec<(String,
                         match fetch_pavilion_groups(&client, &company_info, location).await {
                             Ok(groups) => {
                                 if let Some(group) = groups.get_group(day) {
-                                    /*if let Some(category) = groups.get_category(meal) {
-                                        match fetch_pavilion_menu(&client, &company_info, location, &category, &group).await {
-                                            Ok(menu) => {
-                                                description = menu.menu_items.into_iter()
-                                                    .map(|o| format!("**{}** - {}", o.name, o.description))
-                                                    .reduce(|a, b| format!("{}\n{}", a, b))
-                                                    .unwrap_or_else(|| "There is nothing on the menu?".to_string())
-                                            }
-                                            Err(ex) => {
-                                                error!("Failed to get the menu: {}", ex);
-                                                description = "Failed to get the menu from the website!".to_string();
-                                            }
-                                        }
-                                    } else {
-                                        let options = groups.menu_categories.into_iter()
-                                            .map(|o| format!("\"{}\"", o.name))
-                                            .reduce(|a, b| { format!("{}, {}", a, b) })
-                                            .unwrap_or_else(|| "None (?)".to_string());
-
-                                        description = format!("Could not find the given meal! Categories available: {}", options);
-                                    }*/
                                     for category in groups.get_categories(meal)
                                     {
                                         let description = match fetch_pavilion_menu(&client, &company_info, location, category.id.as_ref(), &group).await {
