@@ -1,5 +1,3 @@
-use std::error::Error;
-use std::fmt::Display;
 use std::sync::Arc;
 use serenity::{
     client::Context,

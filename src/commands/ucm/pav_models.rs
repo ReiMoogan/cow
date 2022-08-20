@@ -158,17 +158,29 @@ pub struct MenuGroups {
 }
 
 impl MenuGroups {
-    fn search(array: &[Group], query: &str) -> Option<String> {
+    fn search_all<'a>(array: &'a [Group], query: &str) -> Vec<&'a Group> {
         let query_lower = query.to_lowercase();
-        array.iter().filter(|x| x.name.to_lowercase().contains(&query_lower)).min_by(|a, b| a.name.len().cmp(&b.name.len()) ).map(|o| o.id.clone())
+        array.iter().filter(|x| x.name.to_lowercase().contains(&query_lower)).collect::<Vec<_>>()
+    }
+
+    fn search(array: &[Group], query: &str) -> Option<String> {
+        Self::search_all(array, query).iter().min_by(|a, b| a.name.len().cmp(&b.name.len()) ).map(|o| o.id.clone())
     }
 
     pub fn get_group(&self, day: Day) -> Option<String> {
-        MenuGroups::search(&self.menu_groups, &day.to_string())
+        Self::search(&self.menu_groups, &day.to_string())
+    }
+
+    pub fn get_groups(&self, day: Day) -> Vec<&Group> {
+        Self::search_all(&self.menu_groups, &day.to_string())
     }
 
     pub fn get_category(&self, meal: Meal) -> Option<String> {
         MenuGroups::search(&self.menu_categories, &meal.to_string())
+    }
+
+    pub fn get_categories(&self, meal: Meal) -> Vec<&Group> {
+        MenuGroups::search_all(&self.menu_categories, &meal.to_string())
     }
 }
 
@@ -253,7 +265,7 @@ impl YablokoffTime {
 
         // Midnight doesn't matter, since it's basically the next day.
         // Also ensure it's not a weekend, since it's closed then.
-        return time > YablokoffTime::dinner_start() &&
-            !(matches!(weekday, Weekday::Sat) || matches!(weekday, Weekday::Sun));
+        time > YablokoffTime::dinner_start() &&
+            !(matches!(weekday, Weekday::Sat) || matches!(weekday, Weekday::Sun))
     }
 }

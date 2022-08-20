@@ -91,24 +91,6 @@ async fn fetch_pavilion_raw_materials(client: &Client, company: &Company, locati
     Ok(result.data)
 }
 
-async fn print_pavilion_times(ctx: &Context, msg: &Message) -> Result<(), Error> {
-    msg.channel_id.send_message(&ctx.http, |m| m.embed(|e| e
-        .title("Pavilion/Yablokoff Times")
-        .description("See `ucm pav announcements` for more info")
-        .field("Weekdays", format!("Breakfast: {} - {}\nLunch: {} - {}\nDinner: {} - {}\nDinner (Yablokoff): {} - {}",
-            PavilionTime::breakfast_weekday_start().format("%l:%M %p"), PavilionTime::breakfast_end().format("%l:%M %p"),
-            PavilionTime::lunch_start().format("%l:%M %p"), PavilionTime::lunch_end().format("%l:%M %p"),
-            PavilionTime::dinner_start().format("%l:%M %p"), PavilionTime::dinner_end().format("%l:%M %p"),
-            YablokoffTime::dinner_start().format("%l:%M %p"), YablokoffTime::dinner_end().format("%l:%M %p")), false)
-        .field("Weekends", format!("Breakfast: {} - {}\nLunch: {} - {}\nDinner: {} - {}",
-            PavilionTime::breakfast_weekend_start().format("%l:%M %p"), PavilionTime::breakfast_end().format("%l:%M %p"),
-            PavilionTime::lunch_start().format("%l:%M %p"), PavilionTime::lunch_end().format("%l:%M %p"),
-            PavilionTime::dinner_start().format("%l:%M %p"), PavilionTime::dinner_end().format("%l:%M %p")), false)
-    )).await?;
-
-    Ok(())
-}
-
 #[command]
 #[description = "Get the current menu at the UCM Pavilion and Yablokoff."]
 #[aliases("pav", "yablokoff", "yab")]
@@ -129,23 +111,7 @@ pub async fn pavilion(ctx: &Context, msg: &Message, mut args: Args) -> CommandRe
             print_pavilion_times(ctx, msg).await?;
             return Ok(())
         } else if input_lower.contains("announce") {
-            const TITLE: &str = "Pavilion/Yablokoff Announcements";
-            let mut message = msg.channel_id.send_message(&ctx.http, |m| m.embed(|e| {
-                e
-                    .title(TITLE)
-                    .description("Loading data, please wait warmly...")
-            })).await?;
-
-            let pav_announcement = process_announcement("ANNOUNCEMENT-PAV").await;
-            let wydc_announcement = process_announcement("ANNOUNCEMENT-WYDC").await;
-
-            message.edit(&ctx.http, |m| m.embed(|e| {
-                e
-                    .title(TITLE)
-                    .field("Pavilion Announcements", pav_announcement, false)
-                    .field("Yablokoff Announcements", wydc_announcement, false)
-            })).await?;
-
+            print_announcements(ctx, msg).await?;
             return Ok(())
         }
     }
@@ -187,12 +153,55 @@ pub async fn pavilion(ctx: &Context, msg: &Message, mut args: Args) -> CommandRe
             .description("Loading data, please wait warmly...")
     })).await?;
 
-    let description = process_bigzpoon(day, meal, next_week).await;
+    let menus = process_bigzpoon(day, meal, next_week).await;
+
+    message.edit(&ctx.http, |m| m.embed(|e| {
+        e.title(&title);
+        for group in menus {
+            let (group_name, menu) = group;
+            e.field(group_name, menu, false);
+        }
+
+        e
+    })).await?;
+
+    Ok(())
+}
+
+async fn print_pavilion_times(ctx: &Context, msg: &Message) -> Result<(), Error> {
+    msg.channel_id.send_message(&ctx.http, |m| m.embed(|e| e
+        .title("Pavilion/Yablokoff Times")
+        .description("See `ucm pav announcements` for more info.")
+        .field("Weekdays", format!("Breakfast: {} - {}\nLunch: {} - {}\nDinner: {} - {}\nDinner (Yablokoff): {} - {}",
+            PavilionTime::breakfast_weekday_start().format("%l:%M %p"), PavilionTime::breakfast_end().format("%l:%M %p"),
+            PavilionTime::lunch_start().format("%l:%M %p"), PavilionTime::lunch_end().format("%l:%M %p"),
+            PavilionTime::dinner_start().format("%l:%M %p"), PavilionTime::dinner_end().format("%l:%M %p"),
+            YablokoffTime::dinner_start().format("%l:%M %p"), YablokoffTime::dinner_end().format("%l:%M %p")), false)
+        .field("Weekends", format!("Breakfast: {} - {}\nLunch: {} - {}\nDinner: {} - {}",
+            PavilionTime::breakfast_weekend_start().format("%l:%M %p"), PavilionTime::breakfast_end().format("%l:%M %p"),
+            PavilionTime::lunch_start().format("%l:%M %p"), PavilionTime::lunch_end().format("%l:%M %p"),
+            PavilionTime::dinner_start().format("%l:%M %p"), PavilionTime::dinner_end().format("%l:%M %p")), false)
+    )).await?;
+
+    Ok(())
+}
+
+async fn print_announcements(ctx: &Context, msg: &Message) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    const TITLE: &str = "Pavilion/Yablokoff Announcements";
+    let mut message = msg.channel_id.send_message(&ctx.http, |m| m.embed(|e| {
+        e
+            .title(TITLE)
+            .description("Loading data, please wait warmly...")
+    })).await?;
+
+    let pav_announcement = process_announcement("ANNOUNCEMENT-PAV").await;
+    let wydc_announcement = process_announcement("ANNOUNCEMENT-WYDC").await;
 
     message.edit(&ctx.http, |m| m.embed(|e| {
         e
-            .title(&title)
-            .description(description)
+            .title(TITLE)
+            .field("Pavilion Announcements", pav_announcement, false)
+            .field("Yablokoff Announcements", wydc_announcement, false)
     })).await?;
 
     Ok(())
@@ -287,8 +296,8 @@ async fn process_announcement(name: &str) -> String {
     description
 }
 
-async fn process_bigzpoon(day: Day, meal: Meal, next_week: bool) -> String {
-    let description: String;
+async fn process_bigzpoon(day: Day, meal: Meal, next_week: bool) -> Vec<(String, String)> {
+    let mut output: Vec<(String, String)> = Vec::new();
     let client = Client::new();
 
     // Super nesting!
@@ -314,7 +323,7 @@ async fn process_bigzpoon(day: Day, meal: Meal, next_week: bool) -> String {
                         match fetch_pavilion_groups(&client, &company_info, location).await {
                             Ok(groups) => {
                                 if let Some(group) = groups.get_group(day) {
-                                    if let Some(category) = groups.get_category(meal) {
+                                    /*if let Some(category) = groups.get_category(meal) {
                                         match fetch_pavilion_menu(&client, &company_info, location, &category, &group).await {
                                             Ok(menu) => {
                                                 description = menu.menu_items.into_iter()
@@ -334,19 +343,37 @@ async fn process_bigzpoon(day: Day, meal: Meal, next_week: bool) -> String {
                                             .unwrap_or_else(|| "None (?)".to_string());
 
                                         description = format!("Could not find the given meal! Categories available: {}", options);
+                                    }*/
+                                    for category in groups.get_categories(meal)
+                                    {
+                                        let description = match fetch_pavilion_menu(&client, &company_info, location, category.id.as_ref(), &group).await {
+                                            Ok(menu) => {
+                                                menu.menu_items.into_iter()
+                                                    .map(|o| format!("**{}** - {}", o.name, o.description))
+                                                    .reduce(|a, b| format!("{}\n{}", a, b))
+                                                    .unwrap_or_else(|| "There is nothing on the menu?".to_string())
+                                            }
+                                            Err(ex) => {
+                                                error!("Failed to get the menu: {}", ex);
+                                                "Failed to get the menu from the website!".to_string()
+                                            }
+                                        };
+
+                                        output.push((category.name.clone(), description));
                                     }
+
                                 } else {
-                                    description = "Could not find a group for the given day!".to_string();
+                                    output.push(("Error~".to_string(), "Could not find a group for the given day!".to_string()));
                                 }
                             }
                             Err(ex) => {
-                                description = "Failed to get groups and categories from the website!".to_string();
+                                output.push(("Error~".to_string(), "Failed to get groups and categories from the website!".to_string()));
                                 error!("Failed to get groups and categories: {}", ex);
                             }
                         }
                     }
                     else {
-                        description = "Could not find an appropriate restaurant link for the week! Current algorithm might be outdated.".to_string();
+                        output.push(("Error~".to_string(), "Could not find an appropriate restaurant link for the week! Current algorithm might be outdated.".to_string()));
                         error!("Failed to find restaurant for week {}: {}", week_no,
                             restaurants
                                 .iter()
@@ -359,16 +386,16 @@ async fn process_bigzpoon(day: Day, meal: Meal, next_week: bool) -> String {
                     }
                 }
                 Err(ex) => {
-                    description = "Failed to load restaurant info!".to_string();
+                    output.push(("Error~".to_string(), "Failed to load restaurant info!".to_string()));
                     error!("Failed to read restaurant list from BigZpoon: {}", ex);
                 }
             }
         }
         Err(ex) => {
-            description = "Failed to get company info!".to_string();
+            output.push(("Error~".to_string(), "Failed to get company info!".to_string()));
             error!("Failed to get company info: {}", ex);
         }
     }
 
-    description
+    output
 }

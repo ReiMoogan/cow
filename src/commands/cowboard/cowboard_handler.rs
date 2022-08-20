@@ -284,11 +284,11 @@ async fn format_username(ctx: &Context, message: &Message) -> String {
     let username = format!("{}#{}", message.author.name, message.author.discriminator);
     let nickname = message.author_nick(&ctx.http).await;
 
-    return if let Some(nick) = nickname {
+    if let Some(nick) = nickname {
         format!("{} ({})", nick, username)
     } else {
         username
-    };
+    }
 }
 
 async fn update_webhook_message(ctx: &Context, message: &Message, post_message: &Message, config: &mut Cowboard) {

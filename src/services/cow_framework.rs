@@ -3,6 +3,7 @@ use serenity::framework::{Framework, StandardFramework};
 use serenity::model::channel::Message;
 use async_trait::async_trait;
 
+
 pub struct CowFramework {
     internal_framework: StandardFramework
 }
