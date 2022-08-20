@@ -42,12 +42,12 @@ async fn fetch_pavilion_restaurants(client: &Client, company: &Company) -> Resul
     Ok(result.data)
 }
 
-async fn fetch_pavilion_groups(client: &Client, location: &Location) -> Result<MenuGroups, Box<dyn std::error::Error + Send + Sync>> {
+async fn fetch_pavilion_groups(client: &Client, company: &Company, location: &Location) -> Result<MenuGroups, Box<dyn std::error::Error + Send + Sync>> {
     let url = format!("https://widget.api.eagle.bigzpoon.com/locations/menugroups?locationId={}", location.id);
 
     let response = client
         .get(url)
-        .header("x-comp-id", location.id.as_str())
+        .header("x-comp-id", company.id.as_str())
         .send()
         .await?
         .text()
@@ -57,7 +57,7 @@ async fn fetch_pavilion_groups(client: &Client, location: &Location) -> Result<M
     Ok(result.data)
 }
 
-async fn fetch_pavilion_menu(client: &Client, location: &Location, category: &str, group: &str) -> Result<MenuItems, Box<dyn std::error::Error + Send + Sync>> {
+async fn fetch_pavilion_menu(client: &Client, company: &Company, location: &Location, category: &str, group: &str) -> Result<MenuItems, Box<dyn std::error::Error + Send + Sync>> {
     // I still can't believe someone thought putting JSON in a GET query was a good idea.
     let url = Url::parse_with_params("https://widget.api.eagle.bigzpoon.com/menuitems",
     &[("categoryId", category), ("isPreview", "false"), ("locationId", location.id.as_str()), ("menuGroupId", group),
@@ -65,7 +65,7 @@ async fn fetch_pavilion_menu(client: &Client, location: &Location, category: &st
 
     let response = client
         .get(url)
-        .header("x-comp-id", location.id.as_str())
+        .header("x-comp-id", company.id.as_str())
         .send()
         .await?
         .text()
@@ -75,9 +75,26 @@ async fn fetch_pavilion_menu(client: &Client, location: &Location, category: &st
     Ok(result.data)
 }
 
+async fn fetch_pavilion_raw_materials(client: &Client, company: &Company, location: &Location, item: &Item) -> Result<Vec<RawMaterial>, Box<dyn std::error::Error + Send + Sync>> {
+    const BODY: &str = r#"{ "menuId": "M_ID", "fdaRounding": true, "allergyIds": [], "lifestyleChoiceIds": [], "nutritionGoals": [], "preferenceApplyStatus": false, "skipCommonIngredients": [], "locationId": "L_ID" }"#;
+    let response = client
+        .post("https://widget.api.eagle.bigzpoon.com/raw-materials")
+        .header("x-comp-id", company.id.as_str())
+        .header("Content-Type", "application/json")
+        .body(BODY.replace("M_ID", item.id.as_ref()).replace("L_ID", location.id.as_ref()))
+        .send()
+        .await?
+        .text()
+        .await?;
+    let result: PavResult<Vec<RawMaterial>> = serde_json::from_str(&*response)?;
+
+    Ok(result.data)
+}
+
 async fn print_pavilion_times(ctx: &Context, msg: &Message) -> Result<(), Error> {
     msg.channel_id.send_message(&ctx.http, |m| m.embed(|e| e
         .title("Pavilion/Yablokoff Times")
+        .description("See `ucm pav announcements` for more info")
         .field("Weekdays", format!("Breakfast: {} - {}\nLunch: {} - {}\nDinner: {} - {}\nDinner (Yablokoff): {} - {}",
             PavilionTime::breakfast_weekday_start().format("%l:%M %p"), PavilionTime::breakfast_end().format("%l:%M %p"),
             PavilionTime::lunch_start().format("%l:%M %p"), PavilionTime::lunch_end().format("%l:%M %p"),
@@ -111,12 +128,31 @@ pub async fn pavilion(ctx: &Context, msg: &Message, mut args: Args) -> CommandRe
         if input_lower.contains("time") || input_lower.contains("hour") {
             print_pavilion_times(ctx, msg).await?;
             return Ok(())
+        } else if input_lower.contains("announce") {
+            const TITLE: &str = "Pavilion/Yablokoff Announcements";
+            let mut message = msg.channel_id.send_message(&ctx.http, |m| m.embed(|e| {
+                e
+                    .title(TITLE)
+                    .description("Loading data, please wait warmly...")
+            })).await?;
+
+            let pav_announcement = process_announcement("ANNOUNCEMENT-PAV").await;
+            let wydc_announcement = process_announcement("ANNOUNCEMENT-WYDC").await;
+
+            message.edit(&ctx.http, |m| m.embed(|e| {
+                e
+                    .title(TITLE)
+                    .field("Pavilion Announcements", pav_announcement, false)
+                    .field("Yablokoff Announcements", wydc_announcement, false)
+            })).await?;
+
+            return Ok(())
         }
     }
 
     while !args.is_empty() {
         let input = args.single::<String>().unwrap();
-        if input == "next".to_string() {
+        if input == *"next" {
             next_week = true;
         }
         // If an input contains a day, set the day.
@@ -151,7 +187,7 @@ pub async fn pavilion(ctx: &Context, msg: &Message, mut args: Args) -> CommandRe
             .description("Loading data, please wait warmly...")
     })).await?;
 
-    let description = process_bigzpoon_new(day, meal, next_week).await;
+    let description = process_bigzpoon(day, meal, next_week).await;
 
     message.edit(&ctx.http, |m| m.embed(|e| {
         e
@@ -162,44 +198,83 @@ pub async fn pavilion(ctx: &Context, msg: &Message, mut args: Args) -> CommandRe
     Ok(())
 }
 
-async fn process_bigzpoon(day: Day, meal: Meal) -> String {
+async fn process_announcement(name: &str) -> String {
     let description: String;
     let client = Client::new();
 
-    // I love nesting. /s
     match fetch_pavilion_company_info(&client).await {
         Ok(company_info) => {
-            match fetch_pavilion_groups(&client, &company_info.location_info).await {
-                Ok(groups) => {
-                    if let Some(group) = groups.get_group(day) {
-                        if let Some(category) = groups.get_category(meal) {
-                            match fetch_pavilion_menu(&client, &company_info.location_info, &category, &group).await {
-                                Ok(menu) => {
-                                    description = menu.menu_items.into_iter()
-                                        .map(|o| format!("**{}** - {}", o.name, o.description))
-                                        .reduce(|a, b| format!("{}\n{}", a, b))
-                                        .unwrap_or_else(|| "There is nothing on the menu?".to_string())
-                                }
-                                Err(ex) => {
-                                    error!("Failed to get the menu: {}", ex);
-                                    description = "Failed to get the menu from the website!".to_string();
+            match fetch_pavilion_restaurants(&client, &company_info).await {
+                Ok(restaurants) => {
+                    let mut location_filter = restaurants
+                        .iter()
+                        .filter(|o| o.location_special_group_ids.is_some())
+                        .filter(|o| o.location_special_group_ids.as_deref().unwrap().first().is_some());
+                    let announcements_location = location_filter
+                        .find(|o| o.location_special_group_ids.as_deref().unwrap().first().unwrap().name == name);
+
+                    if let Some(location) = announcements_location {
+                        match fetch_pavilion_groups(&client, &company_info, location).await {
+                            Ok(groups) => {
+                                if let Some(group) = groups.menu_groups.get(0) {
+                                    if let Some(category) = groups.menu_categories.iter().find(|o| o.name.to_lowercase().contains("announce")) {
+                                        match fetch_pavilion_menu(&client, &company_info, location, &category.id, &group.id).await {
+                                            Ok(menu) => {
+                                                let item = menu.menu_items.first();
+                                                if let Some(announcement) = item {
+                                                    match fetch_pavilion_raw_materials(&client, &company_info, location, announcement).await {
+                                                        Ok(materials) => {
+                                                            description = materials
+                                                                .iter()
+                                                                .map(|o| o.name.clone())
+                                                                .reduce(|a, b| format!("{}\n{}", a, b))
+                                                                .unwrap_or_else(|| "The announcement is empty?".to_string());
+                                                        }
+                                                        Err(ex) => {
+                                                            description = "Failed to get announcement data.".to_string();
+                                                            error!("Failed to get announcement data: {}", ex);
+                                                        }
+                                                    }
+                                                } else {
+                                                    description = "No announcement could be found.".to_string();
+                                                }
+                                            }
+                                            Err(ex) => {
+                                                description = "Failed to get the menu from the website.".to_string();
+                                                error!("Failed to get the menu: {}", ex);
+                                            }
+                                        }
+                                    } else {
+                                        description = "Failed to find a category for announcements.".to_string();
+                                        error!("Failed to find a group for announcements");
+                                    }
+                                } else {
+                                    description = "Failed to find a group for info.".to_string();
+                                    error!("Failed to find a group for info");
                                 }
                             }
-                        } else {
-                            let options = groups.menu_categories.into_iter()
-                                .map(|o| format!("\"{}\"", o.name))
-                                .reduce(|a, b| { format!("{}, {}", a, b) })
-                                .unwrap_or_else(|| "None (?)".to_string());
-
-                            description = format!("Could not find the given meal! Categories available: {}", options);
+                            Err(ex) => {
+                                description = "Failed to get groups and categories from the website!".to_string();
+                                error!("Failed to get groups and categories: {}", ex);
+                            }
                         }
-                    } else {
-                        description = "Could not find a group for the given day!".to_string();
+                    }
+                    else {
+                        description = "Could not find an appropriate restaurant link for the week! Current algorithm might be outdated.".to_string();
+                        error!("Failed to find restaurant for data: {}",
+                            restaurants
+                                .iter()
+                                .filter(|o| o.location_special_group_ids.is_some())
+                                .filter(|o| o.location_special_group_ids.as_deref().unwrap().first().is_some())
+                                .map(|o| o.location_special_group_ids.as_deref().unwrap().first().unwrap().name.to_string())
+                                .reduce(|a, b| format!("{}, {}", a, b))
+                                .unwrap_or_else(|| "<none>".to_string())
+                        );
                     }
                 }
                 Err(ex) => {
-                    description = "Failed to get groups and categories from the website!".to_string();
-                    error!("Failed to get groups and categories: {}", ex);
+                    description = "Failed to load restaurant info!".to_string();
+                    error!("Failed to read restaurant list from BigZpoon: {}", ex);
                 }
             }
         }
@@ -212,7 +287,7 @@ async fn process_bigzpoon(day: Day, meal: Meal) -> String {
     description
 }
 
-async fn process_bigzpoon_new(day: Day, meal: Meal, next_week: bool) -> String {
+async fn process_bigzpoon(day: Day, meal: Meal, next_week: bool) -> String {
     let description: String;
     let client = Client::new();
 
@@ -236,11 +311,11 @@ async fn process_bigzpoon_new(day: Day, meal: Meal, next_week: bool) -> String {
                         .find(|o| o.location_special_group_ids.as_deref().unwrap().first().unwrap().name == format!("PAV-FALL-W{}", week_no));
 
                     if let Some(location) = location_match {
-                        match fetch_pavilion_groups(&client, location).await {
+                        match fetch_pavilion_groups(&client, &company_info, location).await {
                             Ok(groups) => {
                                 if let Some(group) = groups.get_group(day) {
                                     if let Some(category) = groups.get_category(meal) {
-                                        match fetch_pavilion_menu(&client, location, &category, &group).await {
+                                        match fetch_pavilion_menu(&client, &company_info, location, &category, &group).await {
                                             Ok(menu) => {
                                                 description = menu.menu_items.into_iter()
                                                     .map(|o| format!("**{}** - {}", o.name, o.description))

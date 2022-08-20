@@ -188,6 +188,14 @@ pub struct MenuItems {
     pub menu_items: Vec<Item>
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(rename_all="camelCase")]
+pub struct RawMaterial {
+    #[serde(rename = "_id")]
+    pub id: String,
+    pub name: String
+}
+
 // Pavilion Times (hard-coded, IDK if there's an API for them)
 pub struct PavilionTime;
 
