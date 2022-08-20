@@ -112,7 +112,7 @@ async fn course_embed(ctx: &Context, msg: &Message, class: &Class) -> CommandRes
 
 #[command]
 #[description = "Search for courses in a term."]
-#[aliases("course")]
+#[aliases("course", "class", "classes")]
 #[usage = "<CRN, Course Number, or Name> [Semester] [Year]"]
 pub async fn courses(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
     if args.is_empty() {
