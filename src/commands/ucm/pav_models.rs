@@ -158,28 +158,34 @@ pub struct MenuGroups {
 }
 
 impl MenuGroups {
+    #[allow(dead_code)]
     fn search_all<'a>(array: &'a [Group], query: &str) -> Vec<&'a Group> {
         let query_lower = query.to_lowercase();
         array.iter().filter(|x| x.name.to_lowercase().contains(&query_lower)).collect::<Vec<_>>()
     }
 
+    #[allow(dead_code)]
     fn search(array: &[Group], query: &str) -> Option<String> {
         Self::search_all(array, query).iter().min_by(|a, b| a.name.len().cmp(&b.name.len()) ).map(|o| o.id.clone())
     }
 
-    pub fn get_group(&self, day: Day) -> Option<String> {
+    #[allow(dead_code)]
+    pub fn get_group(&self, day: &Day) -> Option<String> {
         Self::search(&self.menu_groups, &day.to_string())
     }
 
-    pub fn get_groups(&self, day: Day) -> Vec<&Group> {
+    #[allow(dead_code)]
+    pub fn get_groups(&self, day: &Day) -> Vec<&Group> {
         Self::search_all(&self.menu_groups, &day.to_string())
     }
 
-    pub fn get_category(&self, meal: Meal) -> Option<String> {
+    #[allow(dead_code)]
+    pub fn get_category(&self, meal: &Meal) -> Option<String> {
         MenuGroups::search(&self.menu_categories, &meal.to_string())
     }
 
-    pub fn get_categories(&self, meal: Meal) -> Vec<&Group> {
+    #[allow(dead_code)]
+    pub fn get_categories(&self, meal: &Meal) -> Vec<&Group> {
         MenuGroups::search_all(&self.menu_categories, &meal.to_string())
     }
 }
@@ -215,7 +221,6 @@ impl PavilionTime {
 
     // Turns out from_hms is not a constant function, so... this monstrosity has to occur.
     // At least inlining is a thing.
-    //#![allow(dead_code)]
 
     #[inline(always)]
     pub fn breakfast_weekday_start() -> NaiveTime { NaiveTime::from_hms(7, 0, 0) }
@@ -259,13 +264,9 @@ impl YablokoffTime {
     #[inline(always)]
     pub fn dinner_end() -> NaiveTime { NaiveTime::from_hms(0, 0, 0) }
 
-    pub fn is_dinner(datetime: &DateTime<Local>) -> bool {
-        let weekday = datetime.weekday();
-        let time = datetime.time();
-
-        // Midnight doesn't matter, since it's basically the next day.
-        // Also ensure it's not a weekend, since it's closed then.
-        time > YablokoffTime::dinner_start() &&
-            !(matches!(weekday, Weekday::Sat) || matches!(weekday, Weekday::Sun))
+    #[allow(dead_code)]
+    pub fn is_dinner(day_of_week: &Day) -> bool {
+        // Ensure it's not a weekend, since it's closed then.
+        !(matches!(day_of_week, Day::Saturday) || matches!(day_of_week, Day::Sunday))
     }
 }

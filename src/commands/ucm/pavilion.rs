@@ -138,13 +138,13 @@ pub async fn pavilion(ctx: &Context, msg: &Message, mut args: Args) -> CommandRe
     if !custom_meal.is_empty() {
         meal = Meal::from(&*custom_meal);
         if !matches!(meal, Meal::Other(_)) {
-            title = format!("{} at the Pavilion for {}", meal, day);
+            title = format!("{} at the Pavilion/Yablokoff for {}", meal, day);
         } else {
             // Do not let the bot print non-validated input.
-            title = format!("Custom Category at the Pavilion for {}", day);
+            title = format!("Custom Category at the Pavilion/Yablokoff for {}", day);
         }
     } else {
-        title = format!("{} at the Pavilion for {}", meal, day);
+        title = format!("{} at the Pavilion/Yablokoff for {}", meal, day);
     }
 
     let mut message = msg.channel_id.send_message(&ctx.http, |m| m.embed(|e| {
@@ -216,11 +216,10 @@ async fn process_announcement(name: &str) -> String {
         Ok(company_info) => {
             match fetch_pavilion_restaurants(&client, &company_info).await {
                 Ok(restaurants) => {
-                    let mut location_filter = restaurants
+                    let announcements_location = restaurants
                         .iter()
                         .filter(|o| o.location_special_group_ids.is_some())
-                        .filter(|o| o.location_special_group_ids.as_deref().unwrap().first().is_some());
-                    let announcements_location = location_filter
+                        .filter(|o| o.location_special_group_ids.as_deref().unwrap().first().is_some())
                         .find(|o| o.location_special_group_ids.as_deref().unwrap().first().unwrap().name == name);
 
                     if let Some(location) = announcements_location {
@@ -308,61 +307,32 @@ async fn process_bigzpoon(day: Day, meal: Meal, next_week: bool) -> Vec<(String,
                 Ok(restaurants) => {
                     // We need to calculate the week.
                     let today = chrono::offset::Local::now().naive_local();
-                    let date = NaiveDate::from_ymd(2022, 8, 1).and_time(NaiveTime::from_hms(0, 0, 0));
+                    // This is the start of the new schedule system (7/31/2022 reset at W1 as well)
+                    let date = NaiveDate::from_ymd(2022, 8, 21).and_time(NaiveTime::from_hms(0, 0, 0));
                     let days = (today - date).num_days();
-                    // Division then ceiling, then adding one if they're asking for next week.
-                    let week_no = (days + 7 - 1) / 7 + (if next_week { 1 } else { 0 });
+                    // Division then ceiling, add one for 1-based indexing, then adding one more if they're asking for next week.
+                    let week_no = (days + 7 - 1) / 7 + 1 + (if next_week { 1 } else { 0 });
 
                     let location_match = restaurants
                         .iter()
                         .filter(|o| o.location_special_group_ids.is_some())
                         .filter(|o| o.location_special_group_ids.as_deref().unwrap().first().is_some())
-                        // I have no idea if they're resetting the numbers for spring, so I won't future-proof this.
-                        .find(|o| o.location_special_group_ids.as_deref().unwrap().first().unwrap().name == format!("PAV-FALL-W{}", week_no));
+                        .collect::<Vec<_>>();
+                    // I have no idea if they're resetting the numbers for spring, so I won't future-proof this.
+                    let pav_location = location_match.iter().find(|o| o.location_special_group_ids.as_deref().unwrap().first().unwrap().name == format!("PAV-FALL-W{}", week_no));
+                    let ywdc_location = location_match.iter().find(|o| o.location_special_group_ids.as_deref().unwrap().first().unwrap().name == "YWDC-FALL");
 
-                    if let Some(location) = location_match {
-                        match fetch_pavilion_groups(&client, &company_info, location).await {
-                            Ok(groups) => {
-                                if let Some(group) = groups.get_group(day) {
-                                    for category in groups.get_categories(meal)
-                                    {
-                                        let description = match fetch_pavilion_menu(&client, &company_info, location, category.id.as_ref(), &group).await {
-                                            Ok(menu) => {
-                                                menu.menu_items.into_iter()
-                                                    .map(|o| format!("**{}** - {}", o.name, o.description))
-                                                    .reduce(|a, b| format!("{}\n{}", a, b))
-                                                    .unwrap_or_else(|| "There is nothing on the menu?".to_string())
-                                            }
-                                            Err(ex) => {
-                                                error!("Failed to get the menu: {}", ex);
-                                                "Failed to get the menu from the website!".to_string()
-                                            }
-                                        };
+                    get_menu_items(&day, &meal, &mut output, &client, &company_info, &restaurants, pav_location).await;
 
-                                        output.push((category.name.clone(), description));
-                                    }
-
-                                } else {
-                                    output.push(("Error~".to_string(), "Could not find a group for the given day!".to_string()));
-                                }
-                            }
-                            Err(ex) => {
-                                output.push(("Error~".to_string(), "Failed to get groups and categories from the website!".to_string()));
-                                error!("Failed to get groups and categories: {}", ex);
-                            }
+                    // YWDC does not have next-week options. Also, it must be a weekday.
+                    if !next_week && YablokoffTime::is_dinner(&day) {
+                        // Prepend the name, because "Dinner" exists verbatim in both categories (can be confused by a user)
+                        let mut ywdc_output: Vec<(String, String)> = Vec::new();
+                        get_menu_items(&day, &meal, &mut ywdc_output, &client, &company_info, &restaurants, ywdc_location).await;
+                        for ywdc_menu in ywdc_output {
+                            let (category, menu) = ywdc_menu;
+                            output.push((format!("Yablokoff {}", category), menu));
                         }
-                    }
-                    else {
-                        output.push(("Error~".to_string(), "Could not find an appropriate restaurant link for the week! Current algorithm might be outdated.".to_string()));
-                        error!("Failed to find restaurant for week {}: {}", week_no,
-                            restaurants
-                                .iter()
-                                .filter(|o| o.location_special_group_ids.is_some())
-                                .filter(|o| o.location_special_group_ids.as_deref().unwrap().first().is_some())
-                                .map(|o| o.location_special_group_ids.as_deref().unwrap().first().unwrap().name.to_string())
-                                .reduce(|a, b| format!("{}, {}", a, b))
-                                .unwrap_or_else(|| "<none>".to_string())
-                        );
                     }
                 }
                 Err(ex) => {
@@ -378,4 +348,49 @@ async fn process_bigzpoon(day: Day, meal: Meal, next_week: bool) -> Vec<(String,
     }
 
     output
+}
+
+async fn get_menu_items(day: &Day, meal: &Meal, output: &mut Vec<(String, String)>, client: &Client, company_info: &Company, restaurants: &[Location], pav_location: Option<&&Location>) {
+    if let Some(location) = pav_location {
+        match fetch_pavilion_groups(client, company_info, location).await {
+            Ok(groups) => {
+                if let Some(group) = groups.get_group(day) {
+                    for category in groups.get_categories(meal)
+                    {
+                        let description = match fetch_pavilion_menu(client, company_info, location, category.id.as_ref(), &group).await {
+                            Ok(menu) => {
+                                menu.menu_items.into_iter()
+                                    .map(|o| format!("**{}** - {}", o.name, o.description))
+                                    .reduce(|a, b| format!("{}\n{}", a, b))
+                                    .unwrap_or_else(|| "There is nothing on the menu?".to_string())
+                            }
+                            Err(ex) => {
+                                error!("Failed to get the menu: {}", ex);
+                                "Failed to get the menu from the website!".to_string()
+                            }
+                        };
+
+                        output.push((category.name.clone(), description));
+                    }
+                } else {
+                    output.push(("Error~".to_string(), "Could not find a group for the given day!".to_string()));
+                }
+            }
+            Err(ex) => {
+                output.push(("Error~".to_string(), "Failed to get groups and categories from the website!".to_string()));
+                error!("Failed to get groups and categories: {}", ex);
+            }
+        }
+    } else {
+        output.push(("Error~".to_string(), "Could not find an appropriate restaurant link for the week! Current algorithm might be outdated.".to_string()));
+        error!("Failed to find restaurant: {}",
+            restaurants
+                .iter()
+                .filter(|o| o.location_special_group_ids.is_some())
+                .filter(|o| o.location_special_group_ids.as_deref().unwrap().first().is_some())
+                .map(|o| o.location_special_group_ids.as_deref().unwrap().first().unwrap().name.to_string())
+                .reduce(|a, b| format!("{}, {}", a, b))
+                .unwrap_or_else(|| "<none>".to_string())
+        );
+    }
 }
