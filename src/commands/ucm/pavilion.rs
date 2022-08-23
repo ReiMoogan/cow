@@ -311,7 +311,7 @@ async fn process_bigzpoon(day: Day, meal: Meal, next_week: bool) -> Vec<(String,
                     let date = NaiveDate::from_ymd(2022, 8, 21).and_time(NaiveTime::from_hms(0, 0, 0));
                     let days = (today - date).num_days();
                     // Division then ceiling, add one for 1-based indexing, then adding one more if they're asking for next week.
-                    let week_no = (days + 7 - 1) / 7 + 1 + (if next_week { 1 } else { 0 });
+                    let week_no = days / 7 + 1 + (if next_week { 1 } else { 0 });
 
                     let location_match = restaurants
                         .iter()
