@@ -157,9 +157,10 @@ pub async fn pavilion(ctx: &Context, msg: &Message, mut args: Args) -> CommandRe
 
     message.edit(&ctx.http, |m| m.embed(|e| {
         e.title(&title);
-        for group in menus {
+        for group in menus.iter().take(4) { // Max four filled fields...
             let (group_name, menu) = group;
-            e.field(group_name, menu, false);
+            let menu_truncated = menu.chars().take(1024).collect::<String>();
+            e.field(group_name, menu_truncated, false);
         }
 
         e
