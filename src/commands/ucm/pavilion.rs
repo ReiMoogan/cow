@@ -172,7 +172,6 @@ pub async fn pavilion(ctx: &Context, msg: &Message, mut args: Args) -> CommandRe
 async fn print_pavilion_times(ctx: &Context, msg: &Message) -> Result<(), Error> {
     msg.channel_id.send_message(&ctx.http, |m| m.embed(|e| e
         .title("Pavilion/Yablokoff Times")
-        .description("See `ucm pav announcements` for more info.")
         .field("Pavilion on Weekdays", format!("Breakfast: {} - {}\nLunch: {} - {}\nDinner: {} - {}",
             PavilionTime::breakfast_weekday_start().format("%l:%M %p"), PavilionTime::breakfast_end().format("%l:%M %p"),
             PavilionTime::lunch_start().format("%l:%M %p"), PavilionTime::lunch_end().format("%l:%M %p"),
@@ -183,6 +182,8 @@ async fn print_pavilion_times(ctx: &Context, msg: &Message) -> Result<(), Error>
             PavilionTime::dinner_start().format("%l:%M %p"), PavilionTime::dinner_end().format("%l:%M %p")), false)
         .field("Yablokoff on Weekdays", format!("Dinner: {} - {}",
             YablokoffTime::dinner_start().format("%l:%M %p"), YablokoffTime::dinner_end().format("%l:%M %p")), false)
+        .field("Lantern Cafe", "Monday to Friday: 7:00 AM - 5:00 PM", false)
+        .field("Bobcat Snack Shop", "Monday to Friday: 12:00 PM - 7:30 PM", false)
     )).await?;
 
     Ok(())
