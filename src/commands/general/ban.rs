@@ -35,6 +35,17 @@ async fn bangenshinplayers(ctx: &Context, msg: &Message, args: Args) -> CommandR
     ban_game_players(ctx, msg, 762434991303950386, args.message()).await
 }
 
+#[command]
+#[only_in(guilds)]
+#[required_permissions("BAN_MEMBERS")]
+async fn banoverwatchplayers(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
+    if args.is_empty() {
+        return ban_game_players(ctx, msg, 356875221078245376, "Dead Game.").await;
+    }
+
+    ban_game_players(ctx, msg, 356875221078245376, args.message()).await
+}
+
 async fn ban_game_players(ctx: &Context, msg: &Message, game_id: u64, message: impl AsRef<str>) -> CommandResult {
     if let Some(guild) = msg.guild(&ctx).await {
         let mut degenerates: Vec<u64> = Vec::new();
