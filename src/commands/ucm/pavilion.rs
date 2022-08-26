@@ -183,7 +183,7 @@ async fn print_pavilion_times(ctx: &Context, msg: &Message) -> Result<(), Error>
         .field("Yablokoff on Weekdays", format!("Dinner: {} - {}",
             YablokoffTime::dinner_start().format("%l:%M %p"), YablokoffTime::dinner_end().format("%l:%M %p")), false)
         .field("Lantern Cafe", "Monday to Friday: 7:00 AM - 5:00 PM", false)
-        .field("Bobcat Snack Shop", "Monday to Friday: 12:00 PM - 7:30 PM", false)
+        .field("Bobcat Snack Shop", "Monday to Friday: 8:00 AM - 6:00 PM", false)
     )).await?;
 
     Ok(())
