@@ -127,6 +127,9 @@
     <Folder Include="Security\" />
   </ItemGroup>
   <ItemGroup>
+    <Build Include="Security\RoleMemberships.sql" />
+    <Build Include="Security\Ranking.sql" />
+    <Build Include="Security\Cowboard.sql" />
     <Build Include="Ranking\Tables\Role.sql">
       <AnsiNulls>On</AnsiNulls>
       <QuotedIdentifier>On</QuotedIdentifier>
@@ -155,7 +158,8 @@
       <AnsiNulls>On</AnsiNulls>
       <QuotedIdentifier>On</QuotedIdentifier>
     </Build>
-    <Build Include="Security\RoleMemberships.sql" />
+    <Build Include="Security\cow2.sql" />
+    <Build Include="Security\cow_admin.sql" />
     <Build Include="Ranking\Stored Procedures\SetServerTimeout.sql">
       <AnsiNulls>On</AnsiNulls>
       <QuotedIdentifier>On</QuotedIdentifier>
@@ -198,5 +202,6 @@
     </Build>
     <Build Include="Security\Ranking.sql" />
     <Build Include="Security\Cowboard.sql" />
+    <Build Include="Security\db_bot.sql" />
   </ItemGroup>
 </Project>

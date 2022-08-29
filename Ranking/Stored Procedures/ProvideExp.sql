@@ -1,5 +1,4 @@
-﻿
-CREATE PROCEDURE [Ranking].[ProvideExp] 
+﻿CREATE PROCEDURE [Ranking].[ProvideExp] 
 	@serverid decimal(20, 0),
 	@userid decimal(20, 0)
 AS
@@ -22,7 +21,7 @@ BEGIN
 
 	DECLARE @curlevel int;
 	DECLARE @curxp int;
-	SELECT @curlevel = [level], @curxp = xp FROM [Ranking].[Level] WHERE [user_id] = @userid;
+	SELECT @curlevel = [level], @curxp = xp FROM [Ranking].[Level] WHERE [server_id] = @serverid AND [user_id] = @userid;
 
 	DECLARE @faketable TABLE (xp int);
 	DECLARE @xpnext int;
@@ -37,6 +36,7 @@ BEGIN
 
 	COMMIT
 
+	/** Return whether they levelled up (and to what level), and if so, their old rank and new rank. **/
 	SELECT @levelup, (SELECT TOP 1 role_id FROM [Ranking].[Role] WHERE server_id = @serverid AND min_level < @levelup ORDER BY min_level DESC), (SELECT TOP 1 role_id FROM [Ranking].[Role] WHERE server_id = @serverid AND min_level = @levelup);
 
 	RETURN;
