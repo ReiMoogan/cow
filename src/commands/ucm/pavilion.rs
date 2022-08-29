@@ -92,6 +92,14 @@ async fn fetch_pavilion_raw_materials(client: &Client, company: &Company, locati
 }
 
 #[command]
+#[description = "Get the current hours for dining services."]
+#[aliases("snack", "snacks", "snackshop", "cafe", "lantern", "lanterncafe")]
+pub async fn dining(ctx: &Context, msg: &Message) -> CommandResult {
+    print_pavilion_times(ctx, msg).await?;
+    Ok(())
+}
+
+#[command]
 #[description = "Get the current menu at the UCM Pavilion and Yablokoff."]
 #[aliases("pav", "yablokoff", "yab")]
 pub async fn pavilion(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
@@ -171,7 +179,7 @@ pub async fn pavilion(ctx: &Context, msg: &Message, mut args: Args) -> CommandRe
 
 async fn print_pavilion_times(ctx: &Context, msg: &Message) -> Result<(), Error> {
     msg.channel_id.send_message(&ctx.http, |m| m.embed(|e| e
-        .title("Pavilion/Yablokoff Times")
+        .title("Dining Services Hours")
         .field("Pavilion on Weekdays", format!("Breakfast: {} - {}\nLunch: {} - {}\nDinner: {} - {}",
             PavilionTime::breakfast_weekday_start().format("%l:%M %p"), PavilionTime::breakfast_end().format("%l:%M %p"),
             PavilionTime::lunch_start().format("%l:%M %p"), PavilionTime::lunch_end().format("%l:%M %p"),

@@ -74,7 +74,7 @@ fn read_hours(config: &StoreHours) -> Vec<(String, String)> {
 #[command]
 #[description = "Get the times of the UC Merced store."]
 pub async fn store(ctx: &Context, msg: &Message) -> CommandResult {
-    const TITLE: &str = "UC Merced Store Hours";
+    const TITLE: &str = "UC Merced University Store Hours";
     let mut loading_message = msg.channel_id.send_message(&ctx.http, |m|
         m.embed(|e| e.title(TITLE).description("Now loading, please wait warmly..."))
     ).await?;
