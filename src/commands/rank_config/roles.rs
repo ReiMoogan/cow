@@ -62,7 +62,7 @@ async fn get_role(ctx: &Context, msg: &Message, guild: &Guild, args: &Args) -> O
 pub async fn add(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
     let db = db!(ctx);
     // So much nesting...
-    if let Some(guild) = msg.guild(&ctx.cache).await {
+    if let Some(guild) = msg.guild(&ctx.cache) {
         if let Ok(min_level) = args.single::<i32>() {
             if let Some((role_id, role_text)) = get_role(ctx, msg, &guild, &args).await {
                 // Both min_level and role_id are initialized by this point
@@ -97,7 +97,7 @@ pub async fn add(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult 
 pub async fn remove(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     let db = db!(ctx);
     // So much nesting...
-    if let Some(guild) = msg.guild(&ctx.cache).await {
+    if let Some(guild) = msg.guild(&ctx.cache) {
         if let Some((role_id, _)) = get_role(ctx, msg, &guild, &args).await {
             match db.remove_role(guild.id, role_id).await {
                 Ok(success) => {

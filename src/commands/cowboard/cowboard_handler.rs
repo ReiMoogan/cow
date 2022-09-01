@@ -1,9 +1,9 @@
 use std::path::Path;
+use std::error;
 use tokio::fs::File;
 use log::error;
 use serenity::client::Context;
-use serenity::http::AttachmentType;
-use serenity::model::channel::{Embed, Message, Reaction, ReactionType};
+use serenity::model::channel::{Embed, Message, Reaction, ReactionType, AttachmentType};
 use serenity::model::id::{ChannelId, GuildId, MessageId, UserId};
 use tokio::io::AsyncWriteExt;
 use crate::{Database, db};
@@ -108,10 +108,10 @@ async fn update_moo(ctx: &Context, message: &Message, post_message: &mut Message
     };
 }
 
-async fn send_bot_message(ctx: &Context, message: &Message, config: &Cowboard) -> Result<Message, Box<dyn std::error::Error + Send + Sync>> {
+async fn send_bot_message(ctx: &Context, message: &Message, config: &Cowboard) -> Result<Message, Box<dyn error::Error + Send + Sync>> {
     let channel = ChannelId::from(config.channel.unwrap());
     let output_username = format_username(ctx, message).await;
-    let safe_content = message.content_safe(ctx).await;
+    let safe_content = message.content_safe(ctx);
 
     let attachments = download_image_attachments(message).await;
 
@@ -172,11 +172,11 @@ async fn update_bot_message(ctx: &Context, message: &Message, post_message: &mut
     }
 }
 
-async fn send_webhook_message(ctx: &Context, message: &Message, config: &mut Cowboard) -> Result<Message, Box<dyn std::error::Error + Send + Sync>> {
+async fn send_webhook_message(ctx: &Context, message: &Message, config: &mut Cowboard) -> Result<Message, Box<dyn error::Error + Send + Sync>> {
     let token = config.webhook_token.clone().unwrap();
     if let Ok(webhook) = ctx.http.get_webhook_with_token(config.webhook_id.unwrap(), &*token).await {
         let output_username = format_username(ctx, message).await;
-        let safe_content = message.content_safe(ctx).await;
+        let safe_content = message.content_safe(ctx);
 
         let attachments = download_image_attachments(message).await;
 

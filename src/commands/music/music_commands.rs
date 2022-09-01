@@ -17,7 +17,7 @@ async fn help(ctx: &Context, msg: &Message) -> CommandResult {
 }
 
 async fn join_interactive(ctx: &Context, msg: &Message) -> CommandResult {
-    let guild = msg.guild(&ctx.cache).await.unwrap();
+    let guild = msg.guild(&ctx.cache).unwrap();
     let guild_id = guild.id;
 
     let channel_id = guild
@@ -65,7 +65,7 @@ async fn join(ctx: &Context, msg: &Message) -> CommandResult {
 #[command]
 #[only_in(guilds)]
 async fn leave(ctx: &Context, msg: &Message) -> CommandResult {
-    let guild = msg.guild(&ctx.cache).await.unwrap();
+    let guild = msg.guild(&ctx.cache).unwrap();
     let guild_id = guild.id;
 
     let manager = songbird::get(ctx).await.unwrap().clone();
@@ -101,7 +101,7 @@ async fn play(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
 
     let query = args.message().to_string();
 
-    let guild_id = match ctx.cache.guild_channel(msg.channel_id).await {
+    let guild_id = match ctx.cache.guild_channel(msg.channel_id) {
         Some(channel) => channel.guild_id,
         None => {
             

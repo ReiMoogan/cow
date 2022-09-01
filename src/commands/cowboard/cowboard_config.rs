@@ -204,7 +204,7 @@ pub async fn channel(ctx: &Context, msg: &Message, mut args: Args) -> CommandRes
     }
 
     if let Some(guild_id) = msg.guild_id {
-        if !msg.guild(ctx).await.map(|g| g.channels.contains_key(&channel)).unwrap_or(false) {
+        if !msg.guild(ctx).map(|g| g.channels.contains_key(&channel)).unwrap_or(false) {
             msg.channel_id.say(&ctx.http, "Could not find channel in this server!").await?;
             return Ok(())
         }
@@ -241,47 +241,59 @@ pub async fn channel(ctx: &Context, msg: &Message, mut args: Args) -> CommandRes
 pub async fn webhook(ctx: &Context, msg: &Message) -> CommandResult {
     let db = db!(ctx);
 
-    if let Some(guild) = msg.guild(ctx).await {
+    if let Some(guild) = msg.guild(ctx) {
         match db.get_cowboard_config(guild.id).await {
             Ok(mut config) => {
                 if config.channel == None {
                     msg.channel_id.say(&ctx.http, "Cowboard channel is not set up!").await?;
                     return Ok(());
                 }
-                let channel = ChannelId::from(config.channel.unwrap());
-                if let Some(guild_channel) = guild.channels.get(&channel) {
-                    if config.webhook_id == None {
-                        match guild_channel.create_webhook(&ctx.http, "MooganCowboard").await {
-                            Ok(webhook) => {
-                                config.webhook_id = Some(webhook.id.0);
-                                config.webhook_token = Some(webhook.token.unwrap())
-                            }
-                            Err(ex) => {
-                                msg.channel_id.say(&ctx.http, format!("Failed to add webhook; maybe I do not have permissions for the channel <#{}>?", channel)).await?;
-                                error!("Failed to create webhook: {}", ex);
-                                return Ok(())
-                            }
-                        };
-                    } else {
-                        config.webhook_id = None;
-                        config.webhook_token = None;
-                    }
 
-                    if let Err(ex) = db.update_cowboard(&config).await {
-                        msg.channel_id.say(&ctx.http, "We couldn't update the cowboard, sorry... Try again later?").await?;
-                        error!("Failed to update cowboard: {}", ex);
-                    } else if config.webhook_id == None {
-                        msg.channel_id.say(&ctx.http, format!("Disabled webhooks for <#{}>.", channel)).await?;
-                    } else {
-                        msg.channel_id.say(&ctx.http, format!("Enabled webhooks for <#{}>.", channel)).await?;
+                let channel = ChannelId::from(config.channel.unwrap());
+                match guild.channels(&ctx.http).await {
+                    Ok(guild_channels) => {
+                        if let Some(guild_channel) = guild_channels.get(&channel)
+                        {
+                            if config.webhook_id == None {
+                                match guild_channel.create_webhook(&ctx.http, "MooganCowboard").await {
+                                    Ok(webhook) => {
+                                        config.webhook_id = Some(webhook.id.0);
+                                        config.webhook_token = Some(webhook.token.unwrap())
+                                    }
+                                    Err(ex) => {
+                                        msg.channel_id.say(&ctx.http, format!("Failed to add webhook; maybe I do not have permissions for the channel <#{}>?", guild_channel)).await?;
+                                        error!("Failed to create webhook: {}", ex);
+                                        return Ok(())
+                                    }
+                                };
+                            } else {
+                                config.webhook_id = None;
+                                config.webhook_token = None;
+                            }
+
+                            if let Err(ex) = db.update_cowboard(&config).await {
+                                msg.channel_id.say(&ctx.http, "We couldn't update the cowboard, sorry... Try again later?").await?;
+                                error!("Failed to update cowboard: {}", ex);
+                            } else if config.webhook_id == None {
+                                msg.channel_id.say(&ctx.http, format!("Disabled webhooks for <#{}>.", guild_channel)).await?;
+                            } else {
+                                msg.channel_id.say(&ctx.http, format!("Enabled webhooks for <#{}>.", guild_channel)).await?;
+                            }
+                        }
+                        else
+                        {
+                            msg.channel_id.say(&ctx.http, format!("We don't have access to <#{}>... maybe it's hidden for us?", channel)).await?;
+                        }
                     }
-                } else {
-                    msg.channel_id.say(&ctx.http, format!("We don't have access to <#{}>... maybe it's hidden for us?", channel)).await?;
+                    Err(ex) => {
+                        error!("Failed to get guild channels: {}", ex);
+                        msg.channel_id.say(&ctx.http, format!("We couldn't find the channels in this server, maybe we don't have permissions?")).await?;
+                    }
                 }
             }
             Err(ex) => {
-                msg.channel_id.say(&ctx.http, "We couldn't get the cowboard settings... try again later?").await?;
                 error!("Failed to get cowboard: {}", ex);
+                msg.channel_id.say(&ctx.http, "We couldn't get the cowboard settings... try again later?").await?;
             }
         }
     } else {

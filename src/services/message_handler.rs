@@ -1,13 +1,9 @@
 use serenity::{
     client::Context,
-    model::{channel::Message, id::{RoleId, GuildId}, guild::Member}
+    model::{channel::Message, id::{RoleId}, guild::Member}
 };
 use log::error;
 use crate::{Database, db};
-
-pub async fn message(_: &Context, _msg: &Message) {
-    // This is basically useless for most cases.
-}
 
 pub async fn non_command(ctx: &Context, msg: &Message) {
     if msg.author.bot {
@@ -42,7 +38,7 @@ pub async fn non_command(ctx: &Context, msg: &Message) {
                     content += &*format!("\nYou are now a <@&{}>.", new_rank_id);
 
                     let mut error = false;
-                    let guild = msg.guild(&ctx).await.unwrap();
+                    let guild = msg.guild(&ctx).unwrap();
                     let mut member = guild.member(&ctx.http, msg.author.id).await.unwrap();
 
                     if let Some(old_rank_id) = data.old_rank {
@@ -77,16 +73,17 @@ pub async fn non_command(ctx: &Context, msg: &Message) {
     }
 }
 
-pub async fn on_join(ctx: &Context, guild_id: &GuildId, new_member: &Member) {
+pub async fn on_join(ctx: &Context, new_member: &Member) {
     if new_member.user.bot {
         return;
     }
 
     let db = db!(ctx);
     let mut member = new_member.clone();
+    let guild_id = new_member.guild_id;
 
-    let experience = db.get_xp(*guild_id, member.user.id).await.unwrap();
-    let current_role = db.get_highest_role(*guild_id, experience.level).await.unwrap();
+    let experience = db.get_xp(guild_id, member.user.id).await.unwrap();
+    let current_role = db.get_highest_role(guild_id, experience.level).await.unwrap();
     if let Some(current_role_id) = current_role {
         if let Err(ex) = member.add_role(&ctx.http, current_role_id).await {
             error!("Failed to add role for server {}: {}", guild_id, ex);

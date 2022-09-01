@@ -10,12 +10,13 @@ use services::{*, database::Database};
 use std::fs;
 use std::sync::Arc;
 use std::env;
+use std::error;
 use env_logger::Env;
 use lavalink_rs::{LavalinkClient, gateway::LavalinkEventHandler};
 use serenity::{
     async_trait,
-    client::{Client, Context, EventHandler, bridge::gateway::GatewayIntents},
-    model::{channel::{Message, Reaction}, gateway::Ready, interactions::Interaction, id::{UserId, GuildId, ChannelId, MessageId}, guild::Member},
+    client::{Client, Context, EventHandler},
+    model::{channel::{Reaction}, gateway::{Ready, GatewayIntents}, application::{interaction::Interaction}, id::{UserId, ChannelId, MessageId}, guild::Member},
     http::Http,
     framework::Framework,
     prelude::TypeMapKey
@@ -24,7 +25,7 @@ use log::{error, info};
 use songbird::SerenityInit;
 
 struct Handler {
-    framework: Arc<Box<dyn Framework + Sync + std::marker::Send>>,
+    framework: Arc<Box<dyn Framework + Sync + Send>>,
     database: Arc<Database>
 }
 
@@ -41,24 +42,20 @@ impl LavalinkEventHandler for LavalinkHandler { }
 
 #[async_trait]
 impl EventHandler for Handler {
-    async fn guild_member_addition(&self, ctx: Context, guild_id: GuildId, new_member: Member) {
-        message_handler::on_join(&ctx, &guild_id, &new_member).await;
-    }
-
-    async fn message(&self, ctx: Context, msg: Message) {
-        message_handler::message(&ctx, &msg).await;
+    async fn guild_member_addition(&self, ctx: Context, new_member: Member) {
+        message_handler::on_join(&ctx, &new_member).await;
     }
 
     async fn reaction_add(&self, ctx: Context, added_reaction: Reaction) {
-        crate::commands::cowboard::cowboard_handler::add_reaction(&ctx, &added_reaction).await;
+        commands::cowboard::cowboard_handler::add_reaction(&ctx, &added_reaction).await;
     }
 
     async fn reaction_remove(&self, ctx: Context, removed_reaction: Reaction) {
-        crate::commands::cowboard::cowboard_handler::remove_reaction(&ctx, &removed_reaction).await;
+        commands::cowboard::cowboard_handler::remove_reaction(&ctx, &removed_reaction).await;
     }
 
     async fn reaction_remove_all(&self, ctx: Context, channel_id: ChannelId, removed_from_message_id: MessageId) {
-        crate::commands::cowboard::cowboard_handler::reaction_remove_all(&ctx, channel_id, removed_from_message_id).await;
+        commands::cowboard::cowboard_handler::reaction_remove_all(&ctx, channel_id, removed_from_message_id).await;
     }
 
     async fn ready(&self, ctx: Context, ready: Ready) {
@@ -82,7 +79,7 @@ async fn init_logger() -> std::io::Result<()> {
 }
 
 async fn fetch_bot_info(token: &str) -> (UserId, HashSet<UserId>) {
-    let http = Http::new_with_token(token);
+    let http = Http::new(token);
 
     let (app_id, owners) = match http.get_current_application_info().await {
         Ok(info) => {
@@ -106,7 +103,7 @@ async fn fetch_bot_info(token: &str) -> (UserId, HashSet<UserId>) {
 }
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>>  {
+async fn main() -> Result<(), Box<dyn error::Error>>  {
     if let Err(ex) = init_logger().await {
         error!("Failed to initialize logger: {}", ex);
     }
@@ -125,11 +122,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>>  {
 
     let db_clone = event_handler.database.clone();
 
-    let mut client = Client::builder(&token)
+    let mut client = Client::builder(&token, GatewayIntents::all())
         .event_handler(event_handler)
         .application_id(*app_id.as_u64())
         .framework_arc(framework)
-        .intents(GatewayIntents::all())
         .register_songbird()
         .await
         .expect("Discord failed to initialize");
@@ -161,7 +157,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>>  {
     }
 
     // Start our reminder task and forget about it.
-    let _ = tokio::task::spawn(crate::commands::ucm::reminders::check_reminders(client.data.clone(), client.cache_and_http.clone()));
+    let _ = tokio::task::spawn(commands::ucm::reminders::check_reminders(client.data.clone(), client.cache_and_http.clone()));
 
     if let Err(ex) = client.start().await {
         error!("Discord bot client error: {:?}", ex);
