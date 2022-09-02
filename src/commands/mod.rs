@@ -51,7 +51,7 @@ async fn cow_help(
     groups: &[&'static CommandGroup],
     owners: HashSet<UserId>,
 ) -> CommandResult {
-    help_commands::with_embeds(context, msg, args, help_options, groups, owners).await;
+    help_commands::with_embeds(context, msg, args, help_options, groups, owners).await?;
     Ok(())
 }
 
@@ -61,7 +61,7 @@ async fn non_command(ctx: &Context, msg: &Message) {
 }
 
 #[hook]
-async fn on_error(ctx: &Context, msg: &Message, error: DispatchError) {
+async fn on_error(ctx: &Context, msg: &Message, error: DispatchError, _command_name: &str) {
     if let DispatchError::Ratelimited(info) = error {
         if info.is_first_try {
             // Why round up when we can add one?

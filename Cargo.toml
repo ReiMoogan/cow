@@ -31,9 +31,8 @@ reqwest = { version = "0.11.10", features = ["json", "cookies"] }
 num-traits = "0.2.14"
 num-derive = "0.3.3"
 # Music stuff
-# 0.1.8 is the latest version that works, 0.2 breaks lavalink unlike what documentation says
 songbird = { version = "0.3.0", default-features = false, features = ["serenity-rustls", "gateway"] }
-lavalink-rs = { git = "https://gitlab.com/vicky5124/lavalink-rs/", branch = "master", version = "0.9.0-rc", features = ["rustls", "serenity"] }
+lavalink-rs = { path = "../lavalink-rs", features = ["rustls", "serenity", "songbird"] }
 # Literally in the name
 regex = "1.5.5"
 # Wait bruh enums can't be bits?
@@ -48,6 +47,7 @@ features = [
     "builder",
     "cache",
     "client",
+    "chrono",
     "framework",
     "gateway",
     "http",

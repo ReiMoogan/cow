@@ -44,7 +44,7 @@ async fn join_interactive(ctx: &Context, msg: &Message) -> CommandResult {
                 data.get::<Lavalink>().unwrap().clone()
             };
 
-            lava_client.create_session(&connection_info).await?;
+            lava_client.create_session_with_songbird(&connection_info).await?;
             msg.channel_id.say(&ctx.http, format!("Joined <#{}>", connect_to)).await?;
         }
         Err(ex) => {
@@ -80,7 +80,7 @@ async fn leave(ctx: &Context, msg: &Message) -> CommandResult {
             // Free up the LavaLink client.
             let data = ctx.data.read().await;
             let lava_client = data.get::<Lavalink>().unwrap().clone();
-            lava_client.destroy(guild_id).await?;
+            lava_client.destroy(guild_id.0).await?;
         }
 
         msg.channel_id.say(&ctx.http, "Disconnected from VC. Goodbye!").await?;
@@ -134,7 +134,7 @@ async fn play(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
             return Ok(());
         }
 
-        if let Err(why) = &lava_client.play(guild_id, query_information.tracks[0].clone()).queue()
+        if let Err(why) = &lava_client.play(guild_id.0, query_information.tracks[0].clone()).queue()
             .await
         {
             error!("Failed to queue: {}", why);
@@ -226,12 +226,12 @@ async fn pause(ctx: &Context, msg: &Message) -> CommandResult {
 
         if let Some(node) = lava_client.nodes().await.get(&guild_id.0) {
             if node.is_paused {
-                if let Err(ex) = lava_client.set_pause(guild_id, false).await {
+                if let Err(ex) = lava_client.set_pause(guild_id.0, false).await {
                     error!("Failed to unpause music: {}", ex);
                 } else {
                     msg.channel_id.say(&ctx.http, "Unpaused the player.").await?;
                 }
-            } else if let Err(ex) = lava_client.pause(guild_id).await {
+            } else if let Err(ex) = lava_client.pause(guild_id.0).await {
                 error!("Failed to pause music: {}", ex);
             } else {
                 msg.channel_id.say(&ctx.http, "Paused the player.").await?;
@@ -259,7 +259,7 @@ async fn now_playing(ctx: &Context, msg: &Message) -> CommandResult {
             let re = Regex::new(r#"(?:youtube\.com/(?:[^/]+/.+/|(?:v|e(?:mbed)?)/|.*[?&]v=)|youtu\.be/)([^"&?/\s]{11})"#).unwrap();
             let caps = re.captures(&*info.uri).unwrap();
             let id = caps.get(1).map(|m| m.as_str());
-            let server_name = guild_id.name(&ctx).await;
+            let server_name = guild_id.name(&ctx);
 
             msg.channel_id.send_message(&ctx.http, |m| m.embed(|e| {
                  e
@@ -392,7 +392,7 @@ async fn queue(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
         }
 
         let page = &pages[page_num - 1];
-        let server_name = guild_id.name(&ctx).await;
+        let server_name = guild_id.name(&ctx);
 
         msg.channel_id.send_message(&ctx.http, |m| m.embed(|e| {
             e

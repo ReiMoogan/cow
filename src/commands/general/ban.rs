@@ -47,17 +47,17 @@ async fn banoverwatchplayers(ctx: &Context, msg: &Message, args: Args) -> Comman
 }
 
 async fn ban_game_players(ctx: &Context, msg: &Message, game_id: u64, message: impl AsRef<str>) -> CommandResult {
-    if let Some(guild) = msg.guild(&ctx).await {
+    if let Some(guild) = msg.guild(&ctx) {
         let mut degenerates: Vec<u64> = Vec::new();
         for (_, presence) in guild.presences.iter() {
             if presence.activities.iter()
                 .filter_map(|o| o.application_id)
                 .any(|o| o == game_id) {
-                degenerates.push(u64::from(presence.user_id));
-                if let Ok(dm_channel) = presence.user_id.create_dm_channel(&ctx.http).await {
+                degenerates.push(u64::from(presence.user.id));
+                if let Ok(dm_channel) = presence.user.id.create_dm_channel(&ctx.http).await {
                     dm_channel.say(&ctx.http, "You have been banned for playing haram games.").await?;
                 }
-                let _ = guild.ban_with_reason(&ctx.http, presence.user_id, 0, &message).await;
+                let _ = guild.ban_with_reason(&ctx.http, presence.user.id, 0, &message).await;
             }
         }
 
