@@ -2,7 +2,7 @@ use serenity::{
     client::Context,
     model::{
         gateway::Ready,
-        interactions::application_command::ApplicationCommand
+        application::command::Command
     }
 };
 
@@ -10,7 +10,7 @@ use serenity::{
 use log::{error, info};
 
 async fn register_slash_commands(ctx: &Context, _: &Ready) {
-    if let Err(ex) = ApplicationCommand::create_global_application_command(&ctx.http, |cmd| {
+    if let Err(ex) = Command::create_global_application_command(&ctx.http, |cmd| {
         cmd.name("info").description("Get information about this bot.")
     }).await {
         error!("Cannot create slash command: {}", ex)

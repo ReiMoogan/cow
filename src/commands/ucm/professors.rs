@@ -80,7 +80,7 @@ pub async fn professors(ctx: &Context, msg: &Message, args: Args) -> CommandResu
 
 async fn print_matches(ctx: &Context, msg: &Message, professors: &[Professor]) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     if professors.is_empty() {
-        msg.channel_id.say(&ctx.http, "No matches were found. Check your query for typos, or generalize it. Or, we may not have the person logged.").await?;
+        msg.channel_id.say(&ctx.http, "No matches were found. Check your query for typos or generalize it. Or, we may not have the person logged.").await?;
     } else if professors.len() == 1 {
         professor_embed(ctx, msg, professors.get(0).unwrap()).await?;
     } else {
