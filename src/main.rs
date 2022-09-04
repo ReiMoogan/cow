@@ -61,10 +61,6 @@ impl EventHandler for Handler {
     async fn ready(&self, ctx: Context, ready: Ready) {
         bot_init::ready(&ctx, &ready).await;
     }
-
-    async fn interaction_create(&self, ctx: Context, interaction: Interaction) {
-        interaction_handler::interaction(&ctx, &interaction, &self.framework).await;
-    }
 }
 
 async fn init_logger() -> std::io::Result<()> {
