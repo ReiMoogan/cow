@@ -1,4 +1,5 @@
 use log::error;
+use crate::CowContext;
 use serenity::{
     client::Context,
     model::{
@@ -14,10 +15,10 @@ use serenity::{
 use chrono::Datelike;
 use crate::commands::ucm::course_models::{CourseList};
 
-#[command]
+#[poise::command(prefix_command, slash_command)]
 #[description = "Get the course list for a major"]
 #[usage = "<semester> <major>"]
-pub async fn courses_old(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
+pub async fn courses_old(ctx: &CowContext<'_>, mut args: Args) -> CommandResult {
     let client = reqwest::Client::builder()
         .cookie_store(true)
         .build()?;
@@ -36,7 +37,7 @@ pub async fn courses_old(ctx: &Context, msg: &Message, mut args: Args) -> Comman
         },
 
         Err(_) => {
-            msg.channel_id.say(&ctx.http, "Please use the semester names 'fall', 'spring', or 'summer'.").await?;
+            ctx.say("Please use the semester names 'fall', 'spring', or 'summer'.").await?;
             return Ok(());
         }
     };
@@ -90,13 +91,13 @@ pub async fn courses_old(ctx: &Context, msg: &Message, mut args: Args) -> Comman
                     }).await?;
                 }
                 Err(ex) => {
-                    msg.channel_id.say(&ctx.http, "The course search gave us weird data, try again later?").await?;
+                    ctx.say("The course search gave us weird data, try again later?").await?;
                     error!("Failed to process course search: {}", ex);
                 }
             }
         }
         Err(ex) => {
-            msg.channel_id.say(&ctx.http, "Failed to connect to the course search API, try again later?").await?;
+            ctx.say("Failed to connect to the course search API, try again later?").await?;
             error!("Failed to get course search: {}", ex);
         }
     }

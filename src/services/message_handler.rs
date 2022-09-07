@@ -5,14 +5,14 @@ use serenity::{
 use log::error;
 use crate::{Database, db};
 
-pub async fn non_command(ctx: &Context, msg: &Message) {
+pub async fn non_command(ctx: &Context) {
     if msg.author.bot {
         return;
     }
 
     let db = db!(ctx);
 
-    if let Some(server_id) = msg.guild_id {
+    if let Some(server_id) = ctx.guild_id() {
         match db.channel_disabled(server_id, msg.channel_id).await {
             Err(ex) => {
                 error!("Failed checking if the current channel was disabled: {}", ex);

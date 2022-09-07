@@ -2,7 +2,6 @@ mod course_reminders;
 
 use serenity::framework::standard::macros::group;
 
-use course_reminders::*;
 use std::sync::Arc;
 use std::time::Duration;
 use log::error;

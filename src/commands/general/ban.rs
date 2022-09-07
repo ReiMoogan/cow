@@ -2,11 +2,12 @@ use serenity::client::Context;
 use serenity::framework::standard::{Args, CommandResult};
 use serenity::model::channel::{Message};
 use serenity::framework::standard::macros::{command};
+use crate::CowContext;
 
-#[command]
+#[poise::command(prefix_command, slash_command)]
 #[only_in(guilds)]
 #[required_permissions("BAN_MEMBERS")]
-async fn banleagueplayers(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
+async fn banleagueplayers(ctx: &CowContext<'_>, args: Args) -> CommandResult {
     if args.is_empty() {
         return ban_game_players(ctx, msg, 356869127241072640, "Playing League? Cringe.").await;
     }
@@ -14,20 +15,20 @@ async fn banleagueplayers(ctx: &Context, msg: &Message, args: Args) -> CommandRe
     ban_game_players(ctx, msg, 356869127241072640, args.message()).await
 }
 
-#[command]
+#[poise::command(prefix_command, slash_command)]
 #[only_in(guilds)]
 #[required_permissions("BAN_MEMBERS")]
-async fn banvalorantplayers(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
+async fn banvalorantplayers(ctx: &CowContext<'_>, args: Args) -> CommandResult {
     if args.is_empty() {
         return ban_game_players(ctx, msg, 700136079562375258, "Playing VALORANT? Cringe.").await;
     }
     ban_game_players(ctx, msg, 700136079562375258, args.message()).await
 }
 
-#[command]
+#[poise::command(prefix_command, slash_command)]
 #[only_in(guilds)]
 #[required_permissions("BAN_MEMBERS")]
-async fn bangenshinplayers(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
+async fn bangenshinplayers(ctx: &CowContext<'_>, args: Args) -> CommandResult {
     if args.is_empty() {
         return ban_game_players(ctx, msg, 762434991303950386, "Playing Genshin? Cringe.").await;
     }
@@ -35,10 +36,10 @@ async fn bangenshinplayers(ctx: &Context, msg: &Message, args: Args) -> CommandR
     ban_game_players(ctx, msg, 762434991303950386, args.message()).await
 }
 
-#[command]
+#[poise::command(prefix_command, slash_command)]
 #[only_in(guilds)]
 #[required_permissions("BAN_MEMBERS")]
-async fn banoverwatchplayers(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
+async fn banoverwatchplayers(ctx: &CowContext<'_>, args: Args) -> CommandResult {
     if args.is_empty() {
         return ban_game_players(ctx, msg, 356875221078245376, "Dead Game.").await;
     }
@@ -46,7 +47,7 @@ async fn banoverwatchplayers(ctx: &Context, msg: &Message, args: Args) -> Comman
     ban_game_players(ctx, msg, 356875221078245376, args.message()).await
 }
 
-async fn ban_game_players(ctx: &Context, msg: &Message, game_id: u64, message: impl AsRef<str>) -> CommandResult {
+async fn ban_game_players(ctx: &CowContext<'_>, game_id: u64, message: impl AsRef<str>) -> CommandResult {
     if let Some(guild) = msg.guild(&ctx) {
         let mut degenerates: Vec<u64> = Vec::new();
         for (_, presence) in guild.presences.iter() {
@@ -63,9 +64,9 @@ async fn ban_game_players(ctx: &Context, msg: &Message, game_id: u64, message: i
 
         let list = degenerates.iter().map(|o| format!("<@{}>", o)).reduce(|a, b| format!("{}, {}", a, b));
         if let Some(output) = list {
-            msg.channel_id.say(&ctx.http, format!("Successfully banned these degenerates: {}", output)).await?;
+            ctx.say(format!("Successfully banned these degenerates: {}", output)).await?;
         } else {
-            msg.channel_id.say(&ctx.http, "No haram activities detected.").await?;
+            ctx.say("No haram activities detected.").await?;
         }
     }
 

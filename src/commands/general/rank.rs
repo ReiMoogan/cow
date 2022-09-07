@@ -1,3 +1,4 @@
+use crate::CowContext;
 use serenity::{
     client::Context,
     model::{
@@ -20,8 +21,8 @@ use serenity::{
 use crate::{Database, db};
 use log::{error};
 
-async fn rank_embed(ctx: &Context, msg: &Message, server_id: &GuildId, user: &User) {
-    let db = db!(ctx);
+async fn rank_embed(ctx: &CowContext<'_>, server_id: &GuildId, user: &User) {
+    let db = cowdb!(ctx);
 
     let experience = db.get_xp(*server_id, user.id).await.unwrap();
     let xp = experience.xp;
@@ -64,17 +65,17 @@ async fn rank_embed(ctx: &Context, msg: &Message, server_id: &GuildId, user: &Us
     }
 }
 
-#[command]
+#[poise::command(prefix_command, slash_command)]
 #[description = "Get your current rank."]
 #[only_in(guilds)]
-pub async fn rank(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
+pub async fn rank(ctx: &CowContext<'_>, mut args: Args) -> CommandResult {
     let other = args.single::<UserId>();
-    if let Some(server_id) = msg.guild_id {
+    if let Some(server_id) = ctx.guild_id() {
         if let Ok(other_id) = other {
             if let Ok(other_user) = other_id.to_user(&ctx.http).await {
                 rank_embed(ctx, msg, &server_id, &other_user).await;
             } else {
-                msg.channel_id.say(&ctx.http, "Could not find user...").await?;
+                ctx.say("Could not find user...").await?;
             }
         } else {
             rank_embed(ctx, msg, &server_id, &msg.author).await;
@@ -86,14 +87,14 @@ pub async fn rank(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult
     Ok(())
 }
 
-#[command]
+#[poise::command(prefix_command, slash_command)]
 #[description = "Disable/enable experience from being collected in the current channel."]
 #[only_in(guilds)]
 #[required_permissions("ADMINISTRATOR")]
 #[aliases("enablexp")]
-pub async fn disablexp(ctx: &Context, msg: &Message) -> CommandResult {
-    let db = db!(ctx);
-    if let Some(server_id) = msg.guild_id {
+pub async fn disablexp(ctx: &CowContext<'_>) -> CommandResult {
+    let db = cowdb!(ctx);
+    if let Some(server_id) = ctx.guild_id() {
         let mut content: String;
         match db.toggle_channel_xp(server_id, msg.channel_id).await {
             Ok(toggle) => {
@@ -118,12 +119,12 @@ pub async fn disablexp(ctx: &Context, msg: &Message) -> CommandResult {
     Ok(())
 }
 
-#[command]
+#[poise::command(prefix_command, slash_command)]
 #[description = "Get the current rankings in the server."]
 #[only_in(guilds)]
-pub async fn levels(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
-    let db = db!(ctx);
-    if let Some(server_id) = msg.guild_id {
+pub async fn levels(ctx: &CowContext<'_>, mut args: Args) -> CommandResult {
+    let db = cowdb!(ctx);
+    if let Some(server_id) = ctx.guild_id() {
         let page = args.single::<i32>().unwrap_or(1).max(1);
         match db.top_members(server_id, page - 1).await {
             Ok(pagination) => {
@@ -145,7 +146,7 @@ pub async fn levels(ctx: &Context, msg: &Message, mut args: Args) -> CommandResu
                     )}).await?;
             },
             Err(ex) => {
-                msg.channel_id.say(&ctx.http, "Failed to get rankings.".to_string()).await?;
+                ctx.say("Failed to get rankings.".to_string()).await?;
                 error!("Failed to get rankings: {}", ex);
             }
         }

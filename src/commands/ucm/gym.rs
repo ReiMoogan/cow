@@ -1,4 +1,5 @@
 use log::error;
+use crate::CowContext;
 use serenity::{
     client::Context,
     model::{
@@ -64,9 +65,9 @@ fn extractor(output: &mut Vec<(String, String)>, temporary_name: &Option<String>
     // The "Some" condition should always be true in this case.
 }
 
-#[command]
+#[poise::command(prefix_command, slash_command)]
 #[description = "Get the hours for recreation and atheletic facilities."]
-pub async fn gym(ctx: &Context, msg: &Message) -> CommandResult {
+pub async fn gym(ctx: &CowContext<'_>) -> CommandResult {
     const TITLE: &str = "Recreation and Athletic Facility Hours";
 
     let mut sent_msg = msg.channel_id.send_message(&ctx.http, |m| m.embed(|e| {

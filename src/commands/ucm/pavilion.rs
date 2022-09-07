@@ -1,5 +1,6 @@
 use chrono::{NaiveDate, NaiveTime};
 use reqwest::{Url, Client};
+use crate::CowContext;
 use serenity::{
     client::Context,
     model::{channel::Message},
@@ -91,18 +92,18 @@ async fn fetch_pavilion_raw_materials(client: &Client, company: &Company, locati
     Ok(result.data)
 }
 
-#[command]
+#[poise::command(prefix_command, slash_command)]
 #[description = "Get the current hours for dining services."]
 #[aliases("snack", "snacks", "snackshop", "cafe", "lantern", "lanterncafe")]
-pub async fn dining(ctx: &Context, msg: &Message) -> CommandResult {
+pub async fn dining(ctx: &CowContext<'_>) -> CommandResult {
     print_pavilion_times(ctx, msg).await?;
     Ok(())
 }
 
-#[command]
+#[poise::command(prefix_command, slash_command)]
 #[description = "Get the current menu at the UCM Pavilion and Yablokoff."]
 #[aliases("pav", "yablokoff", "yab")]
-pub async fn pavilion(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
+pub async fn pavilion(ctx: &CowContext<'_>, mut args: Args) -> CommandResult {
     let date = chrono::offset::Local::now();
     let (mut day, mut meal) = PavilionTime::next_meal(&date);
 
@@ -177,7 +178,7 @@ pub async fn pavilion(ctx: &Context, msg: &Message, mut args: Args) -> CommandRe
     Ok(())
 }
 
-async fn print_pavilion_times(ctx: &Context, msg: &Message) -> Result<(), Error> {
+async fn print_pavilion_times(ctx: &CowContext<'_>) -> Result<(), Error> {
     msg.channel_id.send_message(&ctx.http, |m| m.embed(|e| e
         .title("Dining Services Hours")
         .field("Pavilion on Weekdays", format!("Breakfast: {} - {}\nLunch: {} - {}\nDinner: {} - {}",
@@ -197,7 +198,7 @@ async fn print_pavilion_times(ctx: &Context, msg: &Message) -> Result<(), Error>
     Ok(())
 }
 
-async fn print_announcements(ctx: &Context, msg: &Message) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+async fn print_announcements(ctx: &CowContext<'_>) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     const TITLE: &str = "Pavilion/Yablokoff Announcements";
     let mut message = msg.channel_id.send_message(&ctx.http, |m| m.embed(|e| {
         e

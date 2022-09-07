@@ -1,5 +1,6 @@
 use std::collections::{HashMap, HashSet};
 use log::error;
+use crate::CowContext;
 use serenity::{
     client::Context,
     model::{
@@ -19,14 +20,14 @@ use serenity::{
 };
 use crate::{Database, db};
 
-#[command]
+#[poise::command(prefix_command, slash_command)]
 #[description = "Scan for discrepancies between server member roles and the stored info."]
 #[only_in(guilds)]
 #[bucket = "diagnostics"]
 #[required_permissions("ADMINISTRATOR")]
-pub async fn scan(ctx: &Context, msg: &Message) -> CommandResult {
-    let db = db!(ctx);
-    if let Some(guild_id) = msg.guild_id {
+pub async fn scan(ctx: &CowContext<'_>) -> CommandResult {
+    let db = cowdb!(ctx);
+    if let Some(guild_id) = ctx.guild_id() {
         let mut message = MessageBuilder::new();
 
         let mut discord_message = msg.channel_id.send_message(&ctx.http, |m| m.embed(|e| e
@@ -82,15 +83,15 @@ pub async fn scan(ctx: &Context, msg: &Message) -> CommandResult {
     Ok(())
 }
 
-#[command]
+#[poise::command(prefix_command, slash_command)]
 #[description = "Fix any discrepancies between server member roles and the stored info. By default, this will only affect"]
 #[only_in(guilds)]
 #[required_permissions("ADMINISTRATOR")]
 #[bucket = "diagnostics"]
 #[usage = "\"multiple\" to fix users with multiple roles, \"remove\" to remove roles from users, and \"demote\" to modify ranks downwards."]
-pub async fn fix(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
-    let db = db!(ctx);
-    if let Some(guild_id) = msg.guild_id {
+pub async fn fix(ctx: &CowContext<'_>, mut args: Args) -> CommandResult {
+    let db = cowdb!(ctx);
+    if let Some(guild_id) = ctx.guild_id() {
         /*
             There are several invalid cases we have to worry about:
             - The user shouldn't have the role, and yet they do have conflicting roles (non-trivial) -> remove

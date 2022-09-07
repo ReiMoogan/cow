@@ -29,9 +29,9 @@ impl Database {
         let mut out = Cowboard::new(server_id.0);
 
         if let Some(item) = res {
-            let channel_id: Option<rust_decimal::Decimal> = item.get(0);
+            let channel_id: Option<Decimal> = item.get(0);
             let emote_str: &str = item.get(3).unwrap();
-            let webhook_id: Option<rust_decimal::Decimal> = item.get(4);
+            let webhook_id: Option<Decimal> = item.get(4);
             let webhook_token: Option<&str> = item.get(5);
             out = Cowboard {
                 id: server_id.0,
@@ -76,8 +76,8 @@ impl Database {
         let mut out: Option<CowboardMessage> = None;
 
         if let Some(item) = res {
-            let post_id = item.get(0).and_then(|u: rust_decimal::Decimal| u.to_u64()).unwrap();
-            let post_channel_id = item.get(1).and_then(|u: rust_decimal::Decimal| u.to_u64()).unwrap();
+            let post_id = item.get(0).and_then(|u: Decimal| u.to_u64()).unwrap();
+            let post_channel_id = item.get(1).and_then(|u: Decimal| u.to_u64()).unwrap();
 
             out = Some(CowboardMessage {
                 message_id: message.0,

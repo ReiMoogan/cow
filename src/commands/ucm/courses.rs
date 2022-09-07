@@ -1,5 +1,6 @@
 use chrono::{Datelike, DateTime, Local, TimeZone, Utc};
 use log::error;
+use crate::CowContext;
 use serenity::{
     client::Context,
     model::{
@@ -52,8 +53,8 @@ pub fn semester_from_text(input: &str) -> Option<i32> {
     }
 }
 
-async fn course_embed(ctx: &Context, msg: &Message, class: &Class) -> CommandResult {
-    let db = db!(ctx);
+async fn course_embed(ctx: &CowContext<'_>, class: &Class) -> CommandResult {
+    let db = cowdb!(ctx);
     let professors = db.get_professors_for_class(class.id).await;
     let meetings = db.get_meetings_for_class(class.id).await;
     let stats = db.get_stats().await;
@@ -110,13 +111,13 @@ async fn course_embed(ctx: &Context, msg: &Message, class: &Class) -> CommandRes
     Ok(())
 }
 
-#[command]
+#[poise::command(prefix_command, slash_command)]
 #[description = "Search for courses in a term."]
 #[aliases("course", "class", "classes")]
 #[usage = "<CRN, Course Number, or Name> [Semester] [Year]"]
-pub async fn courses(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
+pub async fn courses(ctx: &CowContext<'_>, mut args: Args) -> CommandResult {
     if args.is_empty() {
-        msg.channel_id.say(&ctx.http, "Type the CRN, course number, or name of the class to look it up.").await?;
+        ctx.say("Type the CRN, course number, or name of the class to look it up.").await?;
         return Ok(());
     }
 
@@ -130,18 +131,18 @@ pub async fn courses(ctx: &Context, msg: &Message, mut args: Args) -> CommandRes
         if let Ok(numeric) = args.parse::<i32>() {
             // Make sure it's not a year lol
             if numeric >= 10000 {
-                let db = db!(ctx);
+                let db = cowdb!(ctx);
                 match db.get_class(numeric).await {
                     Ok(option_class) => {
                         if let Some(class) = option_class {
                             course_embed(ctx, msg, &class).await?;
                         } else {
-                            msg.channel_id.say(&ctx.http, format!("Could not find a class with the CRN `{}`.", numeric)).await?;
+                            ctx.say(format!("Could not find a class with the CRN `{}`.", numeric)).await?;
                         }
                     }
                     Err(ex) => {
                         error!("Failed to get class: {}", ex);
-                        msg.channel_id.say(&ctx.http, "Failed to query our database... try again later?").await?;
+                        ctx.say("Failed to query our database... try again later?").await?;
                     }
                 }
                 return Ok(())
@@ -168,46 +169,46 @@ pub async fn courses(ctx: &Context, msg: &Message, mut args: Args) -> CommandRes
                 match search_course_by_name(ctx, msg, &search_query, term).await {
                     Ok(any) => {
                         if !any {
-                            msg.channel_id.say(&ctx.http, "Failed to find any classes with the given query. Did you mistype the input?").await?;
+                            ctx.say("Failed to find any classes with the given query. Did you mistype the input?").await?;
                         }
                     }
                     Err(ex) => {
                         error!("Failed to search by name: {}", ex);
-                        msg.channel_id.say(&ctx.http, "Failed to search for classes... try again later?").await?;
+                        ctx.say("Failed to search for classes... try again later?").await?;
                     }
                 }
             }
         }
         Err(ex) => {
             error!("Failed to search by name: {}", ex);
-            msg.channel_id.say(&ctx.http, "Failed to search for classes... try again later?").await?;
+            ctx.say("Failed to search for classes... try again later?").await?;
         }
     }
 
     Ok(())
 }
 
-async fn search_course_by_number(ctx: &Context, msg: &Message, search_query: &str, term: i32) -> Result<bool, Box<dyn std::error::Error + Send + Sync>> {
-    let db = db!(ctx);
+async fn search_course_by_number(ctx: &CowContext<'_>, search_query: &str, term: i32) -> Result<bool, Box<dyn std::error::Error + Send + Sync>> {
+    let db = cowdb!(ctx);
     let classes = db.search_class_by_number(search_query, term).await?;
     print_matches(ctx, msg, &classes).await?;
 
     Ok(!classes.is_empty())
 }
 
-async fn search_course_by_name(ctx: &Context, msg: &Message, search_query: &str, term: i32) -> Result<bool, Box<dyn std::error::Error + Send + Sync>> {
-    let db = db!(ctx);
+async fn search_course_by_name(ctx: &CowContext<'_>, search_query: &str, term: i32) -> Result<bool, Box<dyn std::error::Error + Send + Sync>> {
+    let db = cowdb!(ctx);
     let classes = db.search_class_by_name(search_query, term).await?;
     print_matches(ctx, msg, &classes).await?;
 
     Ok(!classes.is_empty())
 }
 
-async fn print_matches(ctx: &Context, msg: &Message, classes: &[PartialClass]) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+async fn print_matches(ctx: &CowContext<'_>, classes: &[PartialClass]) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     if classes.is_empty() { return Ok(()); }
 
     if classes.len() == 1 {
-        let db = db!(ctx);
+        let db = cowdb!(ctx);
         let class = db.get_class(classes[0].course_reference_number).await?.unwrap();
         course_embed(ctx, msg, &class).await?;
     } else {

@@ -9,7 +9,7 @@ use tokio::io::AsyncWriteExt;
 use crate::{Database, db};
 use crate::commands::cowboard::cowboard_db_models::{Cowboard};
 
-async fn count_reactions(ctx: &Context, message: &Message, config: &Cowboard) -> Result<u64, Box<dyn std::error::Error + Send + Sync>>{
+async fn count_reactions(ctx: &Context, message: &Message, config: &Cowboard) -> Result<u64, Box<dyn error::Error + Send + Sync>>{
     let config_emote = ReactionType::try_from(config.emote.as_str())?;
     let matched_reaction = message.reactions.iter().find(|o|o.reaction_type.eq(&config_emote));
     if let Some(reaction) = matched_reaction {

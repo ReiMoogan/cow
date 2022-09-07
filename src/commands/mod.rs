@@ -6,34 +6,25 @@ pub mod cowboard;
 mod music;
 
 use std::{collections::HashSet};
-use std::sync::Arc;
 use log::error;
 
-use serenity:: {
+use serenity::{
     model::{
         id::UserId,
         channel::Message
     },
     framework:: {
-        Framework,
         standard::{
             macros::{
                 hook,
                 help
-            },
-            buckets::LimitedFor,
-            StandardFramework, HelpOptions, CommandGroup, CommandResult, help_commands, Args, DispatchError
+            }
+            HelpOptions, CommandGroup, CommandResult, help_commands, Args, DispatchError
         }
-    },
-    client::Context
+    }
 };
 
-use crate::commands::general::GENERAL_GROUP;
-use crate::commands::rank_config::RANKCONFIG_GROUP;
-use crate::commands::timeout::TIMEOUT_GROUP;
-use crate::commands::ucm::UCM_GROUP;
-use crate::commands::cowboard::COWBOARD_GROUP;
-use crate::commands::music::MUSIC_GROUP;
+use crate::{CowContext, Error};
 
 #[help]
 #[individual_command_tip = "Cow help command\n\n\
@@ -44,7 +35,7 @@ Add the command you want to learn more about to the help command\n"]
 #[strikethrough_commands_tip_in_dm = ""]
 #[strikethrough_commands_tip_in_guild = "Strikethrough commands require elevated permissions."]
 async fn cow_help(
-    context: &Context,
+    context: &CowContext<'_>,
     msg: &Message,
     args: Args,
     help_options: &'static HelpOptions,
@@ -56,23 +47,36 @@ async fn cow_help(
 }
 
 #[hook]
-async fn non_command(ctx: &Context, msg: &Message) {
+async fn non_command(ctx: &CowContext<'_>) {
     crate::message_handler::non_command(ctx, msg).await;
 }
 
 #[hook]
-async fn on_error(ctx: &Context, msg: &Message, error: DispatchError, _command_name: &str) {
+async fn on_error(ctx: &CowContext<'_>, error: DispatchError, _command_name: &str) {
     if let DispatchError::Ratelimited(info) = error {
         if info.is_first_try {
             // Why round up when we can add one?
-            if let Err(ex) = msg.channel_id.say(&ctx.http, &format!("This command is rate-limited, please try this again in {} seconds.", info.as_secs() + 1)).await {
+            if let Err(ex) = ctx.say(&format!("This command is rate-limited, please try this again in {} seconds.", info.as_secs() + 1)).await {
                 error!("Failed to send rate-limit message: {}", ex);
             }
         }
     }
 }
 
-pub async fn get_framework(pref: &str, app_id: UserId, owners: HashSet<UserId>) -> Arc<Box<dyn Framework + Sync + std::marker::Send>> {
+pub async fn get_framework(pref: &str, _app_id: UserId, owners: HashSet<UserId>) -> poise::FrameworkOptions<(), Error> {
+    poise::FrameworkOptions {
+        commands: vec![
+
+        ],
+        prefix_options: poise::PrefixFrameworkOptions {
+            prefix: Some(pref.to_string()),
+            mention_as_prefix: true,
+            ..Default::default()
+        },
+        owners,
+        ..Default::default()
+    }
+    /*
     Arc::new(Box::new(StandardFramework::new()
         .configure(|c| c
             .prefix(pref)
@@ -91,5 +95,5 @@ pub async fn get_framework(pref: &str, app_id: UserId, owners: HashSet<UserId>) 
         .group(&UCM_GROUP)
         .group(&COWBOARD_GROUP)
         .group(&MUSIC_GROUP)
-    ))
+    ))*/
 }

@@ -1,4 +1,5 @@
 use reqwest::Client;
+use crate::CowContext;
 use serenity::{
     client::Context,
     model::{channel::Message},
@@ -71,9 +72,9 @@ fn read_hours(config: &StoreHours) -> Vec<(String, String)> {
     output
 }
 
-#[command]
+#[poise::command(prefix_command, slash_command)]
 #[description = "Get the times of the UC Merced store."]
-pub async fn store(ctx: &Context, msg: &Message) -> CommandResult {
+pub async fn store(ctx: &CowContext<'_>) -> CommandResult {
     const TITLE: &str = "UC Merced University Store Hours";
     let mut loading_message = msg.channel_id.send_message(&ctx.http, |m|
         m.embed(|e| e.title(TITLE).description("Now loading, please wait warmly..."))

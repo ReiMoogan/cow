@@ -15,17 +15,19 @@ use env_logger::Env;
 use lavalink_rs::{LavalinkClient, gateway::LavalinkEventHandler};
 use serenity::{
     async_trait,
-    client::{Client, Context, EventHandler},
-    model::{channel::{Reaction}, gateway::{Ready, GatewayIntents}, application::{interaction::Interaction}, id::{UserId, ChannelId, MessageId}, guild::Member},
+    client::{Context, EventHandler},
+    model::{channel::{Reaction}, gateway::{Ready, GatewayIntents}, id::{UserId, ChannelId, MessageId}, guild::Member},
     http::Http,
-    framework::Framework,
     prelude::TypeMapKey
 };
 use log::{error, info};
+use serenity::model::application::command::Command;
 use songbird::SerenityInit;
 
+type Error = Box<dyn error::Error + Send + Sync>;
+type CowContext<'a> = poise::Context<'a, (), Error>;
+
 struct Handler {
-    framework: Arc<Box<dyn Framework + Sync + Send>>,
     database: Arc<Database>
 }
 
@@ -112,19 +114,30 @@ async fn main() -> Result<(), Box<dyn error::Error>>  {
     let framework = get_framework(&config.cmd_prefix, app_id, owners).await;
 
     let event_handler = Handler {
-        framework: framework.clone(),
         database: Arc::new(Database::new(&*config.sql_server_ip, config.sql_server_port, &*config.sql_server_username, &*config.sql_server_password).await.unwrap())
     };
 
-    let db_clone = event_handler.database.clone();
+    let mut poise = poise::Framework::builder()
+        .token(&token)
+        .intents(GatewayIntents::all())
+        .options(framework)
+        .client_settings(|settings| {
+            settings
+                .application_id(*app_id.as_u64())
+                .register_songbird()
+                .event_handler(event_handler)
+        })
+        .user_data_setup(move |ctx, _ready, _framework| {
+            Box::pin(async move {
 
-    let mut client = Client::builder(&token, GatewayIntents::all())
-        .event_handler(event_handler)
-        .application_id(*app_id.as_u64())
-        .framework_arc(framework)
-        .register_songbird()
+                Ok(())
+            })
+        })
+        .build()
         .await
-        .expect("Discord failed to initialize");
+        .expect("Failed to create client");
+
+    let serenity = poise.client();
 
     let lavalink_enabled = !config.lavalink_ip.is_empty() && !config.lavalink_password.is_empty();
 
@@ -137,7 +150,7 @@ async fn main() -> Result<(), Box<dyn error::Error>>  {
             .build(LavalinkHandler)
             .await {
             Ok(lava_client) => {
-                let mut data = client.data.write().await;
+                let mut data = serenity.data.write().await;
                 data.insert::<Lavalink>(lava_client);
             }
             Err(ex) => {
@@ -147,15 +160,26 @@ async fn main() -> Result<(), Box<dyn error::Error>>  {
     }
 
     {
-        let mut data = client.data.write().await;
-        // Should I wrap it with an RwLock? ...it's pooled and async is nice, but...
-        data.insert::<Database>(db_clone);
+        let mut data = serenity.data.write().await;
+        data.insert::<Database>(event_handler.database.clone());
     }
 
     // Start our reminder task and forget about it.
-    let _ = tokio::task::spawn(commands::ucm::reminders::check_reminders(client.data.clone(), client.cache_and_http.clone()));
+    let _ = tokio::task::spawn(commands::ucm::reminders::check_reminders(serenity.data.clone(), serenity.cache_and_http.clone()));
 
-    if let Err(ex) = client.start().await {
+    let commands = &poise.options().commands;
+    let command_builders = poise::builtins::create_application_commands(commands);
+    let try_create_commands = Command::set_global_application_commands(&serenity.cache_and_http.http, |commands| {
+        *commands = command_builders;
+        commands
+    })
+    .await;
+
+    if let Err(ex) = try_create_commands {
+        error!("Failed to create slash commands: {}", ex);
+    }
+
+    if let Err(ex) = poise.start().await {
         error!("Discord bot client error: {:?}", ex);
     }
 

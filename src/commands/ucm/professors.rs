@@ -1,5 +1,6 @@
 use chrono::{Datelike, DateTime, Local, TimeZone, Utc};
 use log::error;
+use crate::CowContext;
 use serenity::{
     client::Context,
     model::{
@@ -15,8 +16,8 @@ use serenity::{
 use crate::commands::ucm::courses_db_models::*;
 use crate::{Database, db};
 
-async fn professor_embed(ctx: &Context, msg: &Message, professor: &Professor) -> CommandResult {
-    let db = db!(ctx);
+async fn professor_embed(ctx: &CowContext<'_>, professor: &Professor) -> CommandResult {
+    let db = cowdb!(ctx);
 
     let current_date = Local::now().date();
     let year = current_date.year();
@@ -57,30 +58,30 @@ async fn professor_embed(ctx: &Context, msg: &Message, professor: &Professor) ->
     Ok(())
 }
 
-#[command]
+#[poise::command(prefix_command, slash_command)]
 #[description = "Search for a professor."]
 #[aliases("professor")]
 #[usage = "<Professor's Name>"]
-pub async fn professors(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
+pub async fn professors(ctx: &CowContext<'_>, args: Args) -> CommandResult {
     let search_query = args.message();
 
-    let db = db!(ctx);
+    let db = cowdb!(ctx);
     match db.search_professor(search_query).await {
         Ok(professors) => {
             print_matches(ctx, msg, &professors).await?;
         }
         Err(ex) => {
             error!("Failed to search by name: {}", ex);
-            msg.channel_id.say(&ctx.http, "Failed to search for professors... try again later?").await?;
+            ctx.say("Failed to search for professors... try again later?").await?;
         }
     }
 
     Ok(())
 }
 
-async fn print_matches(ctx: &Context, msg: &Message, professors: &[Professor]) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+async fn print_matches(ctx: &CowContext<'_>, professors: &[Professor]) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     if professors.is_empty() {
-        msg.channel_id.say(&ctx.http, "No matches were found. Check your query for typos or generalize it. Or, we may not have the person logged.").await?;
+        ctx.say("No matches were found. Check your query for typos or generalize it. Or, we may not have the person logged.").await?;
     } else if professors.len() == 1 {
         professor_embed(ctx, msg, professors.get(0).unwrap()).await?;
     } else {

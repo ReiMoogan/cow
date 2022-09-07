@@ -1,5 +1,6 @@
 use chrono::{Datelike, Local};
 use log::error;
+use crate::CowContext;
 use serenity::{
     client::Context,
     model::{
@@ -80,7 +81,7 @@ fn process_calendar(data: &str) -> Option<AcademicCalendar> {
     Some(AcademicCalendar { name: page_name.unwrap().unwrap(), semesters })
 }
 
-async fn print_schedule(ctx: &Context, msg: &Message, schedule: &AcademicCalendar) -> CommandResult {
+async fn print_schedule(ctx: &CowContext<'_>, schedule: &AcademicCalendar) -> CommandResult {
     msg.channel_id.send_message(&ctx.http, |m| m.embed(|e| {
         e.title(&schedule.name);
 
@@ -102,10 +103,10 @@ async fn print_schedule(ctx: &Context, msg: &Message, schedule: &AcademicCalenda
     Ok(())
 }
 
-#[command]
+#[poise::command(prefix_command, slash_command)]
 #[aliases(cal, academiccalendar)]
 #[description = "Get the academic calendar for the year."]
-pub async fn calendar(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
+pub async fn calendar(ctx: &CowContext<'_>, mut args: Args) -> CommandResult {
     let now = Local::now();
     let mut year = now.year();
 
@@ -130,17 +131,17 @@ pub async fn calendar(ctx: &Context, msg: &Message, mut args: Args) -> CommandRe
                     if let Some(calendar) = schedules {
                         print_schedule(ctx, msg, &calendar).await?;
                     } else {
-                        msg.channel_id.say(&ctx.http, "Either you inputted an invalid year, or the website did not give us reasonable data.").await?;
+                        ctx.say("Either you inputted an invalid year, or the website did not give us reasonable data.").await?;
                     }
                 }
                 Err(ex) => {
-                    msg.channel_id.say(&ctx.http, "UC Merced gave us weird data, try again later?").await?;
+                    ctx.say("UC Merced gave us weird data, try again later?").await?;
                     error!("Failed to process calendar: {}", ex);
                 }
             }
         }
         Err(ex) => {
-            msg.channel_id.say(&ctx.http, "Failed to connect to the UC Merced website, try again later?").await?;
+            ctx.say("Failed to connect to the UC Merced website, try again later?").await?;
             error!("Failed to get food truck schedule: {}", ex);
         }
     }

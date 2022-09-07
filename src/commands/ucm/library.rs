@@ -1,5 +1,6 @@
 use chrono::Datelike;
 use log::error;
+use crate::CowContext;
 use serenity::{
     client::Context,
     model::{
@@ -14,9 +15,9 @@ use serenity::{
 };
 use crate::commands::ucm::libcal_models::Calendar;
 
-#[command]
+#[poise::command(prefix_command, slash_command)]
 #[description = "Get the hours for the Kolligian Library."]
-pub async fn library(ctx: &Context, msg: &Message) -> CommandResult {
+pub async fn library(ctx: &CowContext<'_>) -> CommandResult {
     let date = chrono::offset::Local::now();
     let url = format!("https://api3.libcal.com/api_hours_grid.php?iid=4052&lid=0&format=json&date={}-{:0>2}-{:0>2}", date.year(), date.month(), date.day());
     match reqwest::get(url).await {
@@ -41,13 +42,13 @@ pub async fn library(ctx: &Context, msg: &Message) -> CommandResult {
                     }).await?;
                 }
                 Err(ex) => {
-                    msg.channel_id.say(&ctx.http, "The library gave us weird data, try again later?").await?;
+                    ctx.say("The library gave us weird data, try again later?").await?;
                     error!("Failed to process calendar: {}", ex);
                 }
             }
         }
         Err(ex) => {
-            msg.channel_id.say(&ctx.http, "Failed to connect to the library API, try again later?").await?;
+            ctx.say("Failed to connect to the library API, try again later?").await?;
             error!("Failed to get calendar: {}", ex);
         }
     }

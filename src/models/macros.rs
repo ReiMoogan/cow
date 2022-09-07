@@ -11,14 +11,10 @@ macro_rules! db {
 }
 
 #[macro_export]
-macro_rules! reply {
-    ($ctx: expr, $msg: expr) => {
+macro_rules! cowdb {
+    ($ctx: expr) => {
         {
-            if msg.id == 69420 {
-                // Slash command
-            } else {
-                msg.reply($ctx, $msg).await;
-            }
+            db!($ctx.discord())
         }
     }
 }
