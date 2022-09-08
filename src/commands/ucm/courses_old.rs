@@ -1,45 +1,32 @@
 use log::error;
 use crate::{CowContext, Error};
-use serenity::{
-    client::Context,
-    model::{
-        channel::Message
-    },
-    framework::standard::{
-        macros::{
-            command
-        }, Args
-    }
-};
 use chrono::Datelike;
 use crate::commands::ucm::course_models::{CourseList};
 
-#[poise::command(prefix_command, slash_command)]
-#[description = "Get the course list for a major"]
-#[usage = "<semester> <major>"]
-pub async fn courses_old(ctx: &CowContext<'_>, mut args: Args) -> Result<(), Error> {
+#[poise::command(
+    prefix_command,
+    slash_command,
+    description_localized("en", "Get the course list for a major.")
+)]
+pub async fn courses_old(
+    ctx: CowContext<'_>,
+    #[description = "The semester: Fall, Spring, or Summer"] selected_sem: String,
+    #[description = "The major: ENGR, CSE, etc."] selected_major: String)
+-> Result<(), Error> {
     let client = reqwest::Client::builder()
         .cookie_store(true)
         .build()?;
-    
-    let term = match args.single::<String>() {
-        Ok(selected_sem) => {
-            let now = chrono::Utc::now();
-            let sem_code = match selected_sem.to_lowercase().as_str() {
-                "fall" => "10",
-                "spring" => "20",
-                "summer" => "30",
-                _ => "00"
-            };
 
-            format!("{}{}", now.year(), sem_code)
-        },
-
-        Err(_) => {
-            ctx.say("Please use the semester names 'fall', 'spring', or 'summer'.").await?;
-            return Ok(());
-        }
+    let now = chrono::Utc::now();
+    let sem_code = match selected_sem.to_lowercase().as_str() {
+        "fall" => "10",
+        "spring" => "20",
+        "summer" => "30",
+        _ => "00"
     };
+
+    let term = format!("{}{}", now.year(), sem_code);
+
 
     // setting the session cookies
     let term_url = format!("https://reg-prod.ec.ucmerced.edu/StudentRegistrationSsb/ssb/term/search?\
@@ -54,9 +41,7 @@ pub async fn courses_old(ctx: &CowContext<'_>, mut args: Args) -> Result<(), Err
     client.get(term_url).send().await?;
     client.get(search_url).send().await?;
 
-    let major = args.single::<String>()
-        .unwrap_or_else(|_| "".into())
-        .to_uppercase();
+    let major = selected_major.to_uppercase();
     
     let url = format!("https://reg-prod.ec.ucmerced.edu/StudentRegistrationSsb/ssb/courseSearchResults/courseSearchResults?\
         txt_subject={}\
@@ -73,7 +58,7 @@ pub async fn courses_old(ctx: &CowContext<'_>, mut args: Args) -> Result<(), Err
             // TODO: add pagination for courses
             match response.json::<CourseList>().await {
                 Ok(course_list) => {
-                    msg.channel_id.send_message(&ctx.http, |m| {
+                    ctx.send(|m| {
                         m.embed(|e| {
                             e
                                 .title("Course List")

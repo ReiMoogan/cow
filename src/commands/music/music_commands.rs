@@ -1,16 +1,15 @@
 use lavalink_rs::model::{TrackQueue};
 use log::error;
 use regex::Regex;
-use serenity::client::Context;
-use serenity::framework::standard::{Args};
-use serenity::model::channel::{Message};
-use serenity::framework::standard::macros::{command};
 use serenity::utils::MessageBuilder;
 use crate::{Error, Lavalink};
 use crate::CowContext;
 
-#[poise::command(prefix_command, slash_command)]
-#[aliases(p)]
+#[poise::command(
+    prefix_command,
+    slash_command,
+    description_localized("en", "List the commands available in the music module.")
+)]
 pub async fn help(ctx: CowContext<'_>) -> Result<(), Error> {
     ctx.say("`help, join, leave, play, playlist, pause, now_playing, skip, queue`").await?;
 
@@ -57,19 +56,28 @@ pub async fn join_interactive(ctx: &CowContext<'_>) -> Result<(), Error> {
     Ok(())
 }
 
-#[poise::command(prefix_command, slash_command)]
-#[only_in(guilds)]
-pub async fn join(ctx: &CowContext<'_>) -> Result<(), Error> {
-    join_interactive(ctx, msg).await
+#[poise::command(
+    prefix_command,
+    slash_command,
+    guild_only,
+    description_localized("en", "Join the voice channel you are in.")
+)]
+pub async fn join(ctx: CowContext<'_>) -> Result<(), Error> {
+    join_interactive(&ctx).await
 }
 
-#[poise::command(prefix_command, slash_command)]
-#[only_in(guilds)]
-pub async fn leave(ctx: &CowContext<'_>) -> Result<(), Error> {
+#[poise::command(
+    prefix_command,
+    slash_command,
+    guild_only,
+    description_localized("en", "Make the bot leave the voice channel.")
+)]
+pub async fn leave(ctx: CowContext<'_>) -> Result<(), Error> {
     let guild = ctx.guild().unwrap();
     let guild_id = guild.id;
+    let serenity = ctx.discord();
 
-    let manager = songbird::get(ctx).await.unwrap().clone();
+    let manager = songbird::get(serenity).await.unwrap().clone();
     let has_handler = manager.get(guild_id).is_some();
 
     if has_handler {
@@ -79,7 +87,7 @@ pub async fn leave(ctx: &CowContext<'_>) -> Result<(), Error> {
 
         {
             // Free up the LavaLink client.
-            let data = ctx.discord().data.read().await;
+            let data = serenity.data.read().await;
             let lava_client = data.get::<Lavalink>().unwrap().clone();
             lava_client.destroy(guild_id.0).await?;
         }
@@ -92,17 +100,17 @@ pub async fn leave(ctx: &CowContext<'_>) -> Result<(), Error> {
     Ok(())
 }
 
-#[poise::command(prefix_command, slash_command)]
-#[only_in(guilds)]
-pub async fn play(ctx: &CowContext<'_>, args: Args) -> Result<(), Error> {
-
-    if args.is_empty() {
-        ctx.say("Please enter a query or link.").await?;
-    }
-
-    let query = args.message().to_string();
-
-    let guild_id = match ctx.guild_id()() {
+#[poise::command(
+    prefix_command,
+    slash_command,
+    guild_only,
+    description_localized("en", "Play some music.")
+)]
+pub async fn play(
+    ctx: CowContext<'_>,
+    #[description = "A YouTube URL or name."] #[rest] query: String)
+-> Result<(), Error> {
+    let guild_id = match ctx.guild_id() {
         Some(channel) => channel.guild_id,
         None => {
             ctx.say("Error finding channel info").await?;
@@ -119,9 +127,9 @@ pub async fn play(ctx: &CowContext<'_>, args: Args) -> Result<(), Error> {
     let manager = songbird::get(&serenity).await.unwrap().clone();
 
     if manager.get(guild_id).is_none() {
-        if let Err(ex) = join_interactive(ctx, msg).await {
+        if let Err(ex) = join_interactive(&ctx).await {
             ctx.say("Failed to connect to voice channel; maybe I don't have permissions?").await?;
-            error!("Failed to connect to vc: {}", ex);
+            error!("Failed to connect to VC: {}", ex);
             return Ok(());
         }
     }
@@ -154,18 +162,17 @@ pub async fn play(ctx: &CowContext<'_>, args: Args) -> Result<(), Error> {
     Ok(())
 }
 
-#[poise::command(prefix_command, slash_command)]
-#[only_in(guilds)]
-pub async fn playlist(ctx: CowContext<'_>, args: Args) -> Result<(), Error> {
-
+#[poise::command(
+    prefix_command,
+    slash_command,
+    guild_only,
+    description_localized("en", "Queue all music from a playlist.")
+)]
+pub async fn playlist(
+    ctx: CowContext<'_>,
+    #[description = "A YouTube URL or query to a playlist."] #[rest] query: String)
+-> Result<(), Error> {
     if let Some(guild_id) = ctx.guild_id() {
-        if args.is_empty() {
-            ctx.say("Please enter a query or link.").await?;
-            return Ok(())
-        }
-
-        let query = args.message().to_string();
-
         let serenity = ctx.discord();
         let lava_client = {
             let data = serenity.data.read().await;
@@ -175,9 +182,9 @@ pub async fn playlist(ctx: CowContext<'_>, args: Args) -> Result<(), Error> {
         let manager = songbird::get(&serenity).await.unwrap().clone();
 
         if manager.get(guild_id).is_none() {
-            if let Err(ex) = join_interactive(ctx, msg).await {
+            if let Err(ex) = join_interactive(&ctx).await {
                 ctx.say("Failed to connect to voice channel; maybe I don't have permissions?").await?;
-                error!("Failed to connect to vc: {}", ex);
+                error!("Failed to connect to VC: {}", ex);
                 return Ok(());
             }
         }
@@ -214,8 +221,12 @@ pub async fn playlist(ctx: CowContext<'_>, args: Args) -> Result<(), Error> {
     Ok(())
 }
 
-#[poise::command(prefix_command, slash_command)]
-#[only_in(guilds)]
+#[poise::command(
+    prefix_command,
+    slash_command,
+    guild_only,
+    description_localized("en", "Pause the music player.")
+)]
 pub async fn pause(ctx: CowContext<'_>) -> Result<(), Error> {
     if let Some(guild_id) = ctx.guild_id() {
         let lava_client = {
@@ -241,16 +252,20 @@ pub async fn pause(ctx: CowContext<'_>) -> Result<(), Error> {
     Ok(())
 }
 
-#[poise::command(prefix_command, slash_command)]
-#[only_in(guilds)]
-#[aliases(np, nowplaying)]
+#[poise::command(
+    prefix_command,
+    slash_command,
+    guild_only,
+    description_localized("en", "Get the current music playing."),
+    aliases("np", "nowplaying")
+)]
 pub async fn now_playing(ctx: CowContext<'_>) -> Result<(), Error> {
     let lava_client = {
         let data = ctx.discord().data.read().await;
         data.get::<Lavalink>().unwrap().clone()
     };
 
-    if let Some(node) = lava_client.nodes().await.get(&guild_id.0) {
+    if let Some(node) = lava_client.nodes().await.get(ctx.guild_id().0) {
         if let Some(track) = &node.now_playing {
             let info = track.track.info.as_ref().unwrap();
             let re = Regex::new(r#"(?:youtube\.com/(?:[^/]+/.+/|(?:v|e(?:mbed)?)/|.*[?&]v=)|youtu\.be/)([^"&?/\s]{11})"#).unwrap();
@@ -258,7 +273,7 @@ pub async fn now_playing(ctx: CowContext<'_>) -> Result<(), Error> {
             let id = caps.get(1).map(|m| m.as_str());
             let server_name = ctx.guild().map(|o| o.name);
 
-            msg.channel_id.send_message(&ctx.http, |m| m.embed(|e| {
+            ctx.send(|m| m.embed(|e| {
                  e
                     .author(|a| a.name(match server_name {
                         Some(name) => format!("Now Playing in {}", name),
@@ -291,9 +306,13 @@ pub async fn now_playing(ctx: CowContext<'_>) -> Result<(), Error> {
     Ok(())
 }
 
-#[poise::command(prefix_command, slash_command)]
-#[only_in(guilds)]
-pub async fn skip(ctx: &CowContext<'_>) -> Result<(), Error> {
+#[poise::command(
+    prefix_command,
+    slash_command,
+    guild_only,
+    description_localized("en", "Skip the current song.")
+)]
+pub async fn skip(ctx: CowContext<'_>) -> Result<(), Error> {
     let lava_client = {
         let data = ctx.discord().data.read().await;
         data.get::<Lavalink>().unwrap().clone()
@@ -362,16 +381,20 @@ fn generate_queue(queue: &[TrackQueue]) -> Vec<String> {
     output
 }
 
-#[poise::command(prefix_command, slash_command)]
-#[only_in(guilds)]
-#[aliases(q)]
-pub async fn queue(ctx: &CowContext<'_>, mut args: Args) -> Result<(), Error> {
+#[poise::command(
+    prefix_command,
+    slash_command,
+    guild_only,
+    description_localized("en", "Get the music queue."),
+    aliases("q")
+)]
+pub async fn queue(ctx: CowContext<'_>, page: Option<usize>) -> Result<(), Error> {
     let lava_client = {
         let data = ctx.discord().data.read().await;
         data.get::<Lavalink>().unwrap().clone()
     };
 
-    let mut page_num = if let Ok(arg_page) = args.single::<usize>() {
+    let mut page_num = if let Some(arg_page) = page {
         arg_page
     } else {
         1
@@ -391,7 +414,7 @@ pub async fn queue(ctx: &CowContext<'_>, mut args: Args) -> Result<(), Error> {
         let page = &pages[page_num - 1];
         let server_name = guild_id.name(&ctx);
 
-        msg.channel_id.send_message(&ctx.http, |m| m.embed(|e| {
+        ctx.send(|m| m.embed(|e| {
             e
                 .author(|a| {
                     if let Some(server) = server_name {
