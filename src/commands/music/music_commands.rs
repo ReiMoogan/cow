@@ -2,28 +2,28 @@ use lavalink_rs::model::{TrackQueue};
 use log::error;
 use regex::Regex;
 use serenity::client::Context;
-use serenity::framework::standard::{CommandResult, Args};
+use serenity::framework::standard::{Args};
 use serenity::model::channel::{Message};
 use serenity::framework::standard::macros::{command};
 use serenity::utils::MessageBuilder;
-use crate::Lavalink;
+use crate::{Error, Lavalink};
 use crate::CowContext;
 
 #[poise::command(prefix_command, slash_command)]
 #[aliases(p)]
-pub async fn help(ctx: &CowContext<'_>, _msg: &Message) -> CommandResult {
+pub async fn help(ctx: CowContext<'_>) -> Result<(), Error> {
     ctx.say("`help, join, leave, play, playlist, pause, now_playing, skip, queue`").await?;
 
     Ok(())
 }
 
-pub async fn join_interactive(ctx: &CowContext<'_>) -> CommandResult {
-    let guild = msg.guild(&ctx.cache).unwrap();
+pub async fn join_interactive(ctx: &CowContext<'_>) -> Result<(), Error> {
+    let guild = ctx.guild().unwrap();
     let guild_id = guild.id;
 
     let channel_id = guild
         .voice_states
-        .get(&msg.author.id)
+        .get(ctx.author.id)
         .and_then(|voice_state| voice_state.channel_id);
 
     let connect_to = match channel_id {
@@ -59,14 +59,14 @@ pub async fn join_interactive(ctx: &CowContext<'_>) -> CommandResult {
 
 #[poise::command(prefix_command, slash_command)]
 #[only_in(guilds)]
-pub async fn join(ctx: &CowContext<'_>) -> CommandResult {
+pub async fn join(ctx: &CowContext<'_>) -> Result<(), Error> {
     join_interactive(ctx, msg).await
 }
 
 #[poise::command(prefix_command, slash_command)]
 #[only_in(guilds)]
-pub async fn leave(ctx: &CowContext<'_>) -> CommandResult {
-    let guild = msg.guild(&ctx.cache).unwrap();
+pub async fn leave(ctx: &CowContext<'_>) -> Result<(), Error> {
+    let guild = ctx.guild().unwrap();
     let guild_id = guild.id;
 
     let manager = songbird::get(ctx).await.unwrap().clone();
@@ -94,7 +94,7 @@ pub async fn leave(ctx: &CowContext<'_>) -> CommandResult {
 
 #[poise::command(prefix_command, slash_command)]
 #[only_in(guilds)]
-pub async fn play(ctx: &CowContext<'_>, args: Args) -> CommandResult {
+pub async fn play(ctx: &CowContext<'_>, args: Args) -> Result<(), Error> {
 
     if args.is_empty() {
         ctx.say("Please enter a query or link.").await?;
@@ -156,7 +156,7 @@ pub async fn play(ctx: &CowContext<'_>, args: Args) -> CommandResult {
 
 #[poise::command(prefix_command, slash_command)]
 #[only_in(guilds)]
-pub async fn playlist(ctx: &CowContext<'_>, args: Args) -> CommandResult {
+pub async fn playlist(ctx: CowContext<'_>, args: Args) -> Result<(), Error> {
 
     if let Some(guild_id) = ctx.guild_id() {
         if args.is_empty() {
@@ -216,7 +216,7 @@ pub async fn playlist(ctx: &CowContext<'_>, args: Args) -> CommandResult {
 
 #[poise::command(prefix_command, slash_command)]
 #[only_in(guilds)]
-pub async fn pause(ctx: &CowContext<'_>) -> CommandResult {
+pub async fn pause(ctx: CowContext<'_>) -> Result<(), Error> {
     if let Some(guild_id) = ctx.guild_id() {
         let lava_client = {
             let data = ctx.discord().data.read().await;
@@ -244,7 +244,7 @@ pub async fn pause(ctx: &CowContext<'_>) -> CommandResult {
 #[poise::command(prefix_command, slash_command)]
 #[only_in(guilds)]
 #[aliases(np, nowplaying)]
-pub async fn now_playing(ctx: &CowContext<'_>) -> CommandResult {
+pub async fn now_playing(ctx: CowContext<'_>) -> Result<(), Error> {
     let lava_client = {
         let data = ctx.discord().data.read().await;
         data.get::<Lavalink>().unwrap().clone()
@@ -293,7 +293,7 @@ pub async fn now_playing(ctx: &CowContext<'_>) -> CommandResult {
 
 #[poise::command(prefix_command, slash_command)]
 #[only_in(guilds)]
-pub async fn skip(ctx: &CowContext<'_>) -> CommandResult {
+pub async fn skip(ctx: &CowContext<'_>) -> Result<(), Error> {
     let lava_client = {
         let data = ctx.discord().data.read().await;
         data.get::<Lavalink>().unwrap().clone()
@@ -365,7 +365,7 @@ fn generate_queue(queue: &[TrackQueue]) -> Vec<String> {
 #[poise::command(prefix_command, slash_command)]
 #[only_in(guilds)]
 #[aliases(q)]
-pub async fn queue(ctx: &CowContext<'_>, mut args: Args) -> CommandResult {
+pub async fn queue(ctx: &CowContext<'_>, mut args: Args) -> Result<(), Error> {
     let lava_client = {
         let data = ctx.discord().data.read().await;
         data.get::<Lavalink>().unwrap().clone()

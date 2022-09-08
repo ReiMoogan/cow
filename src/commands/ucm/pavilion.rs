@@ -5,7 +5,6 @@ use serenity::{
     client::Context,
     model::{channel::Message},
     framework::standard::{
-        CommandResult,
         macros::{
             command
         }
@@ -95,15 +94,15 @@ async fn fetch_pavilion_raw_materials(client: &Client, company: &Company, locati
 #[poise::command(prefix_command, slash_command)]
 #[description = "Get the current hours for dining services."]
 #[aliases("snack", "snacks", "snackshop", "cafe", "lantern", "lanterncafe")]
-pub async fn dining(ctx: &CowContext<'_>) -> CommandResult {
-    print_pavilion_times(ctx, msg).await?;
+pub async fn dining(ctx: &CowContext<'_>) -> Result<(), Error> {
+    print_pavilion_times(ctx).await?;
     Ok(())
 }
 
 #[poise::command(prefix_command, slash_command)]
 #[description = "Get the current menu at the UCM Pavilion and Yablokoff."]
 #[aliases("pav", "yablokoff", "yab")]
-pub async fn pavilion(ctx: &CowContext<'_>, mut args: Args) -> CommandResult {
+pub async fn pavilion(ctx: &CowContext<'_>, mut args: Args) -> Result<(), Error> {
     let date = chrono::offset::Local::now();
     let (mut day, mut meal) = PavilionTime::next_meal(&date);
 

@@ -1,12 +1,11 @@
 use log::error;
-use crate::CowContext;
+use crate::{CowContext, Error};
 use serenity::{
     client::Context,
     model::{
         channel::Message
     },
     framework::standard::{
-        CommandResult,
         macros::{
             command
         }
@@ -26,7 +25,7 @@ fn process_schedules(data: &str) -> Option<String> {
 #[poise::command(prefix_command, slash_command)]
 #[aliases(foodtruck)]
 #[description = "Get the current food truck schedule."]
-pub async fn foodtrucks(ctx: &CowContext<'_>) -> CommandResult {
+pub async fn foodtrucks(ctx: &CowContext<'_>) -> Result<(), Error> {
     const TITLE: &str = "Food Truck Schedule";
 
     let mut sent_msg = msg.channel_id.send_message(&ctx.http, |m| m.embed(|e| {

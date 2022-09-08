@@ -1,30 +1,21 @@
 use chrono::Datelike;
 use log::error;
-use crate::CowContext;
-use serenity::{
-    client::Context,
-    model::{
-        channel::Message
-    },
-    framework::standard::{
-        CommandResult,
-        macros::{
-            command
-        }
-    }
-};
+use crate::{CowContext, Error};
 use crate::commands::ucm::libcal_models::Calendar;
 
-#[poise::command(prefix_command, slash_command)]
-#[description = "Get the hours for the Kolligian Library."]
-pub async fn library(ctx: &CowContext<'_>) -> CommandResult {
+#[poise::command(
+    prefix_command,
+    slash_command,
+    description_localized("en", "Get the hours for the Kolligian Library.")
+)]
+pub async fn library(ctx: CowContext<'_>) -> Result<(), Error> {
     let date = chrono::offset::Local::now();
     let url = format!("https://api3.libcal.com/api_hours_grid.php?iid=4052&lid=0&format=json&date={}-{:0>2}-{:0>2}", date.year(), date.month(), date.day());
     match reqwest::get(url).await {
         Ok(response) => {
             match response.json::<Calendar>().await {
                 Ok(data) => {
-                    msg.channel_id.send_message(&ctx.http, |m| {
+                    ctx.send(|m| {
                         let library = &data.locations[0].weeks[0];
                         let start_date = chrono::NaiveDate::parse_from_str(&*library.sunday.date, "%Y-%m-%d").unwrap();
                         m.embed(|e| {

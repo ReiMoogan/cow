@@ -1,18 +1,13 @@
 use chrono::{Datelike, DateTime, Local, TimeZone, Utc};
 use log::error;
-use crate::CowContext;
+use crate::{CowContext, cowdb, Error};
 use serenity::{
-    client::Context,
-    model::{
-        channel::Message
-    },
     framework::standard::{
-        CommandResult,
-        macros::{
-            command
-        }, Args
+        Args,
+        Delimiter
     }
 };
+use std::error;
 use crate::commands::ucm::courses_db_models::*;
 use crate::{Database, db};
 
@@ -53,13 +48,13 @@ pub fn semester_from_text(input: &str) -> Option<i32> {
     }
 }
 
-async fn course_embed(ctx: &CowContext<'_>, class: &Class) -> CommandResult {
+async fn course_embed(ctx: &CowContext<'_>, class: &Class) -> Result<(), Error> {
     let db = cowdb!(ctx);
     let professors = db.get_professors_for_class(class.id).await;
     let meetings = db.get_meetings_for_class(class.id).await;
     let stats = db.get_stats().await;
 
-    msg.channel_id.send_message(&ctx.http, |m| m.embed(|e| {
+    ctx.send(|m| m.embed(|e| {
         e.title(format!("{}: {}", &class.course_number, class.course_title.clone().unwrap_or_else(|| "<unknown class name>".to_string())));
         e.description("Enrollment and Waitlist are in terms of seats available/seats taken/max seats.");
         e.field("CRN", class.course_reference_number, true);
@@ -111,11 +106,18 @@ async fn course_embed(ctx: &CowContext<'_>, class: &Class) -> CommandResult {
     Ok(())
 }
 
-#[poise::command(prefix_command, slash_command)]
-#[description = "Search for courses in a term."]
-#[aliases("course", "class", "classes")]
-#[usage = "<CRN, Course Number, or Name> [Semester] [Year]"]
-pub async fn courses(ctx: &CowContext<'_>, mut args: Args) -> CommandResult {
+#[poise::command(
+    prefix_command,
+    slash_command,
+    description_localized("en", "Search for courses in a term."),
+    aliases("course", "class", "classes")
+)]
+pub async fn courses(
+    ctx: CowContext<'_>,
+    #[description = "CRN, course number, or name of class"] #[rest] query: String
+) -> Result<(), Error> {
+    let mut args = Args::new(&*query, &[Delimiter::Single(' ')]);
+
     if args.is_empty() {
         ctx.say("Type the CRN, course number, or name of the class to look it up.").await?;
         return Ok(());
@@ -135,7 +137,7 @@ pub async fn courses(ctx: &CowContext<'_>, mut args: Args) -> CommandResult {
                 match db.get_class(numeric).await {
                     Ok(option_class) => {
                         if let Some(class) = option_class {
-                            course_embed(ctx, msg, &class).await?;
+                            course_embed(&ctx, &class).await?;
                         } else {
                             ctx.say(format!("Could not find a class with the CRN `{}`.", numeric)).await?;
                         }
@@ -163,10 +165,10 @@ pub async fn courses(ctx: &CowContext<'_>, mut args: Args) -> CommandResult {
     }
 
     let term = year * 100 + semester;
-    match search_course_by_number(ctx, msg, &search_query, term).await {
+    match search_course_by_number(&ctx, &search_query, term).await {
         Ok(any) => {
             if !any {
-                match search_course_by_name(ctx, msg, &search_query, term).await {
+                match search_course_by_name(&ctx, &search_query, term).await {
                     Ok(any) => {
                         if !any {
                             ctx.say("Failed to find any classes with the given query. Did you mistype the input?").await?;
@@ -188,31 +190,31 @@ pub async fn courses(ctx: &CowContext<'_>, mut args: Args) -> CommandResult {
     Ok(())
 }
 
-async fn search_course_by_number(ctx: &CowContext<'_>, search_query: &str, term: i32) -> Result<bool, Box<dyn std::error::Error + Send + Sync>> {
+async fn search_course_by_number(ctx: &CowContext<'_>, search_query: &str, term: i32) -> Result<bool, Box<dyn error::Error + Send + Sync>> {
     let db = cowdb!(ctx);
     let classes = db.search_class_by_number(search_query, term).await?;
-    print_matches(ctx, msg, &classes).await?;
+    print_matches(ctx, &classes).await?;
 
     Ok(!classes.is_empty())
 }
 
-async fn search_course_by_name(ctx: &CowContext<'_>, search_query: &str, term: i32) -> Result<bool, Box<dyn std::error::Error + Send + Sync>> {
+async fn search_course_by_name(ctx: &CowContext<'_>, search_query: &str, term: i32) -> Result<bool, Box<dyn error::Error + Send + Sync>> {
     let db = cowdb!(ctx);
     let classes = db.search_class_by_name(search_query, term).await?;
-    print_matches(ctx, msg, &classes).await?;
+    print_matches(ctx, &classes).await?;
 
     Ok(!classes.is_empty())
 }
 
-async fn print_matches(ctx: &CowContext<'_>, classes: &[PartialClass]) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+async fn print_matches(ctx: &CowContext<'_>, classes: &[PartialClass]) -> Result<(), Box<dyn error::Error + Send + Sync>> {
     if classes.is_empty() { return Ok(()); }
 
     if classes.len() == 1 {
         let db = cowdb!(ctx);
         let class = db.get_class(classes[0].course_reference_number).await?.unwrap();
-        course_embed(ctx, msg, &class).await?;
+        course_embed(ctx, &class).await?;
     } else {
-        msg.channel_id.send_message(&ctx.http, |m| m.embed(|e| {
+        ctx.send(|m| m.embed(|e| {
             e.title("Class Search").description("Multiple results were found for your query. Search again using the CRN for a particular class.");
             e.field(format!("Classes Matched (totalling {})", classes.len()),
                     classes

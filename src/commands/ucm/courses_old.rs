@@ -1,12 +1,11 @@
 use log::error;
-use crate::CowContext;
+use crate::{CowContext, Error};
 use serenity::{
     client::Context,
     model::{
         channel::Message
     },
     framework::standard::{
-        CommandResult,
         macros::{
             command
         }, Args
@@ -18,7 +17,7 @@ use crate::commands::ucm::course_models::{CourseList};
 #[poise::command(prefix_command, slash_command)]
 #[description = "Get the course list for a major"]
 #[usage = "<semester> <major>"]
-pub async fn courses_old(ctx: &CowContext<'_>, mut args: Args) -> CommandResult {
+pub async fn courses_old(ctx: &CowContext<'_>, mut args: Args) -> Result<(), Error> {
     let client = reqwest::Client::builder()
         .cookie_store(true)
         .build()?;

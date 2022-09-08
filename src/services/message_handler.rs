@@ -1,19 +1,21 @@
 use serenity::{
     client::Context,
-    model::{channel::Message, id::{RoleId}, guild::Member}
+    model::{id::{RoleId}, guild::Member}
 };
 use log::error;
-use crate::{Database, db};
+use crate::{Database, db, CowContext};
 
-pub async fn non_command(ctx: &Context) {
-    if msg.author.bot {
+pub async fn non_command(ctx: CowContext<'_>) {
+    let author = ctx.author();
+
+    if author.bot {
         return;
     }
 
     let db = db!(ctx);
 
-    if let Some(server_id) = ctx.guild_id() {
-        match db.channel_disabled(server_id, msg.channel_id).await {
+    if let Some(guild) = ctx.guild() {
+        match db.channel_disabled(guild.id, ctx.channel_id()).await {
             Err(ex) => {
                 error!("Failed checking if the current channel was disabled: {}", ex);
             },
@@ -24,7 +26,7 @@ pub async fn non_command(ctx: &Context) {
             }
         }
 
-        match db.provide_exp(server_id, msg.author.id).await {
+        match db.provide_exp(guild.id, ctx.author().id).await {
             Err(ex) => {
                 error!("Failed providing exp to user: {}", ex)
             },
@@ -33,13 +35,13 @@ pub async fn non_command(ctx: &Context) {
                     return;
                 }
 
-                let mut content = format!("<@{}> leveled up from {} to {}.", msg.author.id.as_u64(), data.level - 1, data.level);
+                let mut content = format!("<@{}> leveled up from {} to {}.", author.id.as_u64(), data.level - 1, data.level);
                 if let Some(new_rank_id) = data.new_rank {
                     content += &*format!("\nYou are now a <@&{}>.", new_rank_id);
 
                     let mut error = false;
-                    let guild = msg.guild(&ctx).unwrap();
-                    let mut member = guild.member(&ctx.http, msg.author.id).await.unwrap();
+
+                    let mut member = ctx.author_member().await.unwrap();
 
                     if let Some(old_rank_id) = data.old_rank {
                         let old_rank = RoleId::from(old_rank_id);
@@ -62,7 +64,7 @@ pub async fn non_command(ctx: &Context) {
                 }
 
                 if let Err(ex2) =
-                    msg.channel_id.send_message(&ctx.http, |m| m.embed(|e| e
+                    ctx.channel_id().send_message(&ctx.http, |m| m.embed(|e| e
                         .title("Level Up!")
                         .description(content)
                     )).await {

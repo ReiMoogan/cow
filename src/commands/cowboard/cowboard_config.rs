@@ -1,8 +1,8 @@
 use log::error;
-use crate::{CowContext, cowdb};
+use crate::{CowContext, cowdb, Error};
 use serenity::{
     framework::standard::{
-        macros::command, Args, CommandResult,
+        macros::command, Args
     },
     model::channel::Message, client::Context
 };
@@ -14,7 +14,7 @@ use crate::{Database, db};
 #[poise::command(prefix_command, slash_command)]
 #[description = "Get the current settings for the cowboard."]
 #[only_in(guilds)]
-pub async fn info(ctx: &CowContext<'_>) -> CommandResult {
+pub async fn info(ctx: &CowContext<'_>) -> Result<(), Error> {
     let db = cowdb!(ctx);
 
     if let Some(guild_id) = ctx.guild_id() {
@@ -45,7 +45,7 @@ pub async fn info(ctx: &CowContext<'_>) -> CommandResult {
 #[usage = "An emote, preferably one on the server or a default Discord emoji."]
 #[only_in(guilds)]
 #[required_permissions("ADMINISTRATOR")]
-pub async fn emote(ctx: &CowContext<'_>, mut args: Args) -> CommandResult {
+pub async fn emote(ctx: &CowContext<'_>, mut args: Args) -> Result<(), Error> {
     let db = cowdb!(ctx);
 
     if args.is_empty() {
@@ -86,7 +86,7 @@ pub async fn emote(ctx: &CowContext<'_>, mut args: Args) -> CommandResult {
 #[usage = "A positive number, greater than the removal bound."]
 #[only_in(guilds)]
 #[required_permissions("ADMINISTRATOR")]
-pub async fn addthreshold(ctx: &CowContext<'_>, mut args: Args) -> CommandResult {
+pub async fn addthreshold(ctx: &CowContext<'_>, mut args: Args) -> Result<(), Error> {
     let db = cowdb!(ctx);
 
     if args.is_empty() {
@@ -138,7 +138,7 @@ pub async fn addthreshold(ctx: &CowContext<'_>, mut args: Args) -> CommandResult
 #[usage = "A positive number, less than the addition bound."]
 #[only_in(guilds)]
 #[required_permissions("ADMINISTRATOR")]
-pub async fn removethreshold(ctx: &CowContext<'_>, mut args: Args) -> CommandResult {
+pub async fn removethreshold(ctx: &CowContext<'_>, mut args: Args) -> Result<(), Error> {
     let db = cowdb!(ctx);
 
     if args.is_empty() {
@@ -190,7 +190,7 @@ pub async fn removethreshold(ctx: &CowContext<'_>, mut args: Args) -> CommandRes
 #[usage = "Either uses the current channel or a provided channel."]
 #[only_in(guilds)]
 #[required_permissions("ADMINISTRATOR")]
-pub async fn channel(ctx: &CowContext<'_>, mut args: Args) -> CommandResult {
+pub async fn channel(ctx: &CowContext<'_>, mut args: Args) -> Result<(), Error> {
     let db = cowdb!(ctx);
 
     let mut channel = msg.channel_id;
@@ -239,7 +239,7 @@ pub async fn channel(ctx: &CowContext<'_>, mut args: Args) -> CommandResult {
 #[description = "Toggle webhook usage for the cowboard, versus the bot sending the messages."]
 #[only_in(guilds)]
 #[required_permissions("ADMINISTRATOR")]
-pub async fn webhook(ctx: &CowContext<'_>) -> CommandResult {
+pub async fn webhook(ctx: &CowContext<'_>) -> Result<(), Error> {
     let db = cowdb!(ctx);
 
     if let Some(guild) = msg.guild(ctx) {

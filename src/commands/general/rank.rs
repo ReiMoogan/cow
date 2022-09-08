@@ -1,8 +1,5 @@
-use crate::CowContext;
 use serenity::{
-    client::Context,
     model::{
-        channel::Message,
         id::{
             UserId,
             GuildId
@@ -10,15 +7,11 @@ use serenity::{
         user::User
     },
     framework::standard::{
-        CommandResult,
-        macros::{
-            command
-        },
         Args
     },
     utils::MessageBuilder
 };
-use crate::{Database, db};
+use crate::{Database, db, cowdb, Error, CowContext};
 use log::{error};
 
 async fn rank_embed(ctx: &CowContext<'_>, server_id: &GuildId, user: &User) {
@@ -45,7 +38,7 @@ async fn rank_embed(ctx: &CowContext<'_>, server_id: &GuildId, user: &User) {
         rank_str = format!("#{}", rank);
     }
 
-    if let Err(ex) = msg.channel_id.send_message(&ctx.http, |m| {m.embed(|e| {
+    if let Err(ex) = ctx.send(|m| {m.embed(|e| {
         e
             .title(
                 MessageBuilder::new()
@@ -65,45 +58,55 @@ async fn rank_embed(ctx: &CowContext<'_>, server_id: &GuildId, user: &User) {
     }
 }
 
-#[poise::command(prefix_command, slash_command)]
-#[description = "Get your current rank."]
-#[only_in(guilds)]
-pub async fn rank(ctx: &CowContext<'_>, mut args: Args) -> CommandResult {
-    let other = args.single::<UserId>();
+#[poise::command(
+    prefix_command,
+    slash_command,
+    guild_only,
+    description_localized("en", "Get your current rank."),
+    aliases("course", "class", "classes")
+)]
+pub async fn rank(
+    ctx: CowContext<'_>,
+    #[description = "A user to check their rank"] user: Option<UserId>)
+-> Result<(), Error> {
     if let Some(server_id) = ctx.guild_id() {
-        if let Ok(other_id) = other {
+        if let Ok(other_id) = user {
             if let Ok(other_user) = other_id.to_user(&ctx.http).await {
-                rank_embed(ctx, msg, &server_id, &other_user).await;
+                rank_embed(&ctx, &server_id, &other_user).await;
             } else {
                 ctx.say("Could not find user...").await?;
             }
         } else {
-            rank_embed(ctx, msg, &server_id, &msg.author).await;
+            rank_embed(&ctx, &server_id, &ctx.author()).await;
         }
     } else {
-        msg.reply(&ctx.http, "This command can only be run in a server.").await?;
+        ctx.say("This command can only be run in a server.").await?;
     }
 
     Ok(())
 }
 
-#[poise::command(prefix_command, slash_command)]
-#[description = "Disable/enable experience from being collected in the current channel."]
-#[only_in(guilds)]
-#[required_permissions("ADMINISTRATOR")]
-#[aliases("enablexp")]
-pub async fn disablexp(ctx: &CowContext<'_>) -> CommandResult {
+#[poise::command(
+    prefix_command,
+    slash_command,
+    guild_only,
+    required_permissions = "ADMINISTRATOR",
+    description_localized("en", "Disable/enable experience from being collected in the current channel."),
+    aliases("enablexp")
+)]
+pub async fn disablexp(ctx: CowContext<'_>) -> Result<(), Error> {
     let db = cowdb!(ctx);
     if let Some(server_id) = ctx.guild_id() {
         let mut content: String;
-        match db.toggle_channel_xp(server_id, msg.channel_id).await {
+        let channel = ctx.channel_id();
+        match db.toggle_channel_xp(server_id, channel).await {
             Ok(toggle) => {
                 if toggle {
                     content = "Disabled".to_string();
                 } else {
                     content = "Enabled".to_string();
                 }
-                content += &*format!(" collecting experience in <#{}>.", msg.channel_id.as_u64());
+                content += &*format!(" collecting experience in <#{}>.", channel.as_u64());
             },
             Err(ex) => {
                 content = "Failed to toggle channel xp status.".to_string();
@@ -111,18 +114,22 @@ pub async fn disablexp(ctx: &CowContext<'_>) -> CommandResult {
             }
         }
 
-        msg.channel_id.send_message(&ctx.http, |m| {m.content(content)}).await?;
+        ctx.say(content).await?;
     } else {
-        msg.reply(&ctx.http, "This command can only be run in a server.").await?;
+        ctx.say("This command can only be run in a server.").await?;
     }
 
     Ok(())
 }
 
-#[poise::command(prefix_command, slash_command)]
-#[description = "Get the current rankings in the server."]
-#[only_in(guilds)]
-pub async fn levels(ctx: &CowContext<'_>, mut args: Args) -> CommandResult {
+
+#[poise::command(
+    prefix_command,
+    slash_command,
+    guild_only,
+    description_localized("en", "Get the current rankings in the server.")
+)]
+pub async fn levels(ctx: CowContext<'_>, mut args: Args) -> Result<(), Error> {
     let db = cowdb!(ctx);
     if let Some(server_id) = ctx.guild_id() {
         let page = args.single::<i32>().unwrap_or(1).max(1);
@@ -137,7 +144,7 @@ pub async fn levels(ctx: &CowContext<'_>, mut args: Args) -> CommandResult {
                     })
                     .reduce(|a, b| {format!("{}\n{}", a, b)})
                     .unwrap_or_else(|| "There is nothing on this page.".to_string());
-                msg.channel_id.send_message(&ctx.http, |m| {
+                ctx.send(|m| {
                     m.embed(|e|
                         e
                             .title("Top Users")
@@ -151,7 +158,7 @@ pub async fn levels(ctx: &CowContext<'_>, mut args: Args) -> CommandResult {
             }
         }
     } else {
-        msg.reply(&ctx.http, "This command can only be run in a server.").await?;
+        ctx.say("This command can only be run in a server.").await?;
     }
 
     Ok(())

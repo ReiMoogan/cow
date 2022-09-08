@@ -1,13 +1,12 @@
 use chrono::{Datelike, Local};
 use log::error;
-use crate::CowContext;
+use crate::{CowContext, Error};
 use serenity::{
     client::Context,
     model::{
         channel::Message
     },
     framework::standard::{
-        CommandResult,
         macros::{
             command
         }
@@ -81,7 +80,7 @@ fn process_calendar(data: &str) -> Option<AcademicCalendar> {
     Some(AcademicCalendar { name: page_name.unwrap().unwrap(), semesters })
 }
 
-async fn print_schedule(ctx: &CowContext<'_>, schedule: &AcademicCalendar) -> CommandResult {
+async fn print_schedule(ctx: &CowContext<'_>, schedule: &AcademicCalendar) -> Result<(), Error> {
     msg.channel_id.send_message(&ctx.http, |m| m.embed(|e| {
         e.title(&schedule.name);
 
@@ -106,7 +105,7 @@ async fn print_schedule(ctx: &CowContext<'_>, schedule: &AcademicCalendar) -> Co
 #[poise::command(prefix_command, slash_command)]
 #[aliases(cal, academiccalendar)]
 #[description = "Get the academic calendar for the year."]
-pub async fn calendar(ctx: &CowContext<'_>, mut args: Args) -> CommandResult {
+pub async fn calendar(ctx: &CowContext<'_>, mut args: Args) -> Result<(), Error> {
     let now = Local::now();
     let mut year = now.year();
 

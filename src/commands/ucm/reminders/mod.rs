@@ -1,7 +1,5 @@
 mod course_reminders;
 
-use serenity::framework::standard::macros::group;
-
 use std::sync::Arc;
 use std::time::Duration;
 use log::error;
@@ -11,15 +9,19 @@ use serenity::{
 };
 use tokio::sync::RwLock;
 use tokio::time;
-use crate::{Database};
+use crate::{CowContext, Database, Error};
+use course_reminders::*;
 
-#[group]
-#[prefixes("reminders", "reminder", "remind")]
-#[description = "Set up reminders for class registration, based off seats or waitlist."]
-#[summary = "UCM Course Waitlist"]
-#[default_command(list)]
-#[commands(add, remove, list)]
-struct Reminders;
+#[poise::command(
+    prefix_command,
+    slash_command,
+    description_localized("en", "Set up reminders for class registration, based off seats or waitlist."),
+    subcommands("add", "remove", "list"),
+    aliases("remind", "reminder")
+)]
+pub async fn reminders(ctx: CowContext<'_>) -> Result<(), Error> {
+    list(ctx).await
+}
 
 pub async fn check_reminders(data: Arc<RwLock<TypeMap>>, ctx: Arc<CacheAndHttp>) {
     let mut interval_min = time::interval(Duration::from_secs(60));

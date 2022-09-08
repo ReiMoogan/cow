@@ -9,6 +9,5 @@ use music_commands::*;
     guild_only
 )]
 pub async fn parent(ctx: CowContext<'_>) -> Result<(), Error> {
-    ctx.say("Hello there!").await?;
-    Ok(())
+    help(ctx).await
 }

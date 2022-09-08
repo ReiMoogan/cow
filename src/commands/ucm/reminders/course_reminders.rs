@@ -1,29 +1,20 @@
 use log::error;
-use crate::CowContext;
-use serenity::{
-    client::Context,
-    model::{
-        channel::Message
-    },
-    framework::standard::{
-        CommandResult,
-        macros::{
-            command
-        }, Args
-    }
-};
+use crate::{CowContext, cowdb, Error};
 
 use crate::{db, Database};
 use crate::commands::ucm::courses_db_models::Reminder;
 
-#[poise::command(prefix_command, slash_command)]
-#[description = "List the reminders set."]
-pub async fn list(ctx: &CowContext<'_>) -> CommandResult {
+#[poise::command(
+    prefix_command,
+    slash_command,
+    description_localized("en", "List the reminders set.")
+)]
+pub async fn list(ctx: CowContext<'_>) -> Result<(), Error> {
     let db = cowdb!(ctx);
 
-    match db.get_user_reminders(msg.author.id).await {
+    match db.get_user_reminders(ctx.author.id).await {
         Ok(reminders) => {
-            msg.channel_id.send_message(&ctx.http, |m| m.embed(|e| {
+            ctx.send(|m| m.embed(|e| {
                 e.title("Your Course Reminders");
 
                 if reminders.is_empty() {
@@ -48,62 +39,34 @@ pub async fn list(ctx: &CowContext<'_>) -> CommandResult {
     Ok(())
 }
 
-#[poise::command(prefix_command, slash_command)]
-#[description = "Control reminders for class seats."]
-#[usage = "[CRN] <minimum seats> <for waitlist>"]
-pub async fn add(ctx: &CowContext<'_>, mut args: Args) -> CommandResult {
-    if args.is_empty() {
-        msg.channel_id.say(&ctx.http, "You need to pass in a valid CRN.\n\
-        You can also pass in the minimum amount of seats to trigger the reminder, as well.\n\
-        If you want, you can also make it trigger on waitlist seats instead (true/false), however you must have done the previous part beforehand.\n\
-        Ex. `reminders add 31415 1 true`").await?;
-        return Ok(());
-    }
+#[poise::command(
+    prefix_command,
+    slash_command,
+    description_localized("en", "Control reminders for class seats.")
+)]
+pub async fn add(
+    ctx: CowContext<'_>,
+    #[description = "The CRN of the class to get reminders for"] course_reference_number: i32,
+    #[description = "The minimum amount of seats to trigger at, 1 minimum"] min_seats: Option<i32>,
+    #[description = "If the reminder is for a waitlist spot"] for_waitlist: Option<bool>)
+-> Result<(), Error> {
 
-    let mut min_trigger = 1;
-    let mut for_waitlist = false;
-
-    let course_reference_number = match args.single::<i32>() {
-        Ok(value) => { value }
-        Err(_) => {
-            ctx.say("You need to pass in a valid CRN for the first value.").await?;
+    let mut min_trigger = if let Some(seats) = min_seats {
+        if seats < 1 {
+            ctx.say("Your minimum trigger must be greater than or equal to 1 seat.").await?;
             return Ok(());
         }
+
+        seats
+    } else {
+        1
     };
-
-    if !args.is_empty() {
-        match args.single::<i32>() {
-            Ok(value) => {
-                if value < 1 {
-                    ctx.say("Your minimum trigger must be greater than or equal to 1 seat.").await?;
-                    return Ok(());
-                }
-                min_trigger = value;
-            }
-            Err(_) => {
-                ctx.say("You need to pass in a positive integer for minimum trigger.").await?;
-                return Ok(());
-            }
-        }
-    }
-
-    if !args.is_empty() {
-        match args.single::<bool>() {
-            Ok(value) => {
-                for_waitlist = value;
-            }
-            Err(_) => {
-                ctx.say("Put \"true\" if you want to trigger on waitlist slots, otherwise omit this field (or put \"false\").").await?;
-                return Ok(());
-            }
-        }
-    }
-
+    
     let reminder = Reminder {
-        user_id: msg.author.id.0,
+        user_id: ctx.author.id.0,
         course_reference_number,
         min_trigger,
-        for_waitlist,
+        for_waitlist: for_waitlist.unwrap_or(false),
         triggered: false
     };
 
@@ -114,7 +77,7 @@ pub async fn add(ctx: &CowContext<'_>, mut args: Args) -> CommandResult {
             error!("Failed to add reminder: {}", ex);
             ctx.say("Error adding your reminder. Maybe you have a duplicate?").await?;
         } else {
-            msg.channel_id.say(&ctx.http, format!("Successfully added your reminder for {}: {}!",
+            ctx.say(format!("Successfully added your reminder for {}: {}!",
                                                   class.course_number,
                                                   class.course_title.unwrap_or_else(|| "<unknown class name>".to_string())
             )).await?;
@@ -126,31 +89,29 @@ pub async fn add(ctx: &CowContext<'_>, mut args: Args) -> CommandResult {
     Ok(())
 }
 
-#[poise::command(prefix_command, slash_command)]
-#[description = "Control reminders for class seats."]
-pub async fn remove(ctx: &CowContext<'_>, mut args: Args) -> CommandResult {
-    if args.is_empty() {
-        ctx.say("You need to pass in a valid CRN for a reminder you set up.").await?;
-        return Ok(());
-    }
+#[poise::command(
+    prefix_command,
+    slash_command,
+    description_localized("en", "Remove reminders for class seats.")
+)]
+pub async fn remove(
+    ctx: CowContext<'_>,
+    #[description = "The CRN of the class to disable reminders for"] course_reference_number: i32)
+-> Result<(), Error> {
 
-    if let Ok(course_reference_number) = args.single::<i32>() {
-        let db = cowdb!(ctx);
-        match db.remove_reminder(msg.author.id, course_reference_number).await {
-            Ok(success) => {
-                if success {
-                    ctx.say("Successfully removed your reminder.").await?;
-                } else {
-                    ctx.say("You did not have a reminder with this CRN.").await?;
-                }
-            }
-            Err(ex) => {
-                error!("Failed to remove reminder: {}", ex);
-                ctx.say("Failed to remove your reminder... try again later?").await?;
+    let db = cowdb!(ctx);
+    match db.remove_reminder(ctx.author.id, course_reference_number).await {
+        Ok(success) => {
+            if success {
+                ctx.say("Successfully removed your reminder.").await?;
+            } else {
+                ctx.say("You did not have a reminder with this CRN.").await?;
             }
         }
-    } else {
-        ctx.say("That is not a valid CRN.").await?;
+        Err(ex) => {
+            error!("Failed to remove reminder: {}", ex);
+            ctx.say("Failed to remove your reminder... try again later?").await?;
+        }
     }
 
     Ok(())

@@ -11,47 +11,35 @@ use log::error;
 use serenity::{
     model::{
         id::UserId,
-        channel::Message
     },
     framework:: {
         standard::{
-            macros::{
-                hook,
-                help
-            }
-            HelpOptions, CommandGroup, CommandResult, help_commands, Args, DispatchError
+            DispatchError
         }
     }
 };
 
 use crate::{CowContext, Error};
 
-#[help]
-#[individual_command_tip = "Cow help command\n\n\
-Add the command you want to learn more about to the help command\n"]
-#[command_not_found_text = "Could not find command: `{}`."]
-#[max_levenshtein_distance(2)]
-#[lacking_permissions = "Nothing"]
-#[strikethrough_commands_tip_in_dm = ""]
-#[strikethrough_commands_tip_in_guild = "Strikethrough commands require elevated permissions."]
-async fn cow_help(
-    context: &CowContext<'_>,
-    msg: &Message,
-    args: Args,
-    help_options: &'static HelpOptions,
-    groups: &[&'static CommandGroup],
-    owners: HashSet<UserId>,
-) -> CommandResult {
-    help_commands::with_embeds(context, msg, args, help_options, groups, owners).await?;
+#[poise::command(prefix_command, track_edits, slash_command)]
+async fn help(
+    ctx: CowContext<'_>,
+    #[description = "The command requested for help"]
+    #[autocomplete = "poise::builtins::autocomplete_command"]
+    command: Option<String>,
+) -> Result<(), Error> {
+    poise::builtins::help(
+        ctx,
+        command.as_deref(),
+        poise::builtins::HelpConfiguration {
+            show_context_menu_commands: true,
+            ..Default::default()
+        },
+    )
+        .await?;
     Ok(())
 }
 
-#[hook]
-async fn non_command(ctx: &CowContext<'_>) {
-    crate::message_handler::non_command(ctx, msg).await;
-}
-
-#[hook]
 async fn on_error(ctx: &CowContext<'_>, error: DispatchError, _command_name: &str) {
     if let DispatchError::Ratelimited(info) = error {
         if info.is_first_try {
@@ -72,6 +60,11 @@ pub async fn get_framework(pref: &str, _app_id: UserId, owners: HashSet<UserId>)
             prefix: Some(pref.to_string()),
             mention_as_prefix: true,
             ..Default::default()
+        },
+        listener: |ctx, event, _other_ctx, _bruh| {
+            Box::pin(async move {
+                crate::message_handler::non_command(ctx).await;
+            })
         },
         owners,
         ..Default::default()
