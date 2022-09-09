@@ -1,19 +1,7 @@
 use chrono::{Datelike, Local};
 use log::error;
-use serenity::{
-    client::Context,
-    model::{
-        channel::Message
-    },
-    framework::standard::{
-        CommandResult,
-        macros::{
-            command
-        }
-    }
-};
+use crate::{CowContext, Error};
 use scraper::{Html, Selector};
-use serenity::framework::standard::Args;
 
 pub struct Semester {
     pub name: String,
@@ -80,67 +68,72 @@ fn process_calendar(data: &str) -> Option<AcademicCalendar> {
     Some(AcademicCalendar { name: page_name.unwrap().unwrap(), semesters })
 }
 
-async fn print_schedule(ctx: &Context, msg: &Message, schedule: &AcademicCalendar) -> CommandResult {
-    msg.channel_id.send_message(&ctx.http, |m| m.embed(|e| {
-        e.title(&schedule.name);
+async fn print_schedule(ctx: &CowContext<'_>, schedule: &AcademicCalendar) -> Result<(), Error> {
+    ctx.send(|m| {
+        m.embeds.clear();
+        m.embed(|e| {
+            e.title(&schedule.name);
 
-        for semester in &schedule.semesters {
-            let output = semester.dates.iter()
-                .map(|o| {
-                    let (l, r) = o;
-                    format!("{} - {}", l, r)
-                })
-                .reduce(|a, b| format!("{}\n{}", a, b))
-                .unwrap_or_else(|| "Nothing was written...".to_string());
+            for semester in &schedule.semesters {
+                let output = semester.dates.iter()
+                    .map(|o| {
+                        let (l, r) = o;
+                        format!("{} - {}", l, r)
+                    })
+                    .reduce(|a, b| format!("{}\n{}", a, b))
+                    .unwrap_or_else(|| "Nothing was written...".to_string());
 
-            e.field(&semester.name, output, false);
-        }
+                e.field(&semester.name, output, false);
+            }
 
-        e
-    })).await?;
+            e
+        })
+    }).await?;
 
     Ok(())
 }
 
-#[command]
-#[aliases(cal, academiccalendar)]
-#[description = "Get the academic calendar for the year."]
-pub async fn calendar(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
+#[poise::command(
+    prefix_command,
+    slash_command,
+    description_localized("en-US", "Get the academic calendar for the year."),
+    aliases("cal", "academiccalendar")
+)]
+pub async fn calendar(
+    ctx: CowContext<'_>,
+    #[description = "A year on or past 2005."] year: i32)
+-> Result<(), Error> {
     let now = Local::now();
-    let mut year = now.year();
+    let mut calendar_year = now.year();
 
     if now.month() <= 7 { // Spring or summer semester are still on the previous year.
-        year -= 1;
+        calendar_year -= 1;
     }
 
-    while !args.is_empty() {
-        if let Ok(maybe_year) = args.single::<i32>() {
-            if maybe_year >= 2005 {
-                year = maybe_year;
-            }
-        }
+    if year >= 2005 {
+        calendar_year = year;
     }
 
-    let url = format!("https://registrar.ucmerced.edu/schedules/academic-calendar/academic-calendar-{}-{}", year, year + 1);
+    let url = format!("https://registrar.ucmerced.edu/schedules/academic-calendar/academic-calendar-{}-{}", calendar_year, calendar_year + 1);
     match reqwest::get(url).await {
         Ok(response) => {
             match response.text().await {
                 Ok(data) => {
                     let schedules = process_calendar(&*data);
                     if let Some(calendar) = schedules {
-                        print_schedule(ctx, msg, &calendar).await?;
+                        print_schedule(&ctx, &calendar).await?;
                     } else {
-                        msg.channel_id.say(&ctx.http, "Either you inputted an invalid year, or the website did not give us reasonable data.").await?;
+                        ctx.say("Either you inputted an invalid year, or the website did not give us reasonable data.").await?;
                     }
                 }
                 Err(ex) => {
-                    msg.channel_id.say(&ctx.http, "UC Merced gave us weird data, try again later?").await?;
+                    ctx.say("UC Merced gave us weird data, try again later?").await?;
                     error!("Failed to process calendar: {}", ex);
                 }
             }
         }
         Err(ex) => {
-            msg.channel_id.say(&ctx.http, "Failed to connect to the UC Merced website, try again later?").await?;
+            ctx.say("Failed to connect to the UC Merced website, try again later?").await?;
             error!("Failed to get food truck schedule: {}", ex);
         }
     }

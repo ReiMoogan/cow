@@ -1,22 +1,12 @@
 use chrono::{NaiveDate, NaiveTime};
 use reqwest::{Url, Client};
-use serenity::{
-    client::Context,
-    model::{channel::Message},
-    framework::standard::{
-        CommandResult,
-        macros::{
-            command
-        }
-    },
-    Error
-};
+use crate::{CowContext, Error};
 use crate::commands::ucm::pav_models::*;
 use log::error;
-use serenity::framework::standard::Args;
+use std::error;
 
 // Probably can be hard-coded to be 61bd7ecd8c760e0011ac0fac.
-async fn fetch_pavilion_company_info(client: &Client) -> Result<Company, Box<dyn std::error::Error + Send + Sync>> {
+async fn fetch_pavilion_company_info(client: &Client) -> Result<Company, Box<dyn error::Error + Send + Sync>> {
     let response = client
         .get("https://widget.api.eagle.bigzpoon.com/company")
         .header("x-comp-id", "uc-merced-the-pavilion")
@@ -29,7 +19,7 @@ async fn fetch_pavilion_company_info(client: &Client) -> Result<Company, Box<dyn
     Ok(result.data)
 }
 
-async fn fetch_pavilion_restaurants(client: &Client, company: &Company) -> Result<Vec<Location>, Box<dyn std::error::Error + Send + Sync>> {
+async fn fetch_pavilion_restaurants(client: &Client, company: &Company) -> Result<Vec<Location>, Box<dyn error::Error + Send + Sync>> {
     let response = client
         .get("https://widget.api.eagle.bigzpoon.com/nearbyrestaurants")
         .header("x-comp-id", company.id.as_str())
@@ -42,7 +32,7 @@ async fn fetch_pavilion_restaurants(client: &Client, company: &Company) -> Resul
     Ok(result.data)
 }
 
-async fn fetch_pavilion_groups(client: &Client, company: &Company, location: &Location) -> Result<MenuGroups, Box<dyn std::error::Error + Send + Sync>> {
+async fn fetch_pavilion_groups(client: &Client, company: &Company, location: &Location) -> Result<MenuGroups, Box<dyn error::Error + Send + Sync>> {
     let url = format!("https://widget.api.eagle.bigzpoon.com/locations/menugroups?locationId={}", location.id);
 
     let response = client
@@ -57,7 +47,7 @@ async fn fetch_pavilion_groups(client: &Client, company: &Company, location: &Lo
     Ok(result.data)
 }
 
-async fn fetch_pavilion_menu(client: &Client, company: &Company, location: &Location, category: &str, group: &str) -> Result<MenuItems, Box<dyn std::error::Error + Send + Sync>> {
+async fn fetch_pavilion_menu(client: &Client, company: &Company, location: &Location, category: &str, group: &str) -> Result<MenuItems, Box<dyn error::Error + Send + Sync>> {
     // I still can't believe someone thought putting JSON in a GET query was a good idea.
     let url = Url::parse_with_params("https://widget.api.eagle.bigzpoon.com/menuitems",
     &[("categoryId", category), ("isPreview", "false"), ("locationId", location.id.as_str()), ("menuGroupId", group),
@@ -75,7 +65,7 @@ async fn fetch_pavilion_menu(client: &Client, company: &Company, location: &Loca
     Ok(result.data)
 }
 
-async fn fetch_pavilion_raw_materials(client: &Client, company: &Company, location: &Location, item: &Item) -> Result<Vec<RawMaterial>, Box<dyn std::error::Error + Send + Sync>> {
+async fn fetch_pavilion_raw_materials(client: &Client, company: &Company, location: &Location, item: &Item) -> Result<Vec<RawMaterial>, Box<dyn error::Error + Send + Sync>> {
     const BODY: &str = r#"{ "menuId": "M_ID", "fdaRounding": true, "allergyIds": [], "lifestyleChoiceIds": [], "nutritionGoals": [], "preferenceApplyStatus": false, "skipCommonIngredients": [], "locationId": "L_ID" }"#;
     let response = client
         .post("https://widget.api.eagle.bigzpoon.com/raw-materials")
@@ -91,18 +81,27 @@ async fn fetch_pavilion_raw_materials(client: &Client, company: &Company, locati
     Ok(result.data)
 }
 
-#[command]
-#[description = "Get the current hours for dining services."]
-#[aliases("snack", "snacks", "snackshop", "cafe", "lantern", "lanterncafe")]
-pub async fn dining(ctx: &Context, msg: &Message) -> CommandResult {
-    print_pavilion_times(ctx, msg).await?;
+#[poise::command(
+    prefix_command,
+    slash_command,
+    description_localized("en-US", "Get the current hours for dining services."),
+    aliases("snack", "snacks", "snackshop", "cafe", "lantern", "lanterncafe")
+)]
+pub async fn dining(ctx: CowContext<'_>) -> Result<(), Error> {
+    print_pavilion_times(ctx).await?;
     Ok(())
 }
 
-#[command]
-#[description = "Get the current menu at the UCM Pavilion and Yablokoff."]
-#[aliases("pav", "yablokoff", "yab")]
-pub async fn pavilion(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
+#[poise::command(
+    prefix_command,
+    slash_command,
+    description_localized("en-US", "Get the current menu at the UCM Pavilion and Yablokoff."),
+    aliases("pav", "yablokoff", "yab")
+)]
+pub async fn pavilion(
+    ctx: CowContext<'_>,
+    #[description = "\"hours\" for hours, day of the week, and/or \"breakfast\"/\"lunch\"/\"dinner\""] options: Option<String>)
+-> Result<(), Error> {
     let date = chrono::offset::Local::now();
     let (mut day, mut meal) = PavilionTime::next_meal(&date);
 
@@ -112,25 +111,26 @@ pub async fn pavilion(ctx: &Context, msg: &Message, mut args: Args) -> CommandRe
     // For next week searches (most likely unused)
     let mut next_week = false;
 
+    let input = options.unwrap_or_default();
+    let args = input.split(' ').collect::<Vec<_>>();
     if args.len() == 1 {
         // Peek at first element to check if it's asking for the hours.
-        let input_lower = args.parse::<String>().unwrap().to_lowercase();
+        let input_lower = args[0].to_lowercase();
         if input_lower.contains("time") || input_lower.contains("hour") {
-            print_pavilion_times(ctx, msg).await?;
+            print_pavilion_times(ctx).await?;
             return Ok(())
         } else if input_lower.contains("announce") {
-            print_announcements(ctx, msg).await?;
+            print_announcements(ctx).await?;
             return Ok(())
         }
     }
 
-    while !args.is_empty() {
-        let input = args.single::<String>().unwrap();
-        if input == *"next" {
+    for arg in args {
+        if arg == "next" {
             next_week = true;
         }
         // If an input contains a day, set the day.
-        else if let Ok(input_day) = Day::try_from(&input) {
+        else if let Ok(input_day) = Day::try_from(arg) {
             day = input_day;
         }
         // Otherwise, it's a custom meal option.
@@ -138,7 +138,7 @@ pub async fn pavilion(ctx: &Context, msg: &Message, mut args: Args) -> CommandRe
             if !custom_meal.is_empty() {
                 custom_meal += " ";
             }
-            custom_meal += &*input;
+            custom_meal += arg;
         }
     }
 
@@ -155,7 +155,7 @@ pub async fn pavilion(ctx: &Context, msg: &Message, mut args: Args) -> CommandRe
         title = format!("{} at the Pavilion/Yablokoff for {}", meal, day);
     }
 
-    let mut message = msg.channel_id.send_message(&ctx.http, |m| m.embed(|e| {
+    let message = ctx.send(|m| m.embed(|e| {
         e
             .title(&title)
             .description("Loading data, please wait warmly...")
@@ -163,22 +163,25 @@ pub async fn pavilion(ctx: &Context, msg: &Message, mut args: Args) -> CommandRe
 
     let menus = process_bigzpoon(day, meal, next_week).await;
 
-    message.edit(&ctx.http, |m| m.embed(|e| {
-        e.title(&title);
-        for group in menus.iter().take(4) { // Max four filled fields...
-            let (group_name, menu) = group;
-            let menu_truncated = menu.chars().take(1024).collect::<String>();
-            e.field(group_name, menu_truncated, false);
-        }
+    message.edit(ctx, |m| {
+        m.embeds.clear();
+        m.embed(|e| {
+            e.title(&title);
+            for group in menus.iter().take(4) { // Max four filled fields...
+                let (group_name, menu) = group;
+                let menu_truncated = menu.chars().take(1024).collect::<String>();
+                e.field(group_name, menu_truncated, false);
+            }
 
-        e
-    })).await?;
+            e
+        })
+    }).await?;
 
     Ok(())
 }
 
-async fn print_pavilion_times(ctx: &Context, msg: &Message) -> Result<(), Error> {
-    msg.channel_id.send_message(&ctx.http, |m| m.embed(|e| e
+async fn print_pavilion_times(ctx: CowContext<'_>) -> Result<(), Error> {
+    ctx.send(|m| m.embed(|e| e
         .title("Dining Services Hours")
         .field("Pavilion on Weekdays", format!("Breakfast: {} - {}\nLunch: {} - {}\nDinner: {} - {}",
             PavilionTime::breakfast_weekday_start().format("%l:%M %p"), PavilionTime::breakfast_end().format("%l:%M %p"),
@@ -197,9 +200,9 @@ async fn print_pavilion_times(ctx: &Context, msg: &Message) -> Result<(), Error>
     Ok(())
 }
 
-async fn print_announcements(ctx: &Context, msg: &Message) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+async fn print_announcements(ctx: CowContext<'_>) -> Result<(), Box<dyn error::Error + Send + Sync>> {
     const TITLE: &str = "Pavilion/Yablokoff Announcements";
-    let mut message = msg.channel_id.send_message(&ctx.http, |m| m.embed(|e| {
+    let message = ctx.send(|m| m.embed(|e| {
         e
             .title(TITLE)
             .description("Loading data, please wait warmly...")
@@ -208,12 +211,15 @@ async fn print_announcements(ctx: &Context, msg: &Message) -> Result<(), Box<dyn
     let pav_announcement = process_announcement("ANNOUNCEMENT-PAV").await;
     let wydc_announcement = process_announcement("ANNOUNCEMENT-WYDC").await;
 
-    message.edit(&ctx.http, |m| m.embed(|e| {
-        e
-            .title(TITLE)
-            .field("Pavilion Announcements", pav_announcement, false)
-            .field("Yablokoff Announcements", wydc_announcement, false)
-    })).await?;
+    message.edit(ctx, |m| {
+        m.embeds.clear();
+        m.embed(|e| {
+            e
+                .title(TITLE)
+                .field("Pavilion Announcements", pav_announcement, false)
+                .field("Yablokoff Announcements", wydc_announcement, false)
+        })
+    }).await?;
 
     Ok(())
 }

@@ -1,17 +1,7 @@
 use chrono::{Datelike, DateTime, Local, TimeZone, Utc};
 use log::error;
-use serenity::{
-    client::Context,
-    model::{
-        channel::Message
-    },
-    framework::standard::{
-        CommandResult,
-        macros::{
-            command
-        }, Args
-    }
-};
+use crate::{CowContext, cowdb, Error};
+use std::error;
 use crate::commands::ucm::courses_db_models::*;
 use crate::{Database, db};
 
@@ -52,73 +42,85 @@ pub fn semester_from_text(input: &str) -> Option<i32> {
     }
 }
 
-async fn course_embed(ctx: &Context, msg: &Message, class: &Class) -> CommandResult {
-    let db = db!(ctx);
+async fn course_embed(ctx: &CowContext<'_>, class: &Class) -> Result<(), Error> {
+    let db = cowdb!(ctx);
     let professors = db.get_professors_for_class(class.id).await;
     let meetings = db.get_meetings_for_class(class.id).await;
     let stats = db.get_stats().await;
 
-    msg.channel_id.send_message(&ctx.http, |m| m.embed(|e| {
-        e.title(format!("{}: {}", &class.course_number, class.course_title.clone().unwrap_or_else(|| "<unknown class name>".to_string())));
-        e.description("Enrollment and Waitlist are in terms of seats available/seats taken/max seats.");
-        e.field("CRN", class.course_reference_number, true);
-        e.field("Credit Hours", class.credit_hours, true);
-        e.field("Term", format_term(class.term), true);
-        e.field("Enrollment", format!("{}/{}/{}", class.seats_available, class.enrollment, class.maximum_enrollment), true);
-        e.field("Waitlist", format!("{}/{}/{}", class.wait_available, class.wait_capacity - class.wait_available, class.wait_capacity), true);
+    ctx.send(|m| {
+        m.embeds.clear();
+        m.embed(|e| {
+            e.title(format!("{}: {}", &class.course_number, class.course_title.clone().unwrap_or_else(|| "<unknown class name>".to_string())));
+            e.description("Enrollment and Waitlist are in terms of seats available/seats taken/max seats.");
+            e.field("CRN", class.course_reference_number, true);
+            e.field("Credit Hours", class.credit_hours, true);
+            e.field("Term", format_term(class.term), true);
+            e.field("Enrollment", format!("{}/{}/{}", class.seats_available, class.enrollment, class.maximum_enrollment), true);
+            e.field("Waitlist", format!("{}/{}/{}", class.wait_available, class.wait_capacity - class.wait_available, class.wait_capacity), true);
 
-        if let Ok(professors) = professors {
-            e.field("Professor(s)",
-                    professors.iter()
-                        .map(|o| format!("- {}", o.full_name.clone()))
-                        .reduce(|a, b| format!("{}\n{}", a, b))
-                        .unwrap_or_else(|| "No professors are assigned to this course.".to_string()),
-                    false);
-        }
-
-        if let Ok(meetings) = meetings {
-            e.field("Meeting(s)",
-                    meetings.iter()
-                        .map(|o| {
-                            let output = format!("- {}: {} {}",
-                                                 o.meeting_type, o.building_description.clone().unwrap_or_else(|| "<no building>".to_string()), o.room.clone().unwrap_or_else(|| "<no room>".to_string()));
-                            if o.begin_time.is_some() && o.end_time.is_some() {
-                                let begin_time = o.begin_time.clone().unwrap();
-                                let end_time = o.end_time.clone().unwrap();
-                                return format!("{} ({} - {}) from {} to {} on {}", output, o.begin_date, o.end_date, fix_time(&begin_time), fix_time(&end_time), o.in_session);
-                            }
-
-                            output
-                        })
-                        .reduce(|a, b| format!("{}\n{}", a, b))
-                        .unwrap_or_else(|| "No meetings are assigned to this course.".to_string()),
-                    false);
-        }
-
-        if let Ok(stats) = stats {
-            if let Some(class_update) = stats.get("class") {
-                let local_time: DateTime<Local> = Local.from_local_datetime(class_update).unwrap();
-                let utc_time: DateTime<Utc> = DateTime::from(local_time);
-                e.footer(|f| f.text("Last updated at"));
-                e.timestamp(utc_time);
+            if let Ok(professors) = professors {
+                e.field("Professor(s)",
+                        professors.iter()
+                            .map(|o| format!("- {}", o.full_name.clone()))
+                            .reduce(|a, b| format!("{}\n{}", a, b))
+                            .unwrap_or_else(|| "No professors are assigned to this course.".to_string()),
+                        false);
             }
-        }
 
-        e
-    })).await?;
+            if let Ok(meetings) = meetings {
+                e.field("Meeting(s)",
+                        meetings.iter()
+                            .map(|o| {
+                                let output = format!("- {}: {} {}",
+                                                     o.meeting_type, o.building_description.clone().unwrap_or_else(|| "<no building>".to_string()), o.room.clone().unwrap_or_else(|| "<no room>".to_string()));
+                                if o.begin_time.is_some() && o.end_time.is_some() {
+                                    let begin_time = o.begin_time.clone().unwrap();
+                                    let end_time = o.end_time.clone().unwrap();
+                                    return format!("{} ({} - {}) from {} to {} on {}", output, o.begin_date, o.end_date, fix_time(&begin_time), fix_time(&end_time), o.in_session);
+                                }
+
+                                output
+                            })
+                            .reduce(|a, b| format!("{}\n{}", a, b))
+                            .unwrap_or_else(|| "No meetings are assigned to this course.".to_string()),
+                        false);
+            }
+
+            if let Ok(stats) = stats {
+                if let Some(class_update) = stats.get("class") {
+                    let local_time: DateTime<Local> = Local.from_local_datetime(class_update).unwrap();
+                    let utc_time: DateTime<Utc> = DateTime::from(local_time);
+                    e.footer(|f| f.text("Last updated at"));
+                    e.timestamp(utc_time);
+                }
+            }
+
+            e
+        })
+    }).await?;
 
     Ok(())
 }
 
-#[command]
-#[description = "Search for courses in a term."]
-#[aliases("course", "class", "classes")]
-#[usage = "<CRN, Course Number, or Name> [Semester] [Year]"]
-pub async fn courses(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
-    if args.is_empty() {
-        msg.channel_id.say(&ctx.http, "Type the CRN, course number, or name of the class to look it up.").await?;
+#[poise::command(
+    prefix_command,
+    slash_command,
+    description_localized("en-US", "Search for courses in a term."),
+    aliases("course", "class", "classes")
+)]
+pub async fn courses(
+    ctx: CowContext<'_>,
+    #[description = "CRN, course number, or name of class"] #[rest] query: Option<String>
+) -> Result<(), Error> {
+    let query = query.unwrap_or_default();
+
+    if query.is_empty() {
+        ctx.say("Type the CRN, course number, or name of the class to look it up.").await?;
         return Ok(());
     }
+
+    let args = query.split(' ');
 
     let current_date = Local::now().date();
     let mut year = current_date.year();
@@ -126,103 +128,104 @@ pub async fn courses(ctx: &Context, msg: &Message, mut args: Args) -> CommandRes
     let mut semester = if current_date.month() >= 3 && current_date.month() <= 10 { 30 } else { 10 };
     let mut search_query = String::new();
 
-    while !args.is_empty() {
-        if let Ok(numeric) = args.parse::<i32>() {
+    for arg in args {
+        if let Ok(numeric) = arg.parse::<i32>() {
             // Make sure it's not a year lol
             if numeric >= 10000 {
-                let db = db!(ctx);
+                let db = cowdb!(ctx);
                 match db.get_class(numeric).await {
                     Ok(option_class) => {
                         if let Some(class) = option_class {
-                            course_embed(ctx, msg, &class).await?;
+                            course_embed(&ctx, &class).await?;
                         } else {
-                            msg.channel_id.say(&ctx.http, format!("Could not find a class with the CRN `{}`.", numeric)).await?;
+                            ctx.say(format!("Could not find a class with the CRN `{}`.", numeric)).await?;
                         }
                     }
                     Err(ex) => {
                         error!("Failed to get class: {}", ex);
-                        msg.channel_id.say(&ctx.http, "Failed to query our database... try again later?").await?;
+                        ctx.say("Failed to query our database... try again later?").await?;
                     }
                 }
                 return Ok(())
             } else if numeric >= 2005 {
                 year = numeric;
-                args.advance();
                 continue;
             }
         }
 
-        let text = args.single::<String>().unwrap();
-        if let Some(sem) = semester_from_text(&text) {
+        if let Some(sem) = semester_from_text(arg) {
             semester = sem;
         } else {
             search_query.push(' ');
-            search_query.push_str(&text);
+            search_query.push_str(arg);
         }
     }
 
     let term = year * 100 + semester;
-    match search_course_by_number(ctx, msg, &search_query, term).await {
+    match search_course_by_number(&ctx, &search_query, term).await {
         Ok(any) => {
             if !any {
-                match search_course_by_name(ctx, msg, &search_query, term).await {
+                match search_course_by_name(&ctx, &search_query, term).await {
                     Ok(any) => {
                         if !any {
-                            msg.channel_id.say(&ctx.http, "Failed to find any classes with the given query. Did you mistype the input?").await?;
+                            ctx.say("Failed to find any classes with the given query. Did you mistype the input?").await?;
                         }
                     }
                     Err(ex) => {
                         error!("Failed to search by name: {}", ex);
-                        msg.channel_id.say(&ctx.http, "Failed to search for classes... try again later?").await?;
+                        ctx.say("Failed to search for classes... try again later?").await?;
                     }
                 }
             }
         }
         Err(ex) => {
             error!("Failed to search by name: {}", ex);
-            msg.channel_id.say(&ctx.http, "Failed to search for classes... try again later?").await?;
+            ctx.say("Failed to search for classes... try again later?").await?;
         }
     }
 
     Ok(())
 }
 
-async fn search_course_by_number(ctx: &Context, msg: &Message, search_query: &str, term: i32) -> Result<bool, Box<dyn std::error::Error + Send + Sync>> {
-    let db = db!(ctx);
+async fn search_course_by_number(ctx: &CowContext<'_>, search_query: &str, term: i32) -> Result<bool, Box<dyn error::Error + Send + Sync>> {
+    let db = cowdb!(ctx);
     let classes = db.search_class_by_number(search_query, term).await?;
-    print_matches(ctx, msg, &classes).await?;
+    print_matches(ctx, &classes).await?;
 
     Ok(!classes.is_empty())
 }
 
-async fn search_course_by_name(ctx: &Context, msg: &Message, search_query: &str, term: i32) -> Result<bool, Box<dyn std::error::Error + Send + Sync>> {
-    let db = db!(ctx);
+async fn search_course_by_name(ctx: &CowContext<'_>, search_query: &str, term: i32) -> Result<bool, Box<dyn error::Error + Send + Sync>> {
+    let db = cowdb!(ctx);
     let classes = db.search_class_by_name(search_query, term).await?;
-    print_matches(ctx, msg, &classes).await?;
+    print_matches(ctx, &classes).await?;
 
     Ok(!classes.is_empty())
 }
 
-async fn print_matches(ctx: &Context, msg: &Message, classes: &[PartialClass]) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+async fn print_matches(ctx: &CowContext<'_>, classes: &[PartialClass]) -> Result<(), Box<dyn error::Error + Send + Sync>> {
     if classes.is_empty() { return Ok(()); }
 
     if classes.len() == 1 {
-        let db = db!(ctx);
+        let db = cowdb!(ctx);
         let class = db.get_class(classes[0].course_reference_number).await?.unwrap();
-        course_embed(ctx, msg, &class).await?;
+        course_embed(ctx, &class).await?;
     } else {
-        msg.channel_id.send_message(&ctx.http, |m| m.embed(|e| {
-            e.title("Class Search").description("Multiple results were found for your query. Search again using the CRN for a particular class.");
-            e.field(format!("Classes Matched (totalling {})", classes.len()),
-                    classes
+        ctx.send(|m| {
+            m.embeds.clear();
+            m.embed(|e| {
+                e.title("Class Search").description("Multiple results were found for your query. Search again using the CRN for a particular class.");
+                e.field(format!("Classes Matched (totalling {})", classes.len()),
+                        classes
                             .iter()
                             .take(10)
                             .map(|o| format!("`{}` - {}: {}", o.course_reference_number, o.course_number, o.course_title.clone().unwrap_or_else(|| "<unknown class name>".to_string())))
                             .reduce(|a, b| format!("{}\n{}", a, b))
                             .unwrap(),
-                    false);
-            e
-        })).await?;
+                        false);
+                e
+            })
+        }).await?;
     }
 
     Ok(())

@@ -1,13 +1,13 @@
 mod music_commands;
 
-use serenity::framework::standard::macros::group;
-
+use crate::{CowContext, Error};
 use music_commands::*;
 
-#[group]
-#[prefixes("music")]
-#[description = "Commands for playing music."]
-#[summary = "Music"]
-#[default_command(help)]
-#[commands(help, join, leave, play, playlist, pause, now_playing, skip, queue)]
-struct Music;
+#[poise::command(prefix_command, slash_command,
+    subcommands("help", "join", "leave", "play", "playlist", "pause", "now_playing", "skip", "queue"),
+    description_localized("en-US", "Commands for playing music."),
+    guild_only
+)]
+pub async fn music(_ctx: CowContext<'_>) -> Result<(), Error> {
+    Ok(())
+}

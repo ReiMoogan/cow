@@ -1,14 +1,12 @@
 mod timeout_config;
 
-use serenity::framework::standard::macros::group;
-
 use timeout_config::*;
+use crate::{CowContext, Error};
 
-#[group]
-#[prefixes("timeout")]
-#[description = "Commands for viewing and settinge the cooldown for chat xp."]
-#[summary = "Timeouts"]
-#[default_command(get)]
-#[commands(set, get)]
-struct Timeout;
-
+#[poise::command(prefix_command, slash_command,
+    subcommands("get", "set"),
+    description_localized("en-US", "Commands for viewing and settinge the cooldown for chat xp.")
+)]
+pub async fn timeout(_ctx: CowContext<'_>) -> Result<(), Error> {
+    Ok(()) //get().inner(ctx).await
+}

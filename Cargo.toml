@@ -1,7 +1,7 @@
 [package]
 name = "cow"
 description = "moo"
-version = "0.1.43"
+version = "0.2.1"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -31,34 +31,33 @@ reqwest = { version = "0.11.10", features = ["json", "cookies"] }
 num-traits = "0.2.14"
 num-derive = "0.3.3"
 # Music stuff
-# 0.1.8 is the latest version that works, 0.2 breaks lavalink unlike what documentation says
-songbird = { version = "0.1.8", default-features = false, features = ["serenity-rustls", "gateway"] }
-lavalink-rs = { version = "0.8.0", features = ["rustls", "serenity"] }
+songbird = { version = "0.3.0", default-features = false, features = ["serenity-rustls", "gateway"] }
+lavalink-rs = { path = "../lavalink-rs", features = ["rustls", "serenity", "songbird"] }
 # Literally in the name
 regex = "1.5.5"
 # Wait bruh enums can't be bits?
 bitflags = "1.3.2"
 # Traits aren't async?
 async-trait = "0.1.53"
+# Slash command framework
+poise = "0.3.0"
 
 # Discord API
 [dependencies.serenity]
 default-features = false
 features = [
     "builder",
-    "cache",
     "client",
-    "framework",
+    "chrono",
     "gateway",
-    "http",
     "model",
-    "standard_framework",
     "utils",
+    "collector",
     "rustls_backend",
     "unstable_discord_api", # For slash commands/components
     "voice"
 ]
-version = "0.10.10"
+version = "0.11.5"
 
 # SQL Server
 [dependencies.tiberius]

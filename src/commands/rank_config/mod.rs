@@ -1,15 +1,15 @@
 mod roles;
 mod diagnostics;
 
-use serenity::framework::standard::macros::group;
-
 use roles::*;
 use diagnostics::*;
+use crate::{CowContext, Error};
 
-#[group]
-#[prefixes("rankconfig", "rc")]
-#[description = "Configuration to manage ranks and levelling on the server."]
-#[summary = "Rank configuration"]
-#[default_command(list)]
-#[commands(list, add, remove, scan, fix)]
-struct RankConfig;
+#[poise::command(prefix_command, slash_command,
+    subcommands("list", "add", "remove", "scan", "fix"),
+    description_localized("en-US", "Configuration to manage ranks and levelling on the server."),
+    aliases("rc")
+)]
+pub async fn rankconfig(_ctx: CowContext<'_>) -> Result<(), Error> {
+    Ok(()) //list().inner(ctx).await
+}

@@ -1,45 +1,32 @@
 use log::error;
-use serenity::{
-    client::Context,
-    model::{
-        channel::Message
-    },
-    framework::standard::{
-        CommandResult,
-        macros::{
-            command
-        }, Args
-    }
-};
+use crate::{CowContext, Error};
 use chrono::Datelike;
 use crate::commands::ucm::course_models::{CourseList};
 
-#[command]
-#[description = "Get the course list for a major"]
-#[usage = "<semester> <major>"]
-pub async fn courses_old(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
+#[poise::command(
+    prefix_command,
+    slash_command,
+    description_localized("en-US", "Get the course list for a major.")
+)]
+pub async fn courses_old(
+    ctx: CowContext<'_>,
+    #[description = "The semester: Fall, Spring, or Summer"] selected_sem: String,
+    #[description = "The major: ENGR, CSE, etc."] selected_major: String)
+-> Result<(), Error> {
     let client = reqwest::Client::builder()
         .cookie_store(true)
         .build()?;
-    
-    let term = match args.single::<String>() {
-        Ok(selected_sem) => {
-            let now = chrono::Utc::now();
-            let sem_code = match selected_sem.to_lowercase().as_str() {
-                "fall" => "10",
-                "spring" => "20",
-                "summer" => "30",
-                _ => "00"
-            };
 
-            format!("{}{}", now.year(), sem_code)
-        },
-
-        Err(_) => {
-            msg.channel_id.say(&ctx.http, "Please use the semester names 'fall', 'spring', or 'summer'.").await?;
-            return Ok(());
-        }
+    let now = chrono::Utc::now();
+    let sem_code = match selected_sem.to_lowercase().as_str() {
+        "fall" => "10",
+        "spring" => "20",
+        "summer" => "30",
+        _ => "00"
     };
+
+    let term = format!("{}{}", now.year(), sem_code);
+
 
     // setting the session cookies
     let term_url = format!("https://reg-prod.ec.ucmerced.edu/StudentRegistrationSsb/ssb/term/search?\
@@ -54,9 +41,7 @@ pub async fn courses_old(ctx: &Context, msg: &Message, mut args: Args) -> Comman
     client.get(term_url).send().await?;
     client.get(search_url).send().await?;
 
-    let major = args.single::<String>()
-        .unwrap_or_else(|_| "".into())
-        .to_uppercase();
+    let major = selected_major.to_uppercase();
     
     let url = format!("https://reg-prod.ec.ucmerced.edu/StudentRegistrationSsb/ssb/courseSearchResults/courseSearchResults?\
         txt_subject={}\
@@ -73,7 +58,8 @@ pub async fn courses_old(ctx: &Context, msg: &Message, mut args: Args) -> Comman
             // TODO: add pagination for courses
             match response.json::<CourseList>().await {
                 Ok(course_list) => {
-                    msg.channel_id.send_message(&ctx.http, |m| {
+                    ctx.send(|m| {
+                        m.embeds.clear();
                         m.embed(|e| {
                             e
                                 .title("Course List")
@@ -90,13 +76,13 @@ pub async fn courses_old(ctx: &Context, msg: &Message, mut args: Args) -> Comman
                     }).await?;
                 }
                 Err(ex) => {
-                    msg.channel_id.say(&ctx.http, "The course search gave us weird data, try again later?").await?;
+                    ctx.say("The course search gave us weird data, try again later?").await?;
                     error!("Failed to process course search: {}", ex);
                 }
             }
         }
         Err(ex) => {
-            msg.channel_id.say(&ctx.http, "Failed to connect to the course search API, try again later?").await?;
+            ctx.say("Failed to connect to the course search API, try again later?").await?;
             error!("Failed to get course search: {}", ex);
         }
     }

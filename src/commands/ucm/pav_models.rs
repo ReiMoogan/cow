@@ -31,7 +31,7 @@ impl TryFrom<u32> for Day {
 }
 
 impl From<Weekday> for Day {
-    fn from(v: chrono::Weekday) -> Self {
+    fn from(v: Weekday) -> Self {
         match v {
             Weekday::Mon => Day::Monday,
             Weekday::Tue => Day::Tuesday,
@@ -44,9 +44,9 @@ impl From<Weekday> for Day {
     }
 }
 
-impl TryFrom<&String> for Day {
+impl TryFrom<&str> for Day {
     type Error = ();
-    fn try_from(v: &String) -> Result<Self, Self::Error> {
+    fn try_from(v: &str) -> Result<Self, Self::Error> {
         if v.len() < 2 {
             // Can't predict the date off one or zero chars.
             return Err(());

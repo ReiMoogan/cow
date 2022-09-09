@@ -1,44 +1,43 @@
 use std::collections::{HashMap, HashSet};
 use log::error;
+use crate::{CowContext, cowdb, Error};
 use serenity::{
-    client::Context,
     model::{
-        channel::Message,
         id::{
             RoleId
         }
-    },
-    framework::standard::{
-        CommandResult,
-        macros::{
-            command
-        },
-        Args
     },
     utils::MessageBuilder
 };
 use crate::{Database, db};
 
-#[command]
-#[description = "Scan for discrepancies between server member roles and the stored info."]
-#[only_in(guilds)]
-#[bucket = "diagnostics"]
-#[required_permissions("ADMINISTRATOR")]
-pub async fn scan(ctx: &Context, msg: &Message) -> CommandResult {
-    let db = db!(ctx);
-    if let Some(guild_id) = msg.guild_id {
+#[poise::command(
+    prefix_command,
+    slash_command,
+    guild_only,
+    description_localized("en-US", "Scan for discrepancies between server member roles and the stored info."),
+    required_permissions = "ADMINISTRATOR",
+    guild_cooldown = "900"
+)]
+pub async fn scan(ctx: CowContext<'_>) -> Result<(), Error> {
+    let db = cowdb!(ctx);
+    if let Some(guild_id) = ctx.guild_id() {
         let mut message = MessageBuilder::new();
+        let serenity = ctx.discord();
 
-        let mut discord_message = msg.channel_id.send_message(&ctx.http, |m| m.embed(|e| e
-            .title("Member Scan")
-            .description("Now processing, please wait warmly...")
-        )).await?;
+        let discord_message = ctx.send(|m| {
+            m.embeds.clear();
+            m.embed(|e| e
+                .title("Member Scan")
+                .description("Now processing, please wait warmly...")
+            )
+        }).await?;
 
         let roles = db.get_roles(guild_id).await?;
         let role_set = roles.into_iter().filter_map(|r| r.role_id).collect::<HashSet<_>>();
         let users = db.get_users(guild_id).await?;
         for u in users {
-            if let Ok(member) = guild_id.member(&ctx.http, u.user).await {
+            if let Ok(member) = guild_id.member(&serenity.http, u.user).await {
                 let member_role_set: HashSet<RoleId> = HashSet::from_iter(member.roles.iter().cloned());
                 let intersection = role_set.intersection(&member_role_set).collect::<HashSet<_>>();
                 if let Some(expected_role) = u.role_id {
@@ -71,26 +70,36 @@ pub async fn scan(ctx: &Context, msg: &Message) -> CommandResult {
             content = "There were no discrepancies between our database and the server members.".to_string();
         }
 
-        discord_message.edit(&ctx.http, |m| m.embed(|e| e
-            .title("Member Scan")
-            .description(content)
-        )).await?;
+        discord_message.edit(ctx, |m| {
+            m.embeds.clear();
+            m.embed(|e| e
+                .title("Member Scan")
+                .description(content)
+            )
+        }).await?;
     } else {
-        msg.reply(&ctx.http, "This command can only be run in a server.").await?;
+        ctx.say("This command can only be run in a server.").await?;
     }
 
     Ok(())
 }
 
-#[command]
-#[description = "Fix any discrepancies between server member roles and the stored info. By default, this will only affect"]
-#[only_in(guilds)]
-#[required_permissions("ADMINISTRATOR")]
-#[bucket = "diagnostics"]
-#[usage = "\"multiple\" to fix users with multiple roles, \"remove\" to remove roles from users, and \"demote\" to modify ranks downwards."]
-pub async fn fix(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
-    let db = db!(ctx);
-    if let Some(guild_id) = msg.guild_id {
+#[poise::command(
+    prefix_command,
+    slash_command,
+    guild_only,
+    description_localized("en-US", "Fix any discrepancies between server member roles and the stored info."),
+    required_permissions = "ADMINISTRATOR",
+    guild_cooldown = "900"
+)]
+pub async fn fix(
+    ctx: CowContext<'_>,
+    #[description = "Fix users with multiple valid ranks"] option_multiple: Option<bool>,
+    #[description = "Remove ranks from people who shouldn't have a rank"] option_remove: Option<bool>,
+    #[description = "Demote users who have a higher rank than they should"] option_demote: Option<bool>
+) -> Result<(), Error> {
+    let db = cowdb!(ctx);
+    if let Some(guild_id) = ctx.guild_id() {
         /*
             There are several invalid cases we have to worry about:
             - The user shouldn't have the role, and yet they do have conflicting roles (non-trivial) -> remove
@@ -106,26 +115,22 @@ pub async fn fix(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult 
 
         let (mut count_trivial, mut count_multiple, mut count_remove, mut count_demote, mut count_error, mut total_error, mut total) = (0, 0, 0, 0, 0, 0, 0);
 
-        let (mut option_multiple, mut option_remove, mut option_demote) = (false, false, false);
-
-        while !args.is_empty() {
-            let arg = args.single::<String>().unwrap().to_lowercase();
-            option_multiple |= arg.contains("multiple");
-            option_remove |= arg.contains("remove");
-            option_demote |= arg.contains("demote");
-        }
-
-        let mut discord_message = msg.channel_id.send_message(&ctx.http, |m| m.embed(|e| e
-            .title("Role Auto-fix")
-            .description("Now fixing roles, please wait warmly...")
-        )).await?;
+        let discord_message = ctx.send(|m| {
+            m.embeds.clear();
+            m.embed(|e| e
+                .title("Role Auto-fix")
+                .description("Now fixing roles, please wait warmly...")
+            )
+        }).await?;
+        
+        let serenity = ctx.discord();
 
         let roles = db.get_roles(guild_id).await?;
         let role_map = roles.into_iter().filter(|r| r.role_id.is_some()).map(|r| (r.role_id.unwrap(), r.min_level)).collect::<HashMap<_, _>>();
         let role_set: HashSet<RoleId> = role_map.keys().cloned().collect(); // Mildly disgusting.
         let users = db.get_users(guild_id).await?;
         for u in users {
-            if let Ok(mut member) = guild_id.member(&ctx.http, u.user).await {
+            if let Ok(mut member) = guild_id.member(&serenity.http, u.user).await {
                 total += 1;
 
                 let member_role_set: HashSet<RoleId> = HashSet::from_iter(member.roles.iter().cloned());
@@ -137,7 +142,7 @@ pub async fn fix(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult 
                     total_error += 1;
 
                     if intersection.is_empty() { // They do not have the role, and need it
-                        if let Err(ex) = member.add_role(&ctx.http, expected_role).await {
+                        if let Err(ex) = member.add_role(&serenity.http, expected_role).await {
                             error!("Failed to add role: {}", ex);
                             count_error += 1;
                         } else {
@@ -146,13 +151,13 @@ pub async fn fix(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult 
                     } else if intersection.len() == 1 { // They have another role in place
                         let existing_role = intersection.into_iter().next().unwrap();
                         let promote = role_map[existing_role] < role_map[&expected_role];
-                        if promote || option_demote { // Promote them
-                            if let Err(ex) = member.remove_role(&ctx.http, existing_role).await {
+                        if promote || option_demote.unwrap_or(false) { // Promote them
+                            if let Err(ex) = member.remove_role(&serenity.http, existing_role).await {
                                 error!("Failed to remove role for demoting: {}", ex);
                                 count_error += 1;
                             }
 
-                            if let Err(ex) = member.add_role(&ctx.http, expected_role).await {
+                            if let Err(ex) = member.add_role(&serenity.http, expected_role).await {
                                 error!("Failed to add role for promoting/demoting: {}", ex);
                                 count_error += 1;
                             } else if promote {
@@ -161,20 +166,20 @@ pub async fn fix(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult 
                                 count_demote += 1;
                             }
                         }
-                    } else if option_multiple { // We have multiple to deal with
+                    } else if option_multiple.unwrap_or(false) { // We have multiple to deal with
                         for r in intersection {
                             if *r == expected_role {
                                 continue;
                             }
 
-                            if let Err(ex) = member.remove_role(&ctx.http, r).await {
+                            if let Err(ex) = member.remove_role(&serenity.http, r).await {
                                 error!("Failed to remove excess roles: {}", ex);
                                 count_error += 1;
                             }
                         }
 
                         if !member.roles.contains(&expected_role) {
-                            if let Err(ex) = member.add_role(&ctx.http, expected_role).await {
+                            if let Err(ex) = member.add_role(&serenity.http, expected_role).await {
                                 error!("Failed to add role: {}", ex);
                                 count_error += 1;
                             }
@@ -189,9 +194,9 @@ pub async fn fix(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult 
 
                     total_error += 1;
 
-                    if option_remove {
+                    if option_remove.unwrap_or(false) {
                         for r in intersection {
-                            if let Err(ex) = member.remove_role(&ctx.http, r).await {
+                            if let Err(ex) = member.remove_role(&serenity.http, r).await {
                                 error!("Failed to remove role: {}", ex);
                                 count_error += 1;
                             } else {
@@ -203,17 +208,20 @@ pub async fn fix(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult 
             }
         }
 
-        discord_message.edit(&ctx.http, |m| m.embed(|e| e
-            .title("Role Auto-fix")
-            .description(format!("Processed {} members in the database with {} errors found:\n\
+        discord_message.edit(ctx, |m| {
+            m.embeds.clear();
+            m.embed(|e| e
+                .title("Role Auto-fix")
+                .description(format!("Processed {} members in the database with {} errors found:\n\
             - Trivial fixes: {}\n\
             - Fixes for multiple roles: {}\n\
             - Members with their roles fully revoked: {}\n\
             - Members demoted: {}\n\
             - Errors adding/removing roles: {}", total, total_error, count_trivial, count_multiple, count_remove, count_demote, count_error))
-        )).await?;
+            )
+        }).await?;
     } else {
-        msg.reply(&ctx.http, "This command can only be run in a server.").await?;
+        ctx.say("This command can only be run in a server.").await?;
     }
 
     Ok(())

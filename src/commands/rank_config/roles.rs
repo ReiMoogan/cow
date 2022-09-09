@@ -1,147 +1,113 @@
+use crate::{CowContext, cowdb, Error};
 use serenity::{
-    client::Context,
     model::{
-        channel::Message,
         id::{
             RoleId
-        },
-        guild::Guild
+        }
     },
-    framework::standard::{
-        CommandResult,
-        macros::{
-            command
-        },
-        Args
-    },
-    utils::{
-        MessageBuilder
-    }
 };
 use crate::{Database, db};
 use log::{error};
+use serenity::model::guild::Role;
 
 // Parameters: rankconfig add [min_level] [rank]
 
-async fn get_role(ctx: &Context, msg: &Message, guild: &Guild, args: &Args) -> Option<(RoleId, String)> {
-    let role_id: RoleId;
-    let mut role_text: String;
+#[poise::command(
+    prefix_command,
+    slash_command,
+    guild_only,
+    description_localized("en-US", "Add a rank to the configuration."),
+    required_permissions = "ADMINISTRATOR"
+)]
+pub async fn add(
+    ctx: CowContext<'_>,
+    #[description = "The minimum level to obtain this rank"] min_level: i32,
+    #[description = "The role that is associated with this rank"] role: Role)
+-> Result<(), Error> {
+    let db = cowdb!(ctx);
 
-    if let Ok(role) = args.parse::<RoleId>() {
-        role_id = role;
-        if let Some(role) = guild.roles.get(&role) {
-            role_text = role.name.clone();
-        } else {
-            if let Err(ex) = msg.channel_id.say(&ctx.http, format!("Could not find a role on this server matching <@&{}>!", role_id.as_u64())).await {
-                error!("Failed to send message: {}", ex);
-            }
-            return None
-        }
-    } else {
-        role_text = args.rest().to_string();
-        if let Some(role) = guild.role_by_name(&*role_text) {
-            role_id = role.id;
-            role_text = role.name.clone(); // Just to make it exact.
-        } else {
-            let content = MessageBuilder::new().push("Could not find a role on this server matching \"").push_safe(role_text).push("\"!").build();
-            if let Err(ex) = msg.channel_id.say(&ctx.http, content).await {
-                error!("Failed to send message: {}", ex);
-            }
-            return None
-        }
-    }
-
-    Some((role_id, role_text))
-}
-
-#[command]
-#[description = "Add a rank to the configuration."]
-#[only_in(guilds)]
-#[usage = "<level> <role id or name>"]
-#[required_permissions("ADMINISTRATOR")]
-pub async fn add(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
-    let db = db!(ctx);
-    // So much nesting...
-    if let Some(guild) = msg.guild(&ctx.cache).await {
-        if let Ok(min_level) = args.single::<i32>() {
-            if let Some((role_id, role_text)) = get_role(ctx, msg, &guild, &args).await {
-                // Both min_level and role_id are initialized by this point
-                match db.add_role(guild.id, &role_text, role_id, min_level).await {
-                    Ok(success) => {
-                        if success {
-                            msg.channel_id.say(&ctx.http, format!("Successfully added <@&{}> with minimum level {}.", role_id.as_u64(), min_level)).await?;
-                        } else {
-                            msg.channel_id.say(&ctx.http, format!("There is a duplicate role with minimum level {}.", min_level)).await?;
-                        }
-                    }
-                    Err(ex) => {
-                        error!("Failed to add role for server: {}", ex);
-                        msg.channel_id.say(&ctx.http, "Failed to add role to the server.").await?;
-                    }
+    if let Some(guild) = ctx.guild() {
+        match db.add_role(guild.id, &*role.name, role.id, min_level).await {
+            Ok(success) => {
+                if success {
+                    ctx.say(format!("Successfully added <@&{}> with minimum level {}.", role.id.as_u64(), min_level)).await?;
+                } else {
+                    ctx.say(format!("There is a duplicate role with minimum level {}.", min_level)).await?;
                 }
             }
-        } else {
-            msg.channel_id.say(&ctx.http, "The first argument should be a positive integer, representing the minimum level for this rank.").await?;
+            Err(ex) => {
+                error!("Failed to add role for server: {}", ex);
+                ctx.say("Failed to add role to the server.").await?;
+            }
         }
     } else {
-        msg.reply(&ctx.http, "This command can only be run in a server.").await?;
+        ctx.say("This command can only be run in a server.").await?;
     }
 
     Ok(())
 }
 
-#[command]
-#[description = "Remove a rank from the configuration."]
-#[only_in(guilds)]
-#[required_permissions("ADMINISTRATOR")]
-pub async fn remove(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
-    let db = db!(ctx);
+#[poise::command(
+    prefix_command,
+    slash_command,
+    guild_only,
+    description_localized("en-US", "Remove a rank to the configuration."),
+    required_permissions = "ADMINISTRATOR"
+)]
+pub async fn remove(
+    ctx: CowContext<'_>,
+    #[description = "The role associated with the rank to remove."] role_id: RoleId)
+-> Result<(), Error> {
+    let db = cowdb!(ctx);
     // So much nesting...
-    if let Some(guild) = msg.guild(&ctx.cache).await {
-        if let Some((role_id, _)) = get_role(ctx, msg, &guild, &args).await {
-            match db.remove_role(guild.id, role_id).await {
-                Ok(success) => {
-                    if success {
-                        msg.channel_id.say(&ctx.http, format!("Successfully removed <@&{}>.", role_id.as_u64())).await?;
-                    } else {
-                        msg.channel_id.say(&ctx.http, "A rank didn't exist for this role.".to_string()).await?;
-                    }
+    if let Some(guild) = ctx.guild() {
+        match db.remove_role(guild.id, role_id).await {
+            Ok(success) => {
+                if success {
+                    ctx.say(format!("Successfully removed <@&{}>.", role_id.as_u64())).await?;
+                } else {
+                    ctx.say("A rank didn't exist for this role.".to_string()).await?;
                 }
-                Err(ex) => {
-                    error!("Failed to remove role for server: {}", ex);
-                    msg.channel_id.say(&ctx.http, "Failed to remove role from the server.").await?;
-                }
+            }
+            Err(ex) => {
+                error!("Failed to remove role for server: {}", ex);
+                ctx.say("Failed to remove role from the server.").await?;
             }
         }
     } else {
-        msg.reply(&ctx.http, "This command can only be run in a server.").await?;
+        ctx.say("This command can only be run in a server.").await?;
     }
 
     Ok(())
 }
 
-#[command]
-#[description = "List the current ranks on this server."]
-#[only_in(guilds)]
-#[required_permissions("ADMINISTRATOR")]
-pub async fn list(ctx: &Context, msg: &Message) -> CommandResult {
-    let db = db!(ctx);
-    if let Some(guild_id) = msg.guild_id {
+#[poise::command(
+    prefix_command,
+    slash_command,
+    guild_only,
+    description_localized("en-US", "List the current ranks on this server."),
+    required_permissions = "ADMINISTRATOR"
+)]
+pub async fn list(ctx: CowContext<'_>) -> Result<(), Error> {
+    let db = cowdb!(ctx);
+    if let Some(guild_id) = ctx.guild_id() {
         match db.get_roles(guild_id).await {
             Ok(items) => {
-                if let Err(ex) = msg.channel_id.send_message(&ctx.http, |m| {m.embed(|e| {
-                    e.title("Rank to Level Mapping")
-                        .description(
-                            items.into_iter()
-                                .map(|i| {
-                                    let mut content = format!("{}: <no role> at level {}", i.name, i.min_level);
-                                    if let Some(role_id) = i.role_id {
-                                        content = format!("{}: <@&{}> at level {}", i.name, role_id, i.min_level);
-                                    }
-                                    content
-                                })
-                                .reduce(|a, b| {format!("{}\n{}", a, b)})
-                                .unwrap_or_else(|| "No roles are registered on this server.".to_string())
+                if let Err(ex) = ctx.send(|m| {
+                    m.embeds.clear();
+                    m.embed(|e| {
+                        e.title("Rank to Level Mapping")
+                            .description(
+                                items.into_iter()
+                                    .map(|i| {
+                                        let mut content = format!("{}: <no role> at level {}", i.name, i.min_level);
+                                        if let Some(role_id) = i.role_id {
+                                            content = format!("{}: <@&{}> at level {}", i.name, role_id, i.min_level);
+                                        }
+                                        content
+                                    })
+                                    .reduce(|a, b| {format!("{}\n{}", a, b)})
+                                    .unwrap_or_else(|| "No roles are registered on this server.".to_string())
                         )})}).await {
                     error!("Failed to send message to server: {}", ex);
                 }
@@ -149,7 +115,7 @@ pub async fn list(ctx: &Context, msg: &Message) -> CommandResult {
             Err(ex) => error!("Failed to get roles for server: {}", ex)
         }
     } else {
-        msg.reply(&ctx.http, "This command can only be run in a server.").await?;
+        ctx.say("This command can only be run in a server.").await?;
     }
 
     Ok(())

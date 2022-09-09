@@ -1,60 +1,58 @@
 use log::error;
-use serenity::{
-    framework::standard::{
-        macros::command, Args, CommandResult, 
-    }, 
-    model::channel::Message, client::Context
-};
-
-use crate::{Database, db};
+use crate::{CowContext, Database, db, cowdb, Error};
 use crate::util::{ to_ms, from_ms };
 
-#[command]
-#[description = "Sets server-wide cooldown for messaging xp gain."]
-#[usage = "<#m#d#s#h> in any order"]
-#[only_in(guilds)]
-#[required_permissions("ADMINISTRATOR")]
-pub async fn set(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
-    let db = db!(ctx);
+#[poise::command(
+    prefix_command,
+    slash_command,
+    guild_only,
+    required_permissions = "ADMINISTRATOR",
+    description_localized("en-US", "Sets server-wide cooldown for messaging xp gain."),
+)]
+pub async fn set(
+    ctx: CowContext<'_>,
+    #[description = "A duration with suffixes d, h, m, and s. Ex. \"1m30s\" for 1 minute and 30 seconds."] timeout: String)
+-> Result<(), Error> {
+    let db = cowdb!(ctx);
     // nesting part 2
-    if let Some(server_id) = msg.guild_id {
-        if let Ok(timeout) = args.single::<String>() {
-            if let Some(timeout) = to_ms(timeout) {
-                match db.set_timeout(server_id, timeout).await {
-                    Ok(_) => { msg.reply(&ctx.http, format!("Set timeout to {}.", from_ms(timeout as u64))).await?; }
-                    Err(err) => {
-                        msg.reply(&ctx.http, "Could not set timeout").await?;
-                        error!("Could not set timeout: {}", err);
-                    }
+    if let Some(server_id) = ctx.guild_id() {
+        if let Some(timeout) = to_ms(timeout) {
+            match db.set_timeout(server_id, timeout).await {
+                Ok(_) => { ctx.say(format!("Set timeout to {}.", from_ms(timeout as u64))).await?; }
+                Err(err) => {
+                    ctx.say("Could not set timeout").await?;
+                    error!("Could not set timeout: {}", err);
                 }
-            } else {
-                msg.reply(&ctx.http, "The timeout must be in the form #s#m#h#d").await?;
             }
         } else {
-            msg.reply(&ctx.http, "The timeout must be in the form #s#m#h#d").await?;
+            ctx.say("The timeout must be in the form #d#h#m#s.").await?;
         }
     } else {
-        msg.reply(&ctx.http, "This command can only be run in a server.").await?;
+        ctx.say("This command can only be run in a server.").await?;
     }
 
     Ok(())
 }
 
-#[command]
-#[description = "Gets the server-wide cooldown for messaging xp gain."]
-#[only_in(guilds)]
-pub async fn get(ctx: &Context, msg: &Message) -> CommandResult {
-    let db = db!(ctx);
-    if let Some(server_id) = msg.guild_id {
+#[poise::command(
+    prefix_command,
+    slash_command,
+    guild_only,
+    required_permissions = "ADMINISTRATOR",
+    description_localized("en-US", "Gets the server-wide cooldown for messaging xp gain."),
+)]
+pub async fn get(ctx: CowContext<'_>) -> Result<(), Error> {
+    let db = cowdb!(ctx);
+    if let Some(server_id) = ctx.guild_id() {
         match db.get_timeout(server_id).await {
-            Ok(timeout) => { msg.reply(&ctx.http, format!("The timeout is {}.", from_ms(timeout as u64))).await?; }
+            Ok(timeout) => { ctx.say(format!("The timeout is {}.", from_ms(timeout as u64))).await?; }
             Err(err) => {
-                msg.reply(&ctx.http, "Could not set timeout").await?;
+                ctx.say("Could not get timeout.").await?;
                 error!("Could not get timeout: {}", err);
             }
         }
     } else {
-        msg.reply(&ctx.http, "This command can only be run in a server.").await?;
+        ctx.say("This command can only be run in a server.").await?;
     }
 
     Ok(())

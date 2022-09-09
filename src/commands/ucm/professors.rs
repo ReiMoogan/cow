@@ -1,22 +1,10 @@
 use chrono::{Datelike, DateTime, Local, TimeZone, Utc};
 use log::error;
-use serenity::{
-    client::Context,
-    model::{
-        channel::Message
-    },
-    framework::standard::{
-        CommandResult,
-        macros::{
-            command
-        }, Args
-    }
-};
+use crate::{CowContext, Database, db, cowdb, Error};
 use crate::commands::ucm::courses_db_models::*;
-use crate::{Database, db};
 
-async fn professor_embed(ctx: &Context, msg: &Message, professor: &Professor) -> CommandResult {
-    let db = db!(ctx);
+async fn professor_embed(ctx: &CowContext<'_>, professor: &Professor) -> Result<(), Error> {
+    let db = cowdb!(ctx);
 
     let current_date = Local::now().date();
     let year = current_date.year();
@@ -25,7 +13,7 @@ async fn professor_embed(ctx: &Context, msg: &Message, professor: &Professor) ->
 
     let classes = db.get_classes_for_professor(professor.id, term).await;
     let stats = db.get_stats().await;
-    msg.channel_id.send_message(&ctx.http, |m| m.embed(|e| {
+    ctx.send(|m| m.embed(|e| {
         e.title(&professor.full_name);
         e.description("Note: this uses Rate My Professor, which may be off at times~");
         e.field("Rating Score", professor.rating, true);
@@ -57,34 +45,34 @@ async fn professor_embed(ctx: &Context, msg: &Message, professor: &Professor) ->
     Ok(())
 }
 
-#[command]
-#[description = "Search for a professor."]
-#[aliases("professor")]
-#[usage = "<Professor's Name>"]
-pub async fn professors(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
-    let search_query = args.message();
-
-    let db = db!(ctx);
-    match db.search_professor(search_query).await {
+#[poise::command(
+    prefix_command,
+    slash_command,
+    description_localized("en-US", "Search for a professor."),
+    aliases("professor")
+)]
+pub async fn professors(ctx: CowContext<'_>, #[rest] query: String) -> Result<(), Error> {
+    let db = cowdb!(ctx);
+    match db.search_professor(&*query).await {
         Ok(professors) => {
-            print_matches(ctx, msg, &professors).await?;
+            print_matches(&ctx, &professors).await?;
         }
         Err(ex) => {
             error!("Failed to search by name: {}", ex);
-            msg.channel_id.say(&ctx.http, "Failed to search for professors... try again later?").await?;
+            ctx.say("Failed to search for professors... try again later?").await?;
         }
     }
 
     Ok(())
 }
 
-async fn print_matches(ctx: &Context, msg: &Message, professors: &[Professor]) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+async fn print_matches(ctx: &CowContext<'_>, professors: &[Professor]) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     if professors.is_empty() {
-        msg.channel_id.say(&ctx.http, "No matches were found. Check your query for typos, or generalize it. Or, we may not have the person logged.").await?;
+        ctx.say("No matches were found. Check your query for typos or generalize it. Or, we may not have the person logged.").await?;
     } else if professors.len() == 1 {
-        professor_embed(ctx, msg, professors.get(0).unwrap()).await?;
+        professor_embed(ctx, professors.get(0).unwrap()).await?;
     } else {
-        msg.channel_id.send_message(&ctx.http, |m| m.embed(|e| {
+        ctx.send(|m| m.embed(|e| {
             e.title("Professor Search").description("Multiple results were found for your query. Try refining your input.");
             e.field(format!("Professors Matched (totalling {})", professors.len()),
                     professors
