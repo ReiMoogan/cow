@@ -15,7 +15,7 @@ use course_reminders::*;
 #[poise::command(
     prefix_command,
     slash_command,
-    description_localized("en", "Set up reminders for class registration, based off seats or waitlist."),
+    description_localized("en-US", "Set up reminders for class registration, based off seats or waitlist."),
     subcommands("add", "remove", "list"),
     aliases("remind", "reminder")
 )]

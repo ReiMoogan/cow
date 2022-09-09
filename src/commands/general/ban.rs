@@ -5,7 +5,7 @@ use crate::{CowContext, Error};
     prefix_command,
     slash_command,
     guild_only,
-    description_localized("en", "Ban all League of Legends players from the server."),
+    description_localized("en-US", "Ban all League of Legends players from the server."),
     required_permissions = "BAN_MEMBERS"
 )]
 pub async fn banleagueplayers(
@@ -23,7 +23,7 @@ pub async fn banleagueplayers(
     prefix_command,
     slash_command,
     guild_only,
-    description_localized("en", "Ban all VALORANT players from the server."),
+    description_localized("en-US", "Ban all VALORANT players from the server."),
     required_permissions = "BAN_MEMBERS"
 )]
 pub async fn banvalorantplayers(
@@ -41,7 +41,7 @@ pub async fn banvalorantplayers(
     prefix_command,
     slash_command,
     guild_only,
-    description_localized("en", "Ban all Genshin Impact players from the server."),
+    description_localized("en-US", "Ban all Genshin Impact players from the server."),
     required_permissions = "BAN_MEMBERS"
 )]
 pub async fn bangenshinplayers(
@@ -59,7 +59,7 @@ pub async fn bangenshinplayers(
     prefix_command,
     slash_command,
     guild_only,
-    description_localized("en", "Ban all Overwatch players from the server."),
+    description_localized("en-US", "Ban all Overwatch players from the server."),
     required_permissions = "BAN_MEMBERS"
 )]
 pub async fn banoverwatchplayers(

@@ -61,7 +61,7 @@ async fn rank_embed(ctx: &CowContext<'_>, server_id: &GuildId, user: &User) {
     prefix_command,
     slash_command,
     guild_only,
-    description_localized("en", "Get your current rank."),
+    description_localized("en-US", "Get your current rank."),
     aliases("course", "class", "classes")
 )]
 pub async fn rank(
@@ -92,7 +92,7 @@ pub async fn rank(
     slash_command,
     guild_only,
     required_permissions = "ADMINISTRATOR",
-    description_localized("en", "Disable/enable experience from being collected in the current channel."),
+    description_localized("en-US", "Disable/enable experience from being collected in the current channel."),
     aliases("enablexp")
 )]
 pub async fn disablexp(ctx: CowContext<'_>) -> Result<(), Error> {
@@ -128,7 +128,7 @@ pub async fn disablexp(ctx: CowContext<'_>) -> Result<(), Error> {
     prefix_command,
     slash_command,
     guild_only,
-    description_localized("en", "Get the current rankings in the server.")
+    description_localized("en-US", "Get the current rankings in the server.")
 )]
 pub async fn levels(
     ctx: CowContext<'_>,

@@ -3,7 +3,7 @@ use crate::{CowContext, Error};
 #[poise::command(
     prefix_command,
     slash_command,
-    description_localized("en", "Info about this bot.")
+    description_localized("en-US", "Info about this bot.")
 )]
 pub async fn info(ctx: CowContext<'_>) -> Result<(), Error> {
     const VERSION: Option<&str> = option_env!("CARGO_PKG_VERSION");

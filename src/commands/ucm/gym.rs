@@ -56,7 +56,7 @@ fn extractor(output: &mut Vec<(String, String)>, temporary_name: &Option<String>
 #[poise::command(
     prefix_command,
     slash_command,
-    description_localized("en", "Get the hours for recreation and atheletic facilities."),
+    description_localized("en-US", "Get the hours for recreation and atheletic facilities."),
     guild_only
 )]
 pub async fn gym(ctx: CowContext<'_>) -> Result<(), Error> {

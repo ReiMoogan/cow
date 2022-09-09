@@ -15,7 +15,7 @@ use crate::{Database, db};
     prefix_command,
     slash_command,
     guild_only,
-    description_localized("en", "Scan for discrepancies between server member roles and the stored info."),
+    description_localized("en-US", "Scan for discrepancies between server member roles and the stored info."),
     required_permissions = "ADMINISTRATOR",
     guild_cooldown = "900"
 )]
@@ -88,15 +88,15 @@ pub async fn scan(ctx: CowContext<'_>) -> Result<(), Error> {
     prefix_command,
     slash_command,
     guild_only,
-    description_localized("en", "Fix any discrepancies between server member roles and the stored info. By default, this will only affect users who need to be promoted."),
+    description_localized("en-US", "Fix any discrepancies between server member roles and the stored info."),
     required_permissions = "ADMINISTRATOR",
     guild_cooldown = "900"
 )]
 pub async fn fix(
     ctx: CowContext<'_>,
-    option_multiple: Option<bool>,
-    option_remove: Option<bool>,
-    option_demote: Option<bool>
+    #[description = "Fix users with multiple valid ranks"] option_multiple: Option<bool>,
+    #[description = "Remove ranks from people who shouldn't have a rank"] option_remove: Option<bool>,
+    #[description = "Demote users who have a higher rank than they should"] option_demote: Option<bool>
 ) -> Result<(), Error> {
     let db = cowdb!(ctx);
     if let Some(guild_id) = ctx.guild_id() {

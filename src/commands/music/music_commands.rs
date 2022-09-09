@@ -8,7 +8,7 @@ use crate::CowContext;
 #[poise::command(
     prefix_command,
     slash_command,
-    description_localized("en", "List the commands available in the music module.")
+    description_localized("en-US", "List the commands available in the music module.")
 )]
 pub async fn help(ctx: CowContext<'_>) -> Result<(), Error> {
     ctx.say("`help, join, leave, play, playlist, pause, now_playing, skip, queue`").await?;
@@ -61,7 +61,7 @@ pub async fn join_interactive(ctx: &CowContext<'_>) -> Result<(), Error> {
     prefix_command,
     slash_command,
     guild_only,
-    description_localized("en", "Join the voice channel you are in.")
+    description_localized("en-US", "Join the voice channel you are in.")
 )]
 pub async fn join(ctx: CowContext<'_>) -> Result<(), Error> {
     join_interactive(&ctx).await
@@ -71,7 +71,7 @@ pub async fn join(ctx: CowContext<'_>) -> Result<(), Error> {
     prefix_command,
     slash_command,
     guild_only,
-    description_localized("en", "Make the bot leave the voice channel.")
+    description_localized("en-US", "Make the bot leave the voice channel.")
 )]
 pub async fn leave(ctx: CowContext<'_>) -> Result<(), Error> {
     let guild = ctx.guild().unwrap();
@@ -105,7 +105,7 @@ pub async fn leave(ctx: CowContext<'_>) -> Result<(), Error> {
     prefix_command,
     slash_command,
     guild_only,
-    description_localized("en", "Play some music.")
+    description_localized("en-US", "Play some music.")
 )]
 pub async fn play(
     ctx: CowContext<'_>,
@@ -167,7 +167,7 @@ pub async fn play(
     prefix_command,
     slash_command,
     guild_only,
-    description_localized("en", "Queue all music from a playlist.")
+    description_localized("en-US", "Queue all music from a playlist.")
 )]
 pub async fn playlist(
     ctx: CowContext<'_>,
@@ -226,7 +226,7 @@ pub async fn playlist(
     prefix_command,
     slash_command,
     guild_only,
-    description_localized("en", "Pause the music player.")
+    description_localized("en-US", "Pause the music player.")
 )]
 pub async fn pause(ctx: CowContext<'_>) -> Result<(), Error> {
     if let Some(guild_id) = ctx.guild_id() {
@@ -257,7 +257,7 @@ pub async fn pause(ctx: CowContext<'_>) -> Result<(), Error> {
     prefix_command,
     slash_command,
     guild_only,
-    description_localized("en", "Get the current music playing."),
+    description_localized("en-US", "Get the current music playing."),
     aliases("np", "nowplaying")
 )]
 pub async fn now_playing(ctx: CowContext<'_>) -> Result<(), Error> {
@@ -314,7 +314,7 @@ pub async fn now_playing(ctx: CowContext<'_>) -> Result<(), Error> {
     prefix_command,
     slash_command,
     guild_only,
-    description_localized("en", "Skip the current song.")
+    description_localized("en-US", "Skip the current song.")
 )]
 pub async fn skip(ctx: CowContext<'_>) -> Result<(), Error> {
     let lava_client = {
@@ -389,7 +389,7 @@ fn generate_queue(queue: &[TrackQueue]) -> Vec<String> {
     prefix_command,
     slash_command,
     guild_only,
-    description_localized("en", "Get the music queue."),
+    description_localized("en-US", "Get the music queue."),
     aliases("q")
 )]
 pub async fn queue(ctx: CowContext<'_>, page: Option<usize>) -> Result<(), Error> {

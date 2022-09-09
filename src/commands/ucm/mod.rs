@@ -28,7 +28,7 @@ use crate::{CowContext, Error};
 
 #[poise::command(prefix_command, slash_command,
     subcommands("library", "courses", "courses_old", "pavilion", "professors", "foodtrucks", "calendar", "gym", "store", "reminders"),
-    description_localized("en", "Get information about UC Merced's services and facilities."),
+    description_localized("en-US", "Get information about UC Merced's services and facilities."),
     aliases("ucmerced")
 )]
 pub async fn ucm(_ctx: CowContext<'_>) -> Result<(), Error> {

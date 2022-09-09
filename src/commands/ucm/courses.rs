@@ -106,7 +106,7 @@ async fn course_embed(ctx: &CowContext<'_>, class: &Class) -> Result<(), Error> 
 #[poise::command(
     prefix_command,
     slash_command,
-    description_localized("en", "Search for courses in a term."),
+    description_localized("en-US", "Search for courses in a term."),
     aliases("course", "class", "classes")
 )]
 pub async fn courses(

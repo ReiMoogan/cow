@@ -96,7 +96,7 @@ async fn print_schedule(ctx: &CowContext<'_>, schedule: &AcademicCalendar) -> Re
 #[poise::command(
     prefix_command,
     slash_command,
-    description_localized("en", "Get the academic calendar for the year."),
+    description_localized("en-US", "Get the academic calendar for the year."),
     aliases("cal", "academiccalendar")
 )]
 pub async fn calendar(

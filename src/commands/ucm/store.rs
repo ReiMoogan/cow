@@ -66,7 +66,7 @@ fn read_hours(config: &StoreHours) -> Vec<(String, String)> {
 #[poise::command(
     prefix_command,
     slash_command,
-    description_localized("en", "Get the times of the UC Merced store."),
+    description_localized("en-US", "Get the times of the UC Merced store."),
     aliases("studentstore", "bookstore")
 )]
 pub async fn store(ctx: CowContext<'_>) -> Result<(), Error> {

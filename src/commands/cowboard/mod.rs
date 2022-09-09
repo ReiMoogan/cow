@@ -8,7 +8,7 @@ use crate::{CowContext, Error};
 
 #[poise::command(prefix_command, slash_command,
     subcommands("info", "emote", "addthreshold", "removethreshold", "channel", "webhook"),
-    description_localized("en", "Commands for modifying how the cowboard (starboard) functions."),
+    description_localized("en-US", "Commands for modifying how the cowboard (starboard) functions."),
     guild_only
 )]
 pub async fn cowboard(_ctx: CowContext<'_>) -> Result<(), Error> {

@@ -48,7 +48,7 @@ async fn professor_embed(ctx: &CowContext<'_>, professor: &Professor) -> Result<
 #[poise::command(
     prefix_command,
     slash_command,
-    description_localized("en", "Search for a professor."),
+    description_localized("en-US", "Search for a professor."),
     aliases("professor")
 )]
 pub async fn professors(ctx: CowContext<'_>, #[rest] query: String) -> Result<(), Error> {

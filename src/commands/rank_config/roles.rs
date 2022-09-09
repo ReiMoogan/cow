@@ -16,7 +16,7 @@ use serenity::model::guild::Role;
     prefix_command,
     slash_command,
     guild_only,
-    description_localized("en", "Add a rank to the configuration."),
+    description_localized("en-US", "Add a rank to the configuration."),
     required_permissions = "ADMINISTRATOR"
 )]
 pub async fn add(
@@ -51,7 +51,7 @@ pub async fn add(
     prefix_command,
     slash_command,
     guild_only,
-    description_localized("en", "Remove a rank to the configuration."),
+    description_localized("en-US", "Remove a rank to the configuration."),
     required_permissions = "ADMINISTRATOR"
 )]
 pub async fn remove(
@@ -85,7 +85,7 @@ pub async fn remove(
     prefix_command,
     slash_command,
     guild_only,
-    description_localized("en", "List the current ranks on this server."),
+    description_localized("en-US", "List the current ranks on this server."),
     required_permissions = "ADMINISTRATOR"
 )]
 pub async fn list(ctx: CowContext<'_>) -> Result<(), Error> {

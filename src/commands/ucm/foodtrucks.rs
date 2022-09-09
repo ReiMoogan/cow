@@ -14,7 +14,7 @@ fn process_schedules(data: &str) -> Option<String> {
 #[poise::command(
     prefix_command,
     slash_command,
-    description_localized("en", "Get the current food truck schedule."),
+    description_localized("en-US", "Get the current food truck schedule."),
     aliases("foodtruck")
 )]
 pub async fn foodtrucks(ctx: CowContext<'_>) -> Result<(), Error> {

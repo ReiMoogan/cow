@@ -8,7 +8,7 @@ use crate::{Database, db};
 #[poise::command(
     prefix_command,
     slash_command,
-    description_localized("en", "Get the current settings for the cowboard."),
+    description_localized("en-US", "Get the current settings for the cowboard."),
     guild_only
 )]
 pub async fn info(ctx: CowContext<'_>) -> Result<(), Error> {
@@ -43,7 +43,7 @@ pub async fn info(ctx: CowContext<'_>) -> Result<(), Error> {
 #[poise::command(
     prefix_command,
     slash_command,
-    description_localized("en", "Set the emote reaction to trigger a cowboard message."),
+    description_localized("en-US", "Set the emote reaction to trigger a cowboard message."),
     required_permissions = "ADMINISTRATOR",
     guild_only
 )]
@@ -80,7 +80,7 @@ pub async fn emote(
     prefix_command,
     slash_command,
     guild_only,
-    description_localized("en", "Set the minimum amount of reactions to post a message to the cowboard."),
+    description_localized("en-US", "Set the minimum amount of reactions to post a message to the cowboard."),
     required_permissions = "ADMINISTRATOR"
 )]
 pub async fn addthreshold(
@@ -127,7 +127,7 @@ pub async fn addthreshold(
     prefix_command,
     slash_command,
     guild_only,
-    description_localized("en", "Set the maximum amount of reactions before removing a message from the cowboard."),
+    description_localized("en-US", "Set the maximum amount of reactions before removing a message from the cowboard."),
     required_permissions = "ADMINISTRATOR"
 )]
 pub async fn removethreshold(
@@ -174,7 +174,7 @@ pub async fn removethreshold(
     prefix_command,
     slash_command,
     guild_only,
-    description_localized("en", "Sets the Cowboard channel to pin messages."),
+    description_localized("en-US", "Sets the Cowboard channel to pin messages."),
     required_permissions = "ADMINISTRATOR"
 )]
 pub async fn channel(
@@ -220,7 +220,7 @@ pub async fn channel(
     prefix_command,
     slash_command,
     guild_only,
-    description_localized("en", "Toggle webhook usage for the cowboard, versus the bot sending the messages."),
+    description_localized("en-US", "Toggle webhook usage for the cowboard, versus the bot sending the messages."),
     required_permissions = "ADMINISTRATOR"
 )]
 pub async fn webhook(ctx: CowContext<'_>) -> Result<(), Error> {

@@ -6,7 +6,7 @@ use crate::commands::ucm::libcal_models::Calendar;
 #[poise::command(
     prefix_command,
     slash_command,
-    description_localized("en", "Get the hours for the Kolligian Library.")
+    description_localized("en-US", "Get the hours for the Kolligian Library.")
 )]
 pub async fn library(ctx: CowContext<'_>) -> Result<(), Error> {
     let date = chrono::offset::Local::now();

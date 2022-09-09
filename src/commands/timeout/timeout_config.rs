@@ -7,7 +7,7 @@ use crate::util::{ to_ms, from_ms };
     slash_command,
     guild_only,
     required_permissions = "ADMINISTRATOR",
-    description_localized("en", "Sets server-wide cooldown for messaging xp gain."),
+    description_localized("en-US", "Sets server-wide cooldown for messaging xp gain."),
 )]
 pub async fn set(
     ctx: CowContext<'_>,
@@ -39,7 +39,7 @@ pub async fn set(
     slash_command,
     guild_only,
     required_permissions = "ADMINISTRATOR",
-    description_localized("en", "Gets the server-wide cooldown for messaging xp gain."),
+    description_localized("en-US", "Gets the server-wide cooldown for messaging xp gain."),
 )]
 pub async fn get(ctx: CowContext<'_>) -> Result<(), Error> {
     let db = cowdb!(ctx);

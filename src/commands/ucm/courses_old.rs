@@ -6,7 +6,7 @@ use crate::commands::ucm::course_models::{CourseList};
 #[poise::command(
     prefix_command,
     slash_command,
-    description_localized("en", "Get the course list for a major.")
+    description_localized("en-US", "Get the course list for a major.")
 )]
 pub async fn courses_old(
     ctx: CowContext<'_>,

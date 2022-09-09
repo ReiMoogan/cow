@@ -84,7 +84,7 @@ async fn fetch_pavilion_raw_materials(client: &Client, company: &Company, locati
 #[poise::command(
     prefix_command,
     slash_command,
-    description_localized("en", "Get the current hours for dining services."),
+    description_localized("en-US", "Get the current hours for dining services."),
     aliases("snack", "snacks", "snackshop", "cafe", "lantern", "lanterncafe")
 )]
 pub async fn dining(ctx: CowContext<'_>) -> Result<(), Error> {
@@ -95,12 +95,12 @@ pub async fn dining(ctx: CowContext<'_>) -> Result<(), Error> {
 #[poise::command(
     prefix_command,
     slash_command,
-    description_localized("en", "Get the current menu at the UCM Pavilion and Yablokoff."),
+    description_localized("en-US", "Get the current menu at the UCM Pavilion and Yablokoff."),
     aliases("pav", "yablokoff", "yab")
 )]
 pub async fn pavilion(
     ctx: CowContext<'_>,
-    #[description = "\"hours\" for hours, \"next\" for next week (if available), a day of the week, and/or breakfast/lunch/dinner."] options: Option<String>)
+    #[description = "\"hours\" for hours, day of the week, and/or \"breakfast\"/\"lunch\"/\"dinner\""] options: Option<String>)
 -> Result<(), Error> {
     let date = chrono::offset::Local::now();
     let (mut day, mut meal) = PavilionTime::next_meal(&date);
