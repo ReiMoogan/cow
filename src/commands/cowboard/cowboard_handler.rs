@@ -281,7 +281,7 @@ async fn delete_image_attachments(message: &Message) {
 }
 
 async fn format_username(ctx: &Context, message: &Message) -> String {
-    let username = format!("{}#{}", message.author.name, message.author.discriminator);
+    let username = format!("{}#{:04}", message.author.name, message.author.discriminator);
     let nickname = message.author_nick(&ctx.http).await;
 
     if let Some(nick) = nickname {
