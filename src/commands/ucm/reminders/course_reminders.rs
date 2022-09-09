@@ -12,23 +12,26 @@ use crate::commands::ucm::courses_db_models::Reminder;
 pub async fn list(ctx: CowContext<'_>) -> Result<(), Error> {
     let db = cowdb!(ctx);
 
-    match db.get_user_reminders(ctx.author.id).await {
+    match db.get_user_reminders(ctx.author().id).await {
         Ok(reminders) => {
-            ctx.send(|m| m.embed(|e| {
-                e.title("Your Course Reminders");
+            ctx.send(|m| {
+                m.embeds.clear();
+                m.embed(|e| {
+                    e.title("Your Course Reminders");
 
-                if reminders.is_empty() {
-                    e.description("You do not have any reminders set. Add some using `reminders add`.");
-                } else {
-                    for reminder in reminders {
-                        e.field(format!("CRN {}", reminder.course_reference_number),
-                                format!("Minimum Trigger: `{}`\nFor Waitlist: `{}`\nTriggered: `{}`", reminder.min_trigger, reminder.for_waitlist, reminder.triggered),
-                                false);
+                    if reminders.is_empty() {
+                        e.description("You do not have any reminders set. Add some using `reminders add`.");
+                    } else {
+                        for reminder in reminders {
+                            e.field(format!("CRN {}", reminder.course_reference_number),
+                                    format!("Minimum Trigger: `{}`\nFor Waitlist: `{}`\nTriggered: `{}`", reminder.min_trigger, reminder.for_waitlist, reminder.triggered),
+                                    false);
+                        }
                     }
-                }
 
-                e
-            })).await?;
+                    e
+                })
+            }).await?;
         }
         Err(ex) => {
             error!("Failed to get reminders for user: {}", ex);
@@ -51,7 +54,7 @@ pub async fn add(
     #[description = "If the reminder is for a waitlist spot"] for_waitlist: Option<bool>)
 -> Result<(), Error> {
 
-    let mut min_trigger = if let Some(seats) = min_seats {
+    let min_trigger = if let Some(seats) = min_seats {
         if seats < 1 {
             ctx.say("Your minimum trigger must be greater than or equal to 1 seat.").await?;
             return Ok(());
@@ -63,7 +66,7 @@ pub async fn add(
     };
     
     let reminder = Reminder {
-        user_id: ctx.author.id.0,
+        user_id: ctx.author().id.0,
         course_reference_number,
         min_trigger,
         for_waitlist: for_waitlist.unwrap_or(false),
@@ -100,7 +103,7 @@ pub async fn remove(
 -> Result<(), Error> {
 
     let db = cowdb!(ctx);
-    match db.remove_reminder(ctx.author.id, course_reference_number).await {
+    match db.remove_reminder(ctx.author().id, course_reference_number).await {
         Ok(success) => {
             if success {
                 ctx.say("Successfully removed your reminder.").await?;

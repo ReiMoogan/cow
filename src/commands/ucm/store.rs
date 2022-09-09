@@ -1,16 +1,8 @@
 use reqwest::Client;
 use crate::{CowContext, Error};
-use serenity::{
-    client::Context,
-    model::{channel::Message},
-    framework::standard::{
-        macros::{
-            command
-        }
-    }
-};
 use serde::Deserialize;
 use log::error;
+use std::error;
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all="camelCase")]
@@ -38,7 +30,7 @@ pub struct StoreHoursWeek {
     pub saturday: String,
 }
 
-async fn fetch_hours(client: &Client) -> Result<StoreConfig, Box<dyn std::error::Error + Send + Sync>> {
+async fn fetch_hours(client: &Client) -> Result<StoreConfig, Box<dyn error::Error + Send + Sync>> {
     let response = client
         .get("https://svc.bkstr.com/store/config?storeName=ucmercedstore")
         .header("User-Agent", "Moogan/0.1.43")
@@ -71,11 +63,15 @@ fn read_hours(config: &StoreHours) -> Vec<(String, String)> {
     output
 }
 
-#[poise::command(prefix_command, slash_command)]
-#[description = "Get the times of the UC Merced store."]
-pub async fn store(ctx: &CowContext<'_>) -> Result<(), Error> {
+#[poise::command(
+    prefix_command,
+    slash_command,
+    description_localized("en", "Get the times of the UC Merced store."),
+    aliases("studentstore", "bookstore")
+)]
+pub async fn store(ctx: CowContext<'_>) -> Result<(), Error> {
     const TITLE: &str = "UC Merced University Store Hours";
-    let mut loading_message = msg.channel_id.send_message(&ctx.http, |m|
+    let loading_message = ctx.send(|m|
         m.embed(|e| e.title(TITLE).description("Now loading, please wait warmly..."))
     ).await?;
 
@@ -83,17 +79,23 @@ pub async fn store(ctx: &CowContext<'_>) -> Result<(), Error> {
     match fetch_hours(&client).await {
         Ok(hours) => {
             let schedules = read_hours(&hours.store_hours);
-            loading_message.edit(&ctx.http, |m|
-                m.embed(|e| e.title(TITLE).fields(schedules.iter().map(|o| {
-                    let (description, hours) = o;
-                    (description, hours, false)
-                })))
+            loading_message.edit(ctx, |m|
+                {
+                    m.embeds.clear();
+                    m.embed(|e| e.title(TITLE).fields(schedules.iter().map(|o| {
+                        let (description, hours) = o;
+                        (description, hours, false)
+                    })))
+                }
             ).await?;
         }
         Err(ex) => {
             error!("Failed to load UCM store hours: {}", ex);
-            loading_message.edit(&ctx.http, |m|
-                m.embed(|e| e.title(TITLE).description("Failed to load store hours. Try again later?"))
+            loading_message.edit(ctx, |m|
+                {
+                    m.embeds.clear();
+                    m.embed(|e| e.title(TITLE).description("Failed to load store hours. Try again later?"))
+                }
             ).await?;
         }
     }

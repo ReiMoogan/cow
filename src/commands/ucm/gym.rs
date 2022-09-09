@@ -1,16 +1,5 @@
 use log::error;
 use crate::{CowContext, Error};
-use serenity::{
-    client::Context,
-    model::{
-        channel::Message
-    },
-    framework::standard::{
-        macros::{
-            command
-        }
-    }
-};
 use scraper::{Html, Selector};
 
 fn process_hours(data: &str) -> Vec<(String, String)> {
@@ -64,12 +53,16 @@ fn extractor(output: &mut Vec<(String, String)>, temporary_name: &Option<String>
     // The "Some" condition should always be true in this case.
 }
 
-#[poise::command(prefix_command, slash_command)]
-#[description = "Get the hours for recreation and atheletic facilities."]
-pub async fn gym(ctx: &CowContext<'_>) -> Result<(), Error> {
+#[poise::command(
+    prefix_command,
+    slash_command,
+    description_localized("en", "Get the hours for recreation and atheletic facilities."),
+    guild_only
+)]
+pub async fn gym(ctx: CowContext<'_>) -> Result<(), Error> {
     const TITLE: &str = "Recreation and Athletic Facility Hours";
 
-    let mut sent_msg = msg.channel_id.send_message(&ctx.http, |m| m.embed(|e| {
+    let sent_msg = ctx.send(|m| m.embed(|e| {
         e
             .title(TITLE)
             .description("Now loading, please wait warmly...")
@@ -85,36 +78,48 @@ pub async fn gym(ctx: &CowContext<'_>) -> Result<(), Error> {
                     let hours = process_hours(&*data);
 
                     if !hours.is_empty() {
-                        sent_msg.edit(&ctx.http, |m| m.embed(|e| {
-                            e.title(TITLE).fields(hours.iter().map(|o| {
-                                let (name, value) = o;
+                        sent_msg.edit(ctx, |m| {
+                            m.embeds.clear();
+                            m.embed(|e| {
+                                e.title(TITLE).fields(hours.iter().map(|o| {
+                                    let (name, value) = o;
 
-                                if value.is_empty() {
-                                    (name.as_str(), EMPTY, false)
-                                } else {
-                                    (name.as_str(), value.as_str(), false)
-                                }
-                            }))
-                        })).await?;
+                                    if value.is_empty() {
+                                        (name.as_str(), EMPTY, false)
+                                    } else {
+                                        (name.as_str(), value.as_str(), false)
+                                    }
+                                }))
+                            })
+                        }).await?;
                     } else {
-                        sent_msg.edit(&ctx.http, |m| m.embed(|e| {
-                            e.title(TITLE).description("Could not get any hours... Did the website change layout?")
-                        })).await?;
+                        sent_msg.edit(ctx, |m| {
+                            m.embeds.clear();
+                            m.embed(|e| {
+                                e.title(TITLE).description("Could not get any hours... Did the website change layout?")
+                            })
+                        }).await?;
                         error!("Unable to read athletics website");
                     }
                 }
                 Err(ex) => {
-                    sent_msg.edit(&ctx.http, |m| m.embed(|e| {
-                        e.title(TITLE).description("UC Merced gave us weird data, try again later?")
-                    })).await?;
+                    sent_msg.edit(ctx, |m| {
+                        m.embeds.clear();
+                        m.embed(|e| {
+                            e.title(TITLE).description("UC Merced gave us weird data, try again later?")
+                        })
+                    }).await?;
                     error!("Failed to process hours: {}", ex);
                 }
             }
         }
         Err(ex) => {
-            sent_msg.edit(&ctx.http, |m| m.embed(|e| {
-                e.title(TITLE).description("Failed to connect to the UC Merced website, try again later?")
-            })).await?;
+            sent_msg.edit(ctx, |m| {
+                m.embeds.clear();
+                m.embed(|e| {
+                    e.title(TITLE).description("Failed to connect to the UC Merced website, try again later?")
+                })
+            }).await?;
             error!("Failed to get athletics hours: {}", ex);
         }
     }

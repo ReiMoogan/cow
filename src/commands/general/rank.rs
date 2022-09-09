@@ -6,9 +6,6 @@ use serenity::{
         },
         user::User
     },
-    framework::standard::{
-        Args
-    },
     utils::MessageBuilder
 };
 use crate::{Database, db, cowdb, Error, CowContext};
@@ -38,21 +35,23 @@ async fn rank_embed(ctx: &CowContext<'_>, server_id: &GuildId, user: &User) {
         rank_str = format!("#{}", rank);
     }
 
-    if let Err(ex) = ctx.send(|m| {m.embed(|e| {
-        e
-            .title(
-                MessageBuilder::new()
-                    .push_safe(user.name.as_str())
-                    .push("#")
-                    .push(user.discriminator)
-                    .push("'s Ranking")
-                    .build()
-            )
-            .description(current_role_str)
-            .field("Level", level, true)
-            .field("XP", format!("{}/{}", xp, next_level_xp), true)
-            .field("Rank", rank_str, true)
-            .thumbnail(pfp_url)
+    if let Err(ex) = ctx.send(|m| {
+        m.embeds.clear();
+        m.embed(|e| {
+            e
+                .title(
+                    MessageBuilder::new()
+                        .push_safe(user.name.as_str())
+                        .push("#")
+                        .push(user.discriminator)
+                        .push("'s Ranking")
+                        .build()
+                )
+                .description(current_role_str)
+                .field("Level", level, true)
+                .field("XP", format!("{}/{}", xp, next_level_xp), true)
+                .field("Rank", rank_str, true)
+                .thumbnail(pfp_url)
     })}).await {
         error!("Failed to send embed: {}", ex);
     }
@@ -70,14 +69,16 @@ pub async fn rank(
     #[description = "A user to check their rank"] user: Option<UserId>)
 -> Result<(), Error> {
     if let Some(server_id) = ctx.guild_id() {
-        if let Ok(other_id) = user {
-            if let Ok(other_user) = other_id.to_user(&ctx.http).await {
+        if let Some(other_id) = user {
+            let serenity = ctx.discord();
+
+            if let Ok(other_user) = other_id.to_user(&serenity.http).await {
                 rank_embed(&ctx, &server_id, &other_user).await;
             } else {
                 ctx.say("Could not find user...").await?;
             }
         } else {
-            rank_embed(&ctx, &server_id, &ctx.author()).await;
+            rank_embed(&ctx, &server_id, ctx.author()).await;
         }
     } else {
         ctx.say("This command can only be run in a server.").await?;
@@ -129,27 +130,31 @@ pub async fn disablexp(ctx: CowContext<'_>) -> Result<(), Error> {
     guild_only,
     description_localized("en", "Get the current rankings in the server.")
 )]
-pub async fn levels(ctx: CowContext<'_>, mut args: Args) -> Result<(), Error> {
+pub async fn levels(
+    ctx: CowContext<'_>,
+    page: Option<i32>)
+-> Result<(), Error> {
     let db = cowdb!(ctx);
     if let Some(server_id) = ctx.guild_id() {
-        let page = args.single::<i32>().unwrap_or(1).max(1);
-        match db.top_members(server_id, page - 1).await {
+        let level_page = page.unwrap_or(1).max(1);
+        match db.top_members(server_id, level_page - 1).await {
             Ok(pagination) => {
                 let content = pagination.members.into_iter()
                     .enumerate()
                     .into_iter()
                     .map(|o| {
                         let (index, member) = o;
-                        format!("`#{}` <@{}> - Level {}, {} xp", (index as i32) + 10 * (page - 1) + 1, member.id, member.exp.level, member.exp.xp)
+                        format!("`#{}` <@{}> - Level {}, {} xp", (index as i32) + 10 * (level_page - 1) + 1, member.id, member.exp.level, member.exp.xp)
                     })
                     .reduce(|a, b| {format!("{}\n{}", a, b)})
                     .unwrap_or_else(|| "There is nothing on this page.".to_string());
                 ctx.send(|m| {
+                    m.embeds.clear();
                     m.embed(|e|
                         e
                             .title("Top Users")
                             .description(content)
-                            .footer(|e| e.text(format!("Page {}/{}", page, pagination.last_page)))
+                            .footer(|e| e.text(format!("Page {}/{}", level_page, pagination.last_page)))
                     )}).await?;
             },
             Err(ex) => {

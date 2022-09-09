@@ -22,7 +22,7 @@ pub async fn join_interactive(ctx: &CowContext<'_>) -> Result<(), Error> {
 
     let channel_id = guild
         .voice_states
-        .get(ctx.author.id)
+        .get(&ctx.author().id)
         .and_then(|voice_state| voice_state.channel_id);
 
     let connect_to = match channel_id {
@@ -33,14 +33,15 @@ pub async fn join_interactive(ctx: &CowContext<'_>) -> Result<(), Error> {
         }
     };
 
-    let manager = songbird::get(ctx).await.unwrap().clone();
+    let serenity = ctx.discord();
+    let manager = songbird::get(serenity).await.unwrap().clone();
 
     let (_, handler) = manager.join_gateway(guild_id, connect_to).await;
 
     match handler {
         Ok(connection_info) => {
             let lava_client = {
-                let data = ctx.discord().data.read().await;
+                let data = serenity.data.read().await;
                 data.get::<Lavalink>().unwrap().clone()
             };
 
@@ -111,7 +112,7 @@ pub async fn play(
     #[description = "A YouTube URL or name."] #[rest] query: String)
 -> Result<(), Error> {
     let guild_id = match ctx.guild_id() {
-        Some(channel) => channel.guild_id,
+        Some(channel) => channel,
         None => {
             ctx.say("Error finding channel info").await?;
             return Ok(());
@@ -124,7 +125,7 @@ pub async fn play(
         data.get::<Lavalink>().unwrap().clone()
     };
 
-    let manager = songbird::get(&serenity).await.unwrap().clone();
+    let manager = songbird::get(serenity).await.unwrap().clone();
 
     if manager.get(guild_id).is_none() {
         if let Err(ex) = join_interactive(&ctx).await {
@@ -179,7 +180,7 @@ pub async fn playlist(
             data.get::<Lavalink>().unwrap().clone()
         };
 
-        let manager = songbird::get(&serenity).await.unwrap().clone();
+        let manager = songbird::get(serenity).await.unwrap().clone();
 
         if manager.get(guild_id).is_none() {
             if let Err(ex) = join_interactive(&ctx).await {
@@ -202,7 +203,7 @@ pub async fn playlist(
 
                     if let Some(info) = &tracks.playlist_info {
                         if let Some(name) = &info.name {
-                            ctx.say(MessageBuilder::new().push("Added to the queue ").push(tracks.tracks.len()).push(" tracks from ").push_mono_safe(name).push(".")).await?;
+                            ctx.say(MessageBuilder::new().push("Added to the queue ").push(tracks.tracks.len()).push(" tracks from ").push_mono_safe(name).push(".").build()).await?;
                         } else {
                             ctx.say(format!("Added to the queue {} tracks.", tracks.tracks.len())).await?;
                         }
@@ -265,7 +266,7 @@ pub async fn now_playing(ctx: CowContext<'_>) -> Result<(), Error> {
         data.get::<Lavalink>().unwrap().clone()
     };
 
-    if let Some(node) = lava_client.nodes().await.get(ctx.guild_id().0) {
+    if let Some(node) = lava_client.nodes().await.get(&ctx.guild_id().unwrap().0) {
         if let Some(track) = &node.now_playing {
             let info = track.track.info.as_ref().unwrap();
             let re = Regex::new(r#"(?:youtube\.com/(?:[^/]+/.+/|(?:v|e(?:mbed)?)/|.*[?&]v=)|youtu\.be/)([^"&?/\s]{11})"#).unwrap();
@@ -273,29 +274,32 @@ pub async fn now_playing(ctx: CowContext<'_>) -> Result<(), Error> {
             let id = caps.get(1).map(|m| m.as_str());
             let server_name = ctx.guild().map(|o| o.name);
 
-            ctx.send(|m| m.embed(|e| {
-                 e
-                    .author(|a| a.name(match server_name {
-                        Some(name) => format!("Now Playing in {}", name),
-                        None => "Now Playing".to_string()
-                    }))
-                    .title(&info.title)
-                    .url(&info.uri)
-                    .field("Artist", &info.author, true)
-                    .field("Duration", format!("{}/{}", crate::util::from_ms(info.position), crate::util::from_ms(info.length)), true);
+            ctx.send(|m| {
+                m.embeds.clear();
+                m.embed(|e| {
+                    e
+                        .author(|a| a.name(match server_name {
+                            Some(name) => format!("Now Playing in {}", name),
+                            None => "Now Playing".to_string()
+                        }))
+                        .title(&info.title)
+                        .url(&info.uri)
+                        .field("Artist", &info.author, true)
+                        .field("Duration", format!("{}/{}", crate::util::from_ms(info.position), crate::util::from_ms(info.length)), true);
 
 
-                if let Some(requester) = track.requester {
-                    e.field("Requested By", format!("<@{}>", requester), true);
+                    if let Some(requester) = track.requester {
+                        e.field("Requested By", format!("<@{}>", requester), true);
+                    }
+
+                    if let Some(yt_id) = id {
+                        e.thumbnail(format!("https://img.youtube.com/vi/{}/maxresdefault.jpg", yt_id));
+                    }
+
+                    e
                 }
-
-                if let Some(yt_id) = id {
-                    e.thumbnail(format!("https://img.youtube.com/vi/{}/maxresdefault.jpg", yt_id));
-                }
-
-                e
-            }
-            )).await?;
+                )
+            }).await?;
         } else {
             ctx.say("Nothing is playing at the moment.").await?;
         }
@@ -412,30 +416,33 @@ pub async fn queue(ctx: CowContext<'_>, page: Option<usize>) -> Result<(), Error
         }
 
         let page = &pages[page_num - 1];
-        let server_name = guild_id.name(&ctx);
+        let server_name = guild_id.name(&ctx.discord());
 
-        ctx.send(|m| m.embed(|e| {
-            e
-                .author(|a| {
-                    if let Some(server) = server_name {
-                        a.name(format!("Player Queue | Page {}/{} | Playing in {}", page_num, pages.len(), server));
-                    } else {
-                        a.name(format!("Player Queue | Page {}/{}", page_num, pages.len()));
-                    }
+        ctx.send(|m| {
+            m.embeds.clear();
+            m.embed(|e| {
+                e
+                    .author(|a| {
+                        if let Some(server) = server_name {
+                            a.name(format!("Player Queue | Page {}/{} | Playing in {}", page_num, pages.len(), server));
+                        } else {
+                            a.name(format!("Player Queue | Page {}/{}", page_num, pages.len()));
+                        }
 
-                    a
-                })
-                .title("Now Playing")
-                .field("Queued", page, false);
+                        a
+                    })
+                    .title("Now Playing")
+                    .field("Queued", page, false);
 
-            if let Some(now_playing) = &node.now_playing {
-                e.description(generate_line(now_playing));
-            } else {
-                e.description("Nothing is playing.");
-            }
+                if let Some(now_playing) = &node.now_playing {
+                    e.description(generate_line(now_playing));
+                } else {
+                    e.description("Nothing is playing.");
+                }
 
-            e
-        })).await?;
+                e
+            })
+        }).await?;
 
     } else {
         ctx.say("Nothing is playing at the moment.").await?;

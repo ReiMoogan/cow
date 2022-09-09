@@ -27,9 +27,7 @@ use songbird::SerenityInit;
 type Error = Box<dyn error::Error + Send + Sync>;
 type CowContext<'a> = poise::Context<'a, (), Error>;
 
-struct Handler {
-    database: Arc<Database>
-}
+struct Handler;
 
 struct Lavalink;
 
@@ -112,24 +110,21 @@ async fn main() -> Result<(), Box<dyn error::Error>>  {
     let token = config.token;
     let (app_id, owners) = fetch_bot_info(&token).await;
     let framework = get_framework(&config.cmd_prefix, app_id, owners).await;
+    let database = Arc::new(Database::new(&*config.sql_server_ip, config.sql_server_port, &*config.sql_server_username, &*config.sql_server_password).await.unwrap());
 
-    let event_handler = Handler {
-        database: Arc::new(Database::new(&*config.sql_server_ip, config.sql_server_port, &*config.sql_server_username, &*config.sql_server_password).await.unwrap())
-    };
+    let event_handler = Handler;
 
-    let mut poise = poise::Framework::builder()
+    let poise = poise::Framework::builder()
         .token(&token)
         .intents(GatewayIntents::all())
         .options(framework)
         .client_settings(|settings| {
             settings
-                .application_id(*app_id.as_u64())
                 .register_songbird()
                 .event_handler(event_handler)
         })
-        .user_data_setup(move |ctx, _ready, _framework| {
+        .user_data_setup(move |_ctx, _ready, _framework| {
             Box::pin(async move {
-
                 Ok(())
             })
         })
@@ -137,46 +132,48 @@ async fn main() -> Result<(), Box<dyn error::Error>>  {
         .await
         .expect("Failed to create client");
 
-    let serenity = poise.client();
+    {
+        let serenity = poise.client();
 
-    let lavalink_enabled = !config.lavalink_ip.is_empty() && !config.lavalink_password.is_empty();
+        let lavalink_enabled = !config.lavalink_ip.is_empty() && !config.lavalink_password.is_empty();
 
-    if lavalink_enabled {
-        match LavalinkClient::builder(*app_id.as_u64())
-            .set_host(config.lavalink_ip)
-            .set_password(
-                config.lavalink_password,
-            )
-            .build(LavalinkHandler)
-            .await {
-            Ok(lava_client) => {
-                let mut data = serenity.data.write().await;
-                data.insert::<Lavalink>(lava_client);
-            }
-            Err(ex) => {
-                error!("Failed to initialize LavaLink. {}", ex);
+        if lavalink_enabled {
+            match LavalinkClient::builder(*app_id.as_u64())
+                .set_host(config.lavalink_ip)
+                .set_password(
+                    config.lavalink_password,
+                )
+                .build(LavalinkHandler)
+                .await {
+                Ok(lava_client) => {
+                    let mut data = serenity.data.write().await;
+                    data.insert::<Lavalink>(lava_client);
+                }
+                Err(ex) => {
+                    error!("Failed to initialize LavaLink. {}", ex);
+                }
             }
         }
-    }
 
-    {
-        let mut data = serenity.data.write().await;
-        data.insert::<Database>(event_handler.database.clone());
-    }
+        {
+            let mut data = serenity.data.write().await;
+            data.insert::<Database>(database.clone());
+        }
 
-    // Start our reminder task and forget about it.
-    let _ = tokio::task::spawn(commands::ucm::reminders::check_reminders(serenity.data.clone(), serenity.cache_and_http.clone()));
+        // Start our reminder task and forget about it.
+        let _ = tokio::task::spawn(commands::ucm::reminders::check_reminders(serenity.data.clone(), serenity.cache_and_http.clone()));
 
-    let commands = &poise.options().commands;
-    let command_builders = poise::builtins::create_application_commands(commands);
-    let try_create_commands = Command::set_global_application_commands(&serenity.cache_and_http.http, |commands| {
-        *commands = command_builders;
-        commands
-    })
-    .await;
+        let commands = &poise.options().commands;
+        let command_builders = poise::builtins::create_application_commands(commands);
+        let try_create_commands = Command::set_global_application_commands(&serenity.cache_and_http.http, |commands| {
+            *commands = command_builders;
+            commands
+        })
+            .await;
 
-    if let Err(ex) = try_create_commands {
-        error!("Failed to create slash commands: {}", ex);
+        if let Err(ex) = try_create_commands {
+            error!("Failed to create slash commands: {}", ex);
+        }
     }
 
     if let Err(ex) = poise.start().await {

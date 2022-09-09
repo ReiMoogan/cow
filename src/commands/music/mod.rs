@@ -8,6 +8,6 @@ use music_commands::*;
     description_localized("en", "Commands for playing music."),
     guild_only
 )]
-pub async fn parent(ctx: CowContext<'_>) -> Result<(), Error> {
-    help(ctx).await
+pub async fn music(_ctx: CowContext<'_>) -> Result<(), Error> {
+    Ok(())
 }

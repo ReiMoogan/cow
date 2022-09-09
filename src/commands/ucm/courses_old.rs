@@ -59,6 +59,7 @@ pub async fn courses_old(
             match response.json::<CourseList>().await {
                 Ok(course_list) => {
                     ctx.send(|m| {
+                        m.embeds.clear();
                         m.embed(|e| {
                             e
                                 .title("Course List")

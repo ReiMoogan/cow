@@ -3,36 +3,37 @@ use serenity::{
     model::{id::{RoleId}, guild::Member}
 };
 use log::error;
-use crate::{Database, db, CowContext};
+use serenity::model::channel::Message;
+use crate::{Database, db, Error};
 
-pub async fn non_command(ctx: CowContext<'_>) {
-    let author = ctx.author();
+pub async fn non_command(ctx: &Context, msg: &Message) -> Result<(), Error>{
+    let author = &msg.author;
 
     if author.bot {
-        return;
+        return Ok(());
     }
 
     let db = db!(ctx);
 
-    if let Some(guild) = ctx.guild() {
-        match db.channel_disabled(guild.id, ctx.channel_id()).await {
+    if let Some(guild) = msg.guild(&ctx) {
+        match db.channel_disabled(guild.id, msg.channel_id).await {
             Err(ex) => {
                 error!("Failed checking if the current channel was disabled: {}", ex);
             },
             Ok(result) => {
                 if result {
-                    return;
+                    return Ok(());
                 }
             }
         }
 
-        match db.provide_exp(guild.id, ctx.author().id).await {
+        match db.provide_exp(guild.id, author.id).await {
             Err(ex) => {
                 error!("Failed providing exp to user: {}", ex)
             },
             Ok(data) => {
                 if data.level < 0 {
-                    return;
+                    return Ok(());
                 }
 
                 let mut content = format!("<@{}> leveled up from {} to {}.", author.id.as_u64(), data.level - 1, data.level);
@@ -41,30 +42,35 @@ pub async fn non_command(ctx: CowContext<'_>) {
 
                     let mut error = false;
 
-                    let mut member = ctx.author_member().await.unwrap();
+                    match msg.member(&ctx.http).await {
+                        Ok(mut member) => {
+                            if let Some(old_rank_id) = data.old_rank {
+                                let old_rank = RoleId::from(old_rank_id);
+                                if member.roles.contains(&old_rank) {
+                                    // We know we're in a guild, so an error is probably an API issue.
+                                    if let Err(ex) = member.remove_role(&ctx.http, old_rank).await {
+                                        error = true;
+                                        content += "\n(We failed to update your roles; maybe we don't have permission?)";
+                                        error!("Failed to remove role from user: {}", ex);
+                                    }
+                                }
+                            }
 
-                    if let Some(old_rank_id) = data.old_rank {
-                        let old_rank = RoleId::from(old_rank_id);
-                        if member.roles.contains(&old_rank) {
-                            // We know we're in a guild, so an error is probably an API issue.
-                            if let Err(ex) = member.remove_role(&ctx.http, old_rank).await {
-                                error = true;
-                                content += "\n(We failed to update your roles; maybe we don't have permission?)";
-                                error!("Failed to remove role from user: {}", ex);
+                            if let Err(ex) = member.add_role(&ctx.http, RoleId::from(new_rank_id)).await {
+                                if !error {
+                                    content += "\n(We failed to update your roles; maybe we don't have permission?)";
+                                }
+                                error!("Failed to add role to user: {}", ex);
                             }
                         }
-                    }
-
-                    if let Err(ex) = member.add_role(&ctx.http, RoleId::from(new_rank_id)).await {
-                        if !error {
-                            content += "\n(We failed to update your roles; maybe we don't have permission?)";
+                        Err(ex) => {
+                            error!("Failed to get member from message: {}", ex);
                         }
-                        error!("Failed to add role to user: {}", ex);
                     }
                 }
 
                 if let Err(ex2) =
-                    ctx.channel_id().send_message(&ctx.http, |m| m.embed(|e| e
+                    msg.channel_id.send_message(&ctx.http, |m| m.embed(|e| e
                         .title("Level Up!")
                         .description(content)
                     )).await {
@@ -73,6 +79,8 @@ pub async fn non_command(ctx: CowContext<'_>) {
             }
         }
     }
+
+    Ok(())
 }
 
 pub async fn on_join(ctx: &Context, new_member: &Member) {

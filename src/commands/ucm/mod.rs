@@ -14,10 +14,6 @@ mod calendar;
 mod gym;
 mod store;
 
-use serenity::framework::standard::macros::group;
-
-use crate::commands::ucm::reminders::REMINDERS_GROUP;
-
 use library::*;
 use courses::*;
 use courses_old::*;
@@ -27,11 +23,14 @@ use foodtrucks::*;
 use calendar::*;
 use gym::*;
 use store::*;
+use reminders::*;
+use crate::{CowContext, Error};
 
-#[group]
-#[prefixes("ucm", "ucmerced")]
-#[description = "Get information about UC Merced's services and facilities."]
-#[summary = "UC Merced info"]
-#[commands(library, courses, courses_old, pavilion, professors, foodtrucks, calendar, gym, store)]
-#[sub_groups(reminders)]
-struct UCM;
+#[poise::command(prefix_command, slash_command,
+    subcommands("library", "courses", "courses_old", "pavilion", "professors", "foodtrucks", "calendar", "gym", "store", "reminders"),
+    description_localized("en", "Get information about UC Merced's services and facilities."),
+    aliases("ucmerced")
+)]
+pub async fn ucm(_ctx: CowContext<'_>) -> Result<(), Error> {
+    Ok(())
+}

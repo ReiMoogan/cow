@@ -51,7 +51,6 @@ async fn professor_embed(ctx: &CowContext<'_>, professor: &Professor) -> Result<
     description_localized("en", "Search for a professor."),
     aliases("professor")
 )]
-
 pub async fn professors(ctx: CowContext<'_>, #[rest] query: String) -> Result<(), Error> {
     let db = cowdb!(ctx);
     match db.search_professor(&*query).await {

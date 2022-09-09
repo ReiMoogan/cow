@@ -19,8 +19,8 @@ use course_reminders::*;
     subcommands("add", "remove", "list"),
     aliases("remind", "reminder")
 )]
-pub async fn reminders(ctx: CowContext<'_>) -> Result<(), Error> {
-    list(ctx).await
+pub async fn reminders(_ctx: CowContext<'_>) -> Result<(), Error> {
+    Ok(()) //list().inner(ctx).await
 }
 
 pub async fn check_reminders(data: Arc<RwLock<TypeMap>>, ctx: Arc<CacheAndHttp>) {

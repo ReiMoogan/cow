@@ -12,3 +12,11 @@ pub async fn info(ctx: CowContext<'_>) -> Result<(), Error> {
     ctx.say(content).await?;
     Ok(())
 }
+
+/// Registers or unregisters application commands in this guild or globally
+#[poise::command(prefix_command, hide_in_help, owners_only)]
+pub async fn register(ctx: CowContext<'_>) -> Result<(), Error> {
+    poise::builtins::register_application_commands_buttons(ctx).await?;
+
+    Ok(())
+}

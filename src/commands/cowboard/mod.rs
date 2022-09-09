@@ -3,15 +3,14 @@ mod cowboard_db;
 mod cowboard_db_models;
 pub mod cowboard_handler;
 
-use serenity::framework::standard::macros::group;
-
 use cowboard_config::*;
+use crate::{CowContext, Error};
 
-#[group]
-#[prefixes("cowboard")]
-#[description = "Commands for modifying how the cowboard (starboard) functions."]
-#[summary = "Cowboard"]
-#[default_command(info)]
-#[commands(info, emote, addthreshold, removethreshold, channel, webhook)]
-struct Cowboard;
-
+#[poise::command(prefix_command, slash_command,
+    subcommands("info", "emote", "addthreshold", "removethreshold", "channel", "webhook"),
+    description_localized("en", "Commands for modifying how the cowboard (starboard) functions."),
+    guild_only
+)]
+pub async fn cowboard(_ctx: CowContext<'_>) -> Result<(), Error> {
+    Ok(()) //info().inner(ctx).await
+}

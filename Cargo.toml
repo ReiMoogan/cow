@@ -47,15 +47,12 @@ poise = "0.3.0"
 default-features = false
 features = [
     "builder",
-    "cache",
     "client",
     "chrono",
-    "framework",
     "gateway",
-    "http",
     "model",
-    "standard_framework",
     "utils",
+    "collector",
     "rustls_backend",
     "unstable_discord_api", # For slash commands/components
     "voice"
