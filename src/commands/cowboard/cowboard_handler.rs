@@ -1,7 +1,7 @@
 use std::path::Path;
 use std::error;
 use tokio::fs::File;
-use log::error;
+use tracing::error;
 use serenity::client::Context;
 use serenity::model::channel::{Embed, Message, Reaction, ReactionType, AttachmentType};
 use serenity::model::id::{ChannelId, GuildId, MessageId, UserId};

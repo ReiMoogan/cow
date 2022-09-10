@@ -2,7 +2,7 @@ use chrono::{NaiveDate, NaiveTime};
 use reqwest::{Url, Client};
 use crate::{CowContext, Error};
 use crate::commands::ucm::pav_models::*;
-use log::error;
+use tracing::error;
 use std::error;
 
 // Probably can be hard-coded to be 61bd7ecd8c760e0011ac0fac.

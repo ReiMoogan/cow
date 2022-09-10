@@ -1,5 +1,5 @@
 use chrono::Datelike;
-use log::error;
+use tracing::error;
 use crate::{CowContext, Error};
 use crate::commands::ucm::libcal_models::Calendar;
 

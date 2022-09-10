@@ -7,7 +7,7 @@ use serenity::{
     },
 };
 use crate::{Database, db};
-use log::{error};
+use tracing::{error};
 use serenity::model::guild::Role;
 
 // Parameters: rankconfig add [min_level] [rank]

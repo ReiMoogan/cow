@@ -1,4 +1,4 @@
-use log::error;
+use tracing::error;
 use crate::{CowContext, Error};
 use chrono::Datelike;
 use crate::commands::ucm::course_models::{CourseList};

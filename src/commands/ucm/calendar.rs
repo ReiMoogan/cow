@@ -1,5 +1,5 @@
 use chrono::{Datelike, Local};
-use log::error;
+use tracing::error;
 use crate::{CowContext, Error};
 use scraper::{Html, Selector};
 
@@ -101,17 +101,13 @@ async fn print_schedule(ctx: &CowContext<'_>, schedule: &AcademicCalendar) -> Re
 )]
 pub async fn calendar(
     ctx: CowContext<'_>,
-    #[description = "A year on or past 2005."] year: i32)
+    #[description = "A year on or past 2005."] #[min = 2005] year: Option<i32>)
 -> Result<(), Error> {
     let now = Local::now();
-    let mut calendar_year = now.year();
+    let mut calendar_year = year.filter(|o| *o >= 2005).unwrap_or_else(|| now.year());
 
     if now.month() <= 7 { // Spring or summer semester are still on the previous year.
         calendar_year -= 1;
-    }
-
-    if year >= 2005 {
-        calendar_year = year;
     }
 
     let url = format!("https://registrar.ucmerced.edu/schedules/academic-calendar/academic-calendar-{}-{}", calendar_year, calendar_year + 1);

@@ -1,4 +1,4 @@
-use log::error;
+use tracing::error;
 use crate::{CowContext, cowdb, Error};
 
 use crate::{db, Database};
@@ -49,8 +49,8 @@ pub async fn list(ctx: CowContext<'_>) -> Result<(), Error> {
 )]
 pub async fn add(
     ctx: CowContext<'_>,
-    #[description = "The CRN of the class to get reminders for"] course_reference_number: i32,
-    #[description = "The minimum amount of seats to trigger at, 1 minimum"] min_seats: Option<i32>,
+    #[description = "The CRN of the class to get reminders for"] #[min = 10000] course_reference_number: i32,
+    #[description = "The minimum amount of seats to trigger at, 1 minimum"]  #[min = 1] min_seats: Option<i32>,
     #[description = "If the reminder is for a waitlist spot"] for_waitlist: Option<bool>)
 -> Result<(), Error> {
 
@@ -99,7 +99,7 @@ pub async fn add(
 )]
 pub async fn remove(
     ctx: CowContext<'_>,
-    #[description = "The CRN of the class to disable reminders for"] course_reference_number: i32)
+    #[description = "The CRN of the class to disable reminders for"] #[min = 10000] course_reference_number: i32)
 -> Result<(), Error> {
 
     let db = cowdb!(ctx);

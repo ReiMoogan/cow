@@ -2,7 +2,7 @@ use serenity::{
     client::Context,
     model::{id::{RoleId}, guild::Member}
 };
-use log::error;
+use tracing::error;
 use serenity::model::channel::Message;
 use crate::{Database, db, Error};
 

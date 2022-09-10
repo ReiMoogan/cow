@@ -1,4 +1,4 @@
-use log::error;
+use tracing::error;
 use crate::{CowContext, cowdb, Error};
 use serenity::model::channel::ReactionType;
 use serenity::model::id::ChannelId;

@@ -2,7 +2,7 @@ mod course_reminders;
 
 use std::sync::Arc;
 use std::time::Duration;
-use log::error;
+use tracing::error;
 use serenity::{
     CacheAndHttp,
     prelude::TypeMap

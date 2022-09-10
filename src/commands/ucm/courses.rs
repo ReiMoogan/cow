@@ -1,9 +1,10 @@
 use chrono::{Datelike, DateTime, Local, TimeZone, Utc};
-use log::error;
+use tracing::error;
 use crate::{CowContext, cowdb, Error};
 use std::error;
 use crate::commands::ucm::courses_db_models::*;
 use crate::{Database, db};
+use crate::commands::ucm::courses::CourseQuery::CourseReferenceNumber;
 
 fn fix_time(time: &str) -> String {
     let hour_str = &time[..2];
@@ -103,6 +104,51 @@ async fn course_embed(ctx: &CowContext<'_>, class: &Class) -> Result<(), Error> 
     Ok(())
 }
 
+async fn autocomplete_course(
+    ctx: CowContext<'_>,
+    query: &str)
+-> Vec<String> {
+    let db = cowdb!(ctx);
+
+    match process_query(query) {
+        CourseReferenceNumber(crn) => {
+            let data = db.get_class(crn).await;
+            if data.is_ok() && data.unwrap().is_some() {
+                vec![query.to_string()]
+            } else {
+                vec![]
+            }
+        }
+        CourseQuery::NameOrNumber { query, term } => {
+            match db.search_class_by_number(&*query, term).await {
+                Ok(any) => {
+                    if any.is_empty() {
+                        match db.search_class_by_name(&*query, term).await {
+                            Ok(any) => {
+                                if any.is_empty() {
+                                    vec![]
+                                } else {
+                                    any.iter().map(|o| o.course_title.clone().unwrap_or_else(|| "<unknown class>".to_string())).take(10).collect()
+                                }
+                            }
+                            Err(ex) => {
+                                error!("Failed to search by name: {}", ex);
+                                vec![]
+                            }
+                        }
+                    } else {
+                        any.iter().map(|o| o.course_number.clone()).take(10).collect()
+                    }
+                }
+                Err(ex) => {
+                    error!("Failed to search by number: {}", ex);
+                    vec![]
+                }
+            }
+        }
+    }
+}
+
 #[poise::command(
     prefix_command,
     slash_command,
@@ -111,7 +157,7 @@ async fn course_embed(ctx: &CowContext<'_>, class: &Class) -> Result<(), Error> 
 )]
 pub async fn courses(
     ctx: CowContext<'_>,
-    #[description = "CRN, course number, or name of class"] #[rest] query: Option<String>
+    #[autocomplete = "autocomplete_course"] #[description = "CRN, course number, or name of class"] #[rest] query: Option<String>
 ) -> Result<(), Error> {
     let query = query.unwrap_or_default();
 
@@ -120,6 +166,58 @@ pub async fn courses(
         return Ok(());
     }
 
+    match process_query(&*query) {
+        CourseReferenceNumber(crn) => {
+            let db = cowdb!(ctx);
+            match db.get_class(crn).await {
+                Ok(option_class) => {
+                    if let Some(class) = option_class {
+                        course_embed(&ctx, &class).await?;
+                    } else {
+                        ctx.say(format!("Could not find a class with the CRN `{}`.", crn)).await?;
+                    }
+                }
+                Err(ex) => {
+                    error!("Failed to get class: {}", ex);
+                    ctx.say("Failed to query our database... try again later?").await?;
+                }
+            }
+            return Ok(())
+        }
+        CourseQuery::NameOrNumber { query, term } => {
+            match search_course_by_number(&ctx, &query, term).await {
+                Ok(any) => {
+                    if !any {
+                        match search_course_by_name(&ctx, &query, term).await {
+                            Ok(any) => {
+                                if !any {
+                                    ctx.say("Failed to find any classes with the given query. Did you mistype the input?").await?;
+                                }
+                            }
+                            Err(ex) => {
+                                error!("Failed to search by name: {}", ex);
+                                ctx.say("Failed to search for classes... try again later?").await?;
+                            }
+                        }
+                    }
+                }
+                Err(ex) => {
+                    error!("Failed to search by number: {}", ex);
+                    ctx.say("Failed to search for classes... try again later?").await?;
+                }
+            }
+        }
+    }
+
+    Ok(())
+}
+
+enum CourseQuery {
+    CourseReferenceNumber(i32),
+    NameOrNumber { query: String, term: i32 }
+}
+
+fn process_query(query: &str) -> CourseQuery {
     let args = query.split(' ');
 
     let current_date = Local::now().date();
@@ -132,21 +230,7 @@ pub async fn courses(
         if let Ok(numeric) = arg.parse::<i32>() {
             // Make sure it's not a year lol
             if numeric >= 10000 {
-                let db = cowdb!(ctx);
-                match db.get_class(numeric).await {
-                    Ok(option_class) => {
-                        if let Some(class) = option_class {
-                            course_embed(&ctx, &class).await?;
-                        } else {
-                            ctx.say(format!("Could not find a class with the CRN `{}`.", numeric)).await?;
-                        }
-                    }
-                    Err(ex) => {
-                        error!("Failed to get class: {}", ex);
-                        ctx.say("Failed to query our database... try again later?").await?;
-                    }
-                }
-                return Ok(())
+                return CourseReferenceNumber(numeric);
             } else if numeric >= 2005 {
                 year = numeric;
                 continue;
@@ -162,29 +246,7 @@ pub async fn courses(
     }
 
     let term = year * 100 + semester;
-    match search_course_by_number(&ctx, &search_query, term).await {
-        Ok(any) => {
-            if !any {
-                match search_course_by_name(&ctx, &search_query, term).await {
-                    Ok(any) => {
-                        if !any {
-                            ctx.say("Failed to find any classes with the given query. Did you mistype the input?").await?;
-                        }
-                    }
-                    Err(ex) => {
-                        error!("Failed to search by name: {}", ex);
-                        ctx.say("Failed to search for classes... try again later?").await?;
-                    }
-                }
-            }
-        }
-        Err(ex) => {
-            error!("Failed to search by name: {}", ex);
-            ctx.say("Failed to search for classes... try again later?").await?;
-        }
-    }
-
-    Ok(())
+    CourseQuery::NameOrNumber { query: search_query, term }
 }
 
 async fn search_course_by_number(ctx: &CowContext<'_>, search_query: &str, term: i32) -> Result<bool, Box<dyn error::Error + Send + Sync>> {

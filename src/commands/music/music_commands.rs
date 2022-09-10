@@ -1,5 +1,5 @@
 use lavalink_rs::model::{TrackQueue};
-use log::error;
+use tracing::error;
 use regex::Regex;
 use serenity::utils::MessageBuilder;
 use crate::{Error, Lavalink};
@@ -392,7 +392,10 @@ fn generate_queue(queue: &[TrackQueue]) -> Vec<String> {
     description_localized("en-US", "Get the music queue."),
     aliases("q")
 )]
-pub async fn queue(ctx: CowContext<'_>, page: Option<usize>) -> Result<(), Error> {
+pub async fn queue(
+    ctx: CowContext<'_>,
+    #[description = "The page of the queue to display"] #[min = 1] page: Option<usize>)
+-> Result<(), Error> {
     let lava_client = {
         let data = ctx.discord().data.read().await;
         data.get::<Lavalink>().unwrap().clone()

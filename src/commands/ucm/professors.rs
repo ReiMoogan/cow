@@ -1,5 +1,5 @@
 use chrono::{Datelike, DateTime, Local, TimeZone, Utc};
-use log::error;
+use tracing::error;
 use crate::{CowContext, Database, db, cowdb, Error};
 use crate::commands::ucm::courses_db_models::*;
 

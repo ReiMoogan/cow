@@ -1,5 +1,5 @@
 use std::collections::{HashMap, HashSet};
-use log::error;
+use tracing::error;
 use crate::{CowContext, cowdb, Error};
 use serenity::{
     model::{

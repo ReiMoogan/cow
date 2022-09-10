@@ -1,4 +1,4 @@
-use log::error;
+use tracing::error;
 use crate::{CowContext, Error};
 use scraper::{Html, Selector};
 

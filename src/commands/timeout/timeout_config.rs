@@ -1,4 +1,4 @@
-use log::error;
+use tracing::error;
 use crate::{CowContext, Database, db, cowdb, Error};
 use crate::util::{ to_ms, from_ms };
 

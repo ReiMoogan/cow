@@ -1,7 +1,7 @@
 use reqwest::Client;
 use crate::{CowContext, Error};
 use serde::Deserialize;
-use log::error;
+use tracing::error;
 use std::error;
 
 #[derive(Debug, Deserialize)]

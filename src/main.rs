@@ -11,7 +11,6 @@ use std::fs;
 use std::sync::Arc;
 use std::env;
 use std::error;
-use env_logger::Env;
 use lavalink_rs::{LavalinkClient, gateway::LavalinkEventHandler};
 use serenity::{
     async_trait,
@@ -20,9 +19,9 @@ use serenity::{
     http::Http,
     prelude::TypeMapKey
 };
-use log::{error, info};
 use serenity::model::application::command::Command;
 use songbird::SerenityInit;
+use tracing::{error, info};
 
 type Error = Box<dyn error::Error + Send + Sync>;
 type CowContext<'a> = poise::Context<'a, (), Error>;
@@ -64,8 +63,17 @@ impl EventHandler for Handler {
 }
 
 async fn init_logger() -> std::io::Result<()> {
-    let env = Env::default().default_filter_or("warning");
-    env_logger::init_from_env(env);
+    let file_appender = tracing_appender::rolling::hourly("logs", "cow.log");
+    let (non_blocking, _guard) = tracing_appender::non_blocking(file_appender);
+    tracing_subscriber::fmt()
+        .with_target(true)
+        .with_thread_ids(true)
+        .with_thread_names(true)
+        .with_span_events(tracing_subscriber::fmt::format::FmtSpan::CLOSE)
+        .with_writer(non_blocking)
+        .with_writer(std::io::stdout)
+        .with_ansi(true)
+        .init();
 
     const VERSION: Option<&str> = option_env!("CARGO_PKG_VERSION");
     info!("Initializing cow v{}", VERSION.unwrap_or("<unknown>"));

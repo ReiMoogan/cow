@@ -9,7 +9,7 @@ use serenity::{
     utils::MessageBuilder
 };
 use crate::{Database, db, cowdb, Error, CowContext};
-use log::{error};
+use tracing::{error};
 
 async fn rank_embed(ctx: &CowContext<'_>, server_id: &GuildId, user: &User) {
     let db = cowdb!(ctx);
@@ -132,7 +132,7 @@ pub async fn disablexp(ctx: CowContext<'_>) -> Result<(), Error> {
 )]
 pub async fn levels(
     ctx: CowContext<'_>,
-    page: Option<i32>)
+    #[description = "The page of rankings to fetch"] #[min = 1] page: Option<i32>)
 -> Result<(), Error> {
     let db = cowdb!(ctx);
     if let Some(server_id) = ctx.guild_id() {
