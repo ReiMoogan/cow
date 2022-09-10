@@ -30,6 +30,10 @@ testData
 # Skip the main config file
 config.json
 
+# Skip logs
+logs
+*.log.*
+
 # Ignore Visual Studio's files (usually from switching from the db branch)
 .vs/
 Cow.dbmdl
