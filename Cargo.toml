@@ -33,8 +33,8 @@ num-traits = "0.2.14"
 num-derive = "0.3.3"
 # Music stuff
 songbird = { version = "0.3.0", default-features = false, features = ["serenity-rustls", "gateway"] }
-# lavalink-rs = { git = "https://github.com/DoggySazHi/lavalink-rs-moogan", branch = "master", features = ["rustls", "serenity", "songbird"] }
-lavalink-rs = { path = "../lavalink-rs", features = ["rustls", "serenity", "songbird"] }
+lavalink-rs = { git = "https://github.com/DoggySazHi/lavalink-rs-moogan", branch = "master", features = ["rustls", "serenity", "songbird"] }
+# lavalink-rs = { path = "../lavalink-rs", features = ["rustls", "serenity", "songbird"] }
 # Literally in the name
 regex = "1.5.5"
 # Wait bruh enums can't be bits?
@@ -42,8 +42,8 @@ bitflags = "1.3.2"
 # Traits aren't async?
 async-trait = "0.1.53"
 # Slash command framework
-# poise = { git = "https://github.com/DoggySazHi/poise-moogan", branch = "develop" }
-poise = { path = "../poise" }
+poise = { git = "https://github.com/DoggySazHi/poise-moogan", branch = "develop" }
+# poise = { path = "../poise" }
 
 # Discord API
 [dependencies.serenity]
