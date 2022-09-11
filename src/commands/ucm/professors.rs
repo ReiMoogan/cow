@@ -45,13 +45,33 @@ async fn professor_embed(ctx: &CowContext<'_>, professor: &Professor) -> Result<
     Ok(())
 }
 
+async fn autocomplete_professor(
+    ctx: CowContext<'_>,
+    query: &str)
+    -> Vec<String> {
+    let db = cowdb!(ctx);
+
+    match db.search_professor(query).await {
+        Ok(professors) => {
+            professors.iter().map(|o| o.full_name.clone()).take(10).collect()
+        }
+        Err(ex) => {
+            error!("Failed to autocomplete professors: {}", ex);
+            vec![]
+        }
+    }
+}
+
 #[poise::command(
     prefix_command,
     slash_command,
     description_localized("en-US", "Search for a professor."),
     aliases("professor")
 )]
-pub async fn professors(ctx: CowContext<'_>, #[rest] query: String) -> Result<(), Error> {
+pub async fn professors(
+    ctx: CowContext<'_>,
+    #[autocomplete = "autocomplete_professor"] #[description = "The professor's name"]  #[rest] query: String)
+-> Result<(), Error> {
     let db = cowdb!(ctx);
     match db.search_professor(&*query).await {
         Ok(professors) => {

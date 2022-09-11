@@ -22,6 +22,8 @@ use serenity::{
 use serenity::model::application::command::Command;
 use songbird::SerenityInit;
 use tracing::{error, info};
+use tracing_subscriber::fmt;
+use tracing_subscriber::layer::SubscriberExt;
 
 type Error = Box<dyn error::Error + Send + Sync>;
 type CowContext<'a> = poise::Context<'a, (), Error>;
@@ -65,15 +67,18 @@ impl EventHandler for Handler {
 async fn init_logger() -> std::io::Result<()> {
     let file_appender = tracing_appender::rolling::hourly("logs", "cow.log");
     let (non_blocking, _guard) = tracing_appender::non_blocking(file_appender);
-    tracing_subscriber::fmt()
-        .with_target(true)
-        .with_thread_ids(true)
-        .with_thread_names(true)
-        .with_span_events(tracing_subscriber::fmt::format::FmtSpan::CLOSE)
-        .with_writer(non_blocking)
-        .with_writer(std::io::stdout)
-        .with_ansi(true)
-        .init();
+
+    tracing::subscriber::set_global_default(
+        fmt::Subscriber::builder()
+            .with_target(true)
+            .with_thread_ids(true)
+            .with_thread_names(true)
+            .with_span_events(fmt::format::FmtSpan::CLOSE)
+            .with_ansi(true)
+            .with_max_level(tracing::Level::DEBUG)
+            .finish()
+            .with(fmt::Layer::default().with_writer(non_blocking))
+    ).expect("Failed to set global subscriber");
 
     const VERSION: Option<&str> = option_env!("CARGO_PKG_VERSION");
     info!("Initializing cow v{}", VERSION.unwrap_or("<unknown>"));
@@ -176,8 +181,7 @@ async fn main() -> Result<(), Box<dyn error::Error>>  {
         let try_create_commands = Command::set_global_application_commands(&serenity.cache_and_http.http, |commands| {
             *commands = command_builders;
             commands
-        })
-            .await;
+        }).await;
 
         if let Err(ex) = try_create_commands {
             error!("Failed to create slash commands: {}", ex);

@@ -167,6 +167,7 @@ pub async fn pavilion(
         m.embeds.clear();
         m.embed(|e| {
             e.title(&title);
+            e.description("Note (9/10/2022): Item names may be incorrect, please check descriptions for the correct menu items. Regardless, items shown may not be available at the time of your visit. (I have no idea what the Pavilion is doing with their menu.)");
             for group in menus.iter().take(4) { // Max four filled fields...
                 let (group_name, menu) = group;
                 let menu_truncated = menu.chars().take(1024).collect::<String>();

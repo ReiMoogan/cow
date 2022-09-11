@@ -3,6 +3,7 @@ use tracing::error;
 use regex::Regex;
 use serenity::utils::MessageBuilder;
 use crate::{Error, Lavalink};
+use crate::commands::music::spotify;
 use crate::CowContext;
 
 #[poise::command(
@@ -270,8 +271,8 @@ pub async fn now_playing(ctx: CowContext<'_>) -> Result<(), Error> {
         if let Some(track) = &node.now_playing {
             let info = track.track.info.as_ref().unwrap();
             let re = Regex::new(r#"(?:youtube\.com/(?:[^/]+/.+/|(?:v|e(?:mbed)?)/|.*[?&]v=)|youtu\.be/)([^"&?/\s]{11})"#).unwrap();
-            let caps = re.captures(&*info.uri).unwrap();
-            let id = caps.get(1).map(|m| m.as_str());
+            let youtube_id = re.captures(&*info.uri).and_then(|caps| caps.get(1).map(|m| m.as_str()));
+            let spotify_thumbail = spotify::get_thumbnail(&*info.uri).await;
             let server_name = ctx.guild().map(|o| o.name);
 
             ctx.send(|m| {
@@ -292,8 +293,10 @@ pub async fn now_playing(ctx: CowContext<'_>) -> Result<(), Error> {
                         e.field("Requested By", format!("<@{}>", requester), true);
                     }
 
-                    if let Some(yt_id) = id {
-                        e.thumbnail(format!("https://img.youtube.com/vi/{}/maxresdefault.jpg", yt_id));
+                    if let Some(id) = youtube_id {
+                        e.thumbnail(format!("https://img.youtube.com/vi/{}/maxresdefault.jpg", id));
+                    } else if let Some(url) = spotify_thumbail {
+                        e.thumbnail(url);
                     }
 
                     e

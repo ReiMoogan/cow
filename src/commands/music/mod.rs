@@ -1,4 +1,5 @@
 mod music_commands;
+mod spotify;
 
 use crate::{CowContext, Error};
 use music_commands::*;

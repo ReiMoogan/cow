@@ -125,11 +125,7 @@ async fn autocomplete_course(
                     if any.is_empty() {
                         match db.search_class_by_name(&*query, term).await {
                             Ok(any) => {
-                                if any.is_empty() {
-                                    vec![]
-                                } else {
-                                    any.iter().map(|o| o.course_title.clone().unwrap_or_else(|| "<unknown class>".to_string())).take(10).collect()
-                                }
+                                any.iter().map(|o| o.course_title.clone().unwrap_or_else(|| "<unknown class>".to_string())).take(10).collect()
                             }
                             Err(ex) => {
                                 error!("Failed to search by name: {}", ex);
