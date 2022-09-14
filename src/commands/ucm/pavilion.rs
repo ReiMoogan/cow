@@ -100,7 +100,7 @@ pub async fn dining(ctx: CowContext<'_>) -> Result<(), Error> {
 )]
 pub async fn pavilion(
     ctx: CowContext<'_>,
-    #[description = "\"hours\" for hours, day of the week, and/or \"breakfast\"/\"lunch\"/\"dinner\""] options: Option<String>)
+    #[description = "\"hours\" for hours, day of the week, and/or \"breakfast\"/\"lunch\"/\"dinner\""] #[rest] options: Option<String>)
 -> Result<(), Error> {
     let date = chrono::offset::Local::now();
     let (mut day, mut meal) = PavilionTime::next_meal(&date);

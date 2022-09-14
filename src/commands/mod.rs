@@ -34,7 +34,8 @@ async fn help(
         ctx,
         command.as_deref(),
         poise::builtins::HelpConfiguration {
-            show_context_menu_commands: true,
+            show_context_menu_commands: false,
+
             ..Default::default()
         },
     )
@@ -50,6 +51,7 @@ pub async fn get_framework(pref: &str, _app_id: UserId, owners: HashSet<UserId>)
             register(),
             disablexp(),
             levels(),
+            help(),
             bangenshinplayers(),
             banleagueplayers(),
             banvalorantplayers(),
