@@ -202,6 +202,23 @@ impl Database {
         Ok(out)
     }
 
+    pub async fn get_description_for_course(&self, course_number: &str) -> Result<Option<String>, Box<dyn std::error::Error + Send + Sync>> {
+        let mut conn = self.pool.get().await?;
+        let res = conn.query(
+            "SELECT course_description FROM [UniScraper].[UCM].[description] WHERE @P1 LIKE course_number + '%';",
+            &[&course_number])
+            .await?
+            .into_row()
+            .await?;
+
+        if let Some(row) = res {
+            let description: Option<&str> = row.get(0);
+            return Ok(description.map(|o| o.to_string()));
+        }
+
+        Ok(None)
+    }
+
     // Course number is like CSE-031.
     pub async fn search_class_by_number(&self, course_number: &str, term: i32) -> Result<Vec<PartialClass>, Box<dyn std::error::Error + Send + Sync>> {
         self.general_class_search(course_number, term,

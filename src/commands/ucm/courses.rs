@@ -47,18 +47,25 @@ async fn course_embed(ctx: &CowContext<'_>, class: &Class) -> Result<(), Error> 
     let db = cowdb!(ctx);
     let professors = db.get_professors_for_class(class.id).await;
     let meetings = db.get_meetings_for_class(class.id).await;
+    let description = db.get_description_for_course(&class.course_number).await;
     let stats = db.get_stats().await;
+
+    const ENROLL_HELP: &str = "Enrollment and Waitlist are in terms of seats available/seats taken/max seats.";
 
     ctx.send(|m| {
         m.embeds.clear();
         m.embed(|e| {
             e.title(format!("{}: {}", &class.course_number, class.course_title.clone().unwrap_or_else(|| "<unknown class name>".to_string())));
-            e.description("Enrollment and Waitlist are in terms of seats available/seats taken/max seats.");
+            e.description(ENROLL_HELP);
             e.field("CRN", class.course_reference_number, true);
             e.field("Credit Hours", class.credit_hours, true);
             e.field("Term", format_term(class.term), true);
             e.field("Enrollment", format!("{}/{}/{}", class.seats_available, class.enrollment, class.maximum_enrollment), true);
             e.field("Waitlist", format!("{}/{}/{}", class.wait_available, class.wait_capacity - class.wait_available, class.wait_capacity), true);
+
+            if let Ok(Some(description)) = description {
+                e.description(format!("{}\n\n{}", description, ENROLL_HELP));
+            }
 
             if let Ok(professors) = professors {
                 e.field("Professor(s)",
