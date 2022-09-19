@@ -1,4 +1,3 @@
-use chrono::{NaiveDate, NaiveTime};
 use reqwest::{Url, Client};
 use crate::{CowContext, Error};
 use crate::commands::ucm::pav_models::*;
@@ -108,9 +107,6 @@ pub async fn pavilion(
     // Basically a string builder for custom meals.
     let mut custom_meal = String::new();
 
-    // For next week searches (most likely unused)
-    let mut next_week = false;
-
     let input = options.unwrap_or_default();
     let args = input.split(' ').collect::<Vec<_>>();
     if args.len() == 1 {
@@ -126,11 +122,8 @@ pub async fn pavilion(
     }
 
     for arg in args {
-        if arg == "next" {
-            next_week = true;
-        }
         // If an input contains a day, set the day.
-        else if let Ok(input_day) = Day::try_from(arg) {
+        if let Ok(input_day) = Day::try_from(arg) {
             day = input_day;
         }
         // Otherwise, it's a custom meal option.
@@ -161,7 +154,7 @@ pub async fn pavilion(
             .description("Loading data, please wait warmly...")
     })).await?;
 
-    let menus = process_bigzpoon(day, meal, next_week).await;
+    let menus = process_bigzpoon(day, meal).await;
 
     message.edit(ctx, |m| {
         m.embeds.clear();
@@ -313,7 +306,7 @@ async fn process_announcement(name: &str) -> String {
     description
 }
 
-async fn process_bigzpoon(day: Day, meal: Meal, next_week: bool) -> Vec<(String, String)> {
+async fn process_bigzpoon(day: Day, meal: Meal) -> Vec<(String, String)> {
     let mut output: Vec<(String, String)> = Vec::new();
     let client = Client::new();
 
@@ -322,27 +315,19 @@ async fn process_bigzpoon(day: Day, meal: Meal, next_week: bool) -> Vec<(String,
         Ok(company_info) => {
             match fetch_pavilion_restaurants(&client, &company_info).await {
                 Ok(restaurants) => {
-                    // We need to calculate the week.
-                    let today = chrono::offset::Local::now().naive_local();
-                    // This is the start of the new schedule system (7/31/2022 reset at W1 as well)
-                    let date = NaiveDate::from_ymd(2022, 8, 21).and_time(NaiveTime::from_hms(0, 0, 0));
-                    let days = (today - date).num_days();
-                    // Division then ceiling, add one for 1-based indexing, then adding one more if they're asking for next week.
-                    let week_no = days / 7 + 1 + (if next_week { 1 } else { 0 });
-
                     let location_match = restaurants
                         .iter()
                         .filter(|o| o.location_special_group_ids.is_some())
                         .filter(|o| o.location_special_group_ids.as_deref().unwrap().first().is_some())
                         .collect::<Vec<_>>();
                     // I have no idea if they're resetting the numbers for spring, so I won't future-proof this.
-                    let pav_location = location_match.iter().find(|o| o.location_special_group_ids.as_deref().unwrap().first().unwrap().name == format!("PAV-FALL-W{}", week_no));
+                    let pav_location = location_match.iter().find(|o| o.location_special_group_ids.as_deref().unwrap().first().unwrap().name.contains("PAV"));
                     let ywdc_location = location_match.iter().find(|o| o.location_special_group_ids.as_deref().unwrap().first().unwrap().name == "YWDC-FALL");
 
                     get_menu_items(&day, &meal, &mut output, &client, &company_info, &restaurants, pav_location).await;
 
                     // YWDC does not have next-week options. Also, it must be a weekday.
-                    if !next_week && YablokoffTime::is_dinner(&day) {
+                    if YablokoffTime::is_dinner(&day) {
                         // Prepend the name, because "Dinner" exists verbatim in both categories (can be confused by a user)
                         let mut ywdc_output: Vec<(String, String)> = Vec::new();
                         get_menu_items(&day, &meal, &mut ywdc_output, &client, &company_info, &restaurants, ywdc_location).await;
