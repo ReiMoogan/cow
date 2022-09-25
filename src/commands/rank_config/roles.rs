@@ -86,7 +86,8 @@ pub async fn remove(
     slash_command,
     guild_only,
     description_localized("en-US", "List the current ranks on this server."),
-    required_permissions = "ADMINISTRATOR"
+    required_permissions = "ADMINISTRATOR",
+    discard_spare_arguments
 )]
 pub async fn list(ctx: CowContext<'_>) -> Result<(), Error> {
     let db = cowdb!(ctx);

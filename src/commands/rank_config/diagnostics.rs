@@ -17,7 +17,8 @@ use crate::{Database, db};
     guild_only,
     description_localized("en-US", "Scan for discrepancies between server member roles and the stored info."),
     required_permissions = "ADMINISTRATOR",
-    guild_cooldown = "900"
+    guild_cooldown = "900",
+    discard_spare_arguments
 )]
 pub async fn scan(ctx: CowContext<'_>) -> Result<(), Error> {
     let db = cowdb!(ctx);
@@ -90,7 +91,8 @@ pub async fn scan(ctx: CowContext<'_>) -> Result<(), Error> {
     guild_only,
     description_localized("en-US", "Fix any discrepancies between server member roles and the stored info."),
     required_permissions = "ADMINISTRATOR",
-    guild_cooldown = "900"
+    guild_cooldown = "900",
+    discard_spare_arguments
 )]
 pub async fn fix(
     ctx: CowContext<'_>,

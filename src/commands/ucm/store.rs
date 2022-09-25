@@ -67,7 +67,8 @@ fn read_hours(config: &StoreHours) -> Vec<(String, String)> {
     prefix_command,
     slash_command,
     description_localized("en-US", "Get the times of the UC Merced store."),
-    aliases("studentstore", "bookstore")
+    aliases("studentstore", "bookstore"),
+    discard_spare_arguments
 )]
 pub async fn store(ctx: CowContext<'_>) -> Result<(), Error> {
     const TITLE: &str = "UC Merced University Store Hours";

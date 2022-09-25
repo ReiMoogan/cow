@@ -28,7 +28,7 @@ async fn help(
     ctx: CowContext<'_>,
     #[description = "The command requested for help"]
     #[autocomplete = "poise::builtins::autocomplete_command"]
-    command: Option<String>,
+    #[rest] command: Option<String>,
 ) -> Result<(), Error> {
     poise::builtins::help(
         ctx,

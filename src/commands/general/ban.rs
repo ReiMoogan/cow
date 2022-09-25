@@ -6,11 +6,12 @@ use crate::{CowContext, Error};
     slash_command,
     guild_only,
     description_localized("en-US", "Ban all League of Legends players from the server."),
-    required_permissions = "BAN_MEMBERS"
+    required_permissions = "BAN_MEMBERS",
+    discard_spare_arguments
 )]
 pub async fn banleagueplayers(
     ctx: CowContext<'_>,
-    #[description = "A custom ban message for all degenerates"] ban_message: Option<String>)
+    #[description = "A custom ban message for all degenerates"] #[rest] ban_message: Option<String>)
 -> Result<(), Error> {
     if let Some(message) = ban_message {
         ban_game_players(&ctx, 356869127241072640, message).await
@@ -24,11 +25,12 @@ pub async fn banleagueplayers(
     slash_command,
     guild_only,
     description_localized("en-US", "Ban all VALORANT players from the server."),
-    required_permissions = "BAN_MEMBERS"
+    required_permissions = "BAN_MEMBERS",
+    discard_spare_arguments
 )]
 pub async fn banvalorantplayers(
     ctx: CowContext<'_>,
-    #[description = "A custom ban message for all degenerates"] ban_message: Option<String>)
+    #[description = "A custom ban message for all degenerates"] #[rest] ban_message: Option<String>)
 -> Result<(), Error> {
     if let Some(message) = ban_message {
         ban_game_players(&ctx, 700136079562375258, message).await
@@ -42,11 +44,12 @@ pub async fn banvalorantplayers(
     slash_command,
     guild_only,
     description_localized("en-US", "Ban all Genshin Impact players from the server."),
-    required_permissions = "BAN_MEMBERS"
+    required_permissions = "BAN_MEMBERS",
+    discard_spare_arguments
 )]
 pub async fn bangenshinplayers(
     ctx: CowContext<'_>,
-    #[description = "A custom ban message for all degenerates"] ban_message: Option<String>)
+    #[description = "A custom ban message for all degenerates"] #[rest] ban_message: Option<String>)
 -> Result<(), Error> {
     if let Some(message) = ban_message {
         ban_game_players(&ctx, 762434991303950386, message).await
@@ -60,7 +63,8 @@ pub async fn bangenshinplayers(
     slash_command,
     guild_only,
     description_localized("en-US", "Ban all Overwatch players from the server."),
-    required_permissions = "BAN_MEMBERS"
+    required_permissions = "BAN_MEMBERS",
+    discard_spare_arguments
 )]
 pub async fn banoverwatchplayers(
     ctx: CowContext<'_>,

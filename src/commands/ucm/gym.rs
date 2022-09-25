@@ -57,7 +57,7 @@ fn extractor(output: &mut Vec<(String, String)>, temporary_name: &Option<String>
     prefix_command,
     slash_command,
     description_localized("en-US", "Get the hours for recreation and atheletic facilities."),
-    guild_only
+    discard_spare_arguments
 )]
 pub async fn gym(ctx: CowContext<'_>) -> Result<(), Error> {
     const TITLE: &str = "Recreation and Athletic Facility Hours";

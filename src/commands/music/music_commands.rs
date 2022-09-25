@@ -62,7 +62,8 @@ pub async fn join_interactive(ctx: &CowContext<'_>) -> Result<(), Error> {
     prefix_command,
     slash_command,
     guild_only,
-    description_localized("en-US", "Join the voice channel you are in.")
+    description_localized("en-US", "Join the voice channel you are in."),
+    discard_spare_arguments
 )]
 pub async fn join(ctx: CowContext<'_>) -> Result<(), Error> {
     join_interactive(&ctx).await
@@ -72,7 +73,8 @@ pub async fn join(ctx: CowContext<'_>) -> Result<(), Error> {
     prefix_command,
     slash_command,
     guild_only,
-    description_localized("en-US", "Make the bot leave the voice channel.")
+    description_localized("en-US", "Make the bot leave the voice channel."),
+    discard_spare_arguments
 )]
 pub async fn leave(ctx: CowContext<'_>) -> Result<(), Error> {
     let guild = ctx.guild().unwrap();
@@ -106,75 +108,22 @@ pub async fn leave(ctx: CowContext<'_>) -> Result<(), Error> {
     prefix_command,
     slash_command,
     guild_only,
-    description_localized("en-US", "Play some music.")
+    description_localized("en-US", "Play some music."),
+    discard_spare_arguments
 )]
 pub async fn play(
     ctx: CowContext<'_>,
-    #[description = "A YouTube URL or name."] #[rest] query: String)
+    #[description = "A YouTube URL or name."] #[rest] query: Option<String>)
 -> Result<(), Error> {
-    let guild_id = match ctx.guild_id() {
-        Some(channel) => channel,
-        None => {
-            ctx.say("Error finding channel info").await?;
-            return Ok(());
-        }
-    };
-
-    let serenity = ctx.discord();
-    let lava_client = {
-        let data = serenity.data.read().await;
-        data.get::<Lavalink>().unwrap().clone()
-    };
-
-    let manager = songbird::get(serenity).await.unwrap().clone();
-
-    if manager.get(guild_id).is_none() {
-        if let Err(ex) = join_interactive(&ctx).await {
-            ctx.say("Failed to connect to voice channel; maybe I don't have permissions?").await?;
-            error!("Failed to connect to VC: {}", ex);
-            return Ok(());
-        }
-    }
-
-    if let Some(_handler) = manager.get(guild_id) {
-        let query_information = lava_client.auto_search_tracks(&query).await?;
-
-        if query_information.tracks.is_empty() {
-            ctx.say("Could not find any video of the search query.").await?;
-            return Ok(());
-        }
-
-        if let Err(why) = &lava_client.play(guild_id.0, query_information.tracks[0].clone()).queue()
-            .await
-        {
-            error!("Failed to queue: {}", why);
-            return Ok(());
+    if let Some(query) = query {
+        let guild_id = match ctx.guild_id() {
+            Some(channel) => channel,
+            None => {
+                ctx.say("Error finding channel info").await?;
+                return Ok(());
+            }
         };
 
-        let message = MessageBuilder::new().push("Added to queue: ").push_mono_safe(&query_information.tracks[0].info.as_ref().unwrap().title).build();
-        if let Ok(tracks) = lava_client.get_tracks(query).await {
-            if tracks.tracks.len() > 1 {
-                ctx.say("Note: This seems to be a playlist. If you want to add all tracks at once, use `playlist` instead of `play`.\n".to_string() + &*message).await?;
-                return Ok(())
-            }
-        }
-        ctx.say(message).await?;
-    }
-
-    Ok(())
-}
-
-#[poise::command(
-    prefix_command,
-    slash_command,
-    guild_only,
-    description_localized("en-US", "Queue all music from a playlist.")
-)]
-pub async fn playlist(
-    ctx: CowContext<'_>,
-    #[description = "A YouTube URL or query to a playlist."] #[rest] query: String)
--> Result<(), Error> {
-    if let Some(guild_id) = ctx.guild_id() {
         let serenity = ctx.discord();
         let lava_client = {
             let data = serenity.data.read().await;
@@ -192,32 +141,31 @@ pub async fn playlist(
         }
 
         if let Some(_handler) = manager.get(guild_id) {
-            match lava_client.get_tracks(&query).await {
-                Ok(tracks) => {
-                    for track in &tracks.tracks {
-                        if let Err(why) = &lava_client.play(guild_id, track.clone()).queue()
-                            .await
-                        {
-                            error!("Failed to queue from playlist: {}", why);
-                        };
-                    }
+            let query_information = lava_client.auto_search_tracks(&query).await?;
 
-                    if let Some(info) = &tracks.playlist_info {
-                        if let Some(name) = &info.name {
-                            ctx.say(MessageBuilder::new().push("Added to the queue ").push(tracks.tracks.len()).push(" tracks from ").push_mono_safe(name).push(".").build()).await?;
-                        } else {
-                            ctx.say(format!("Added to the queue {} tracks.", tracks.tracks.len())).await?;
-                        }
-                    } else {
-                        ctx.say(format!("Added to the queue {} tracks.", tracks.tracks.len())).await?;
-                    }
-                }
-                Err(ex) => {
-                    error!("Failed to load tracks: {}", ex);
-                    ctx.say("Could not load any tracks from the given input.").await?;
+            if query_information.tracks.is_empty() {
+                ctx.say("Could not find any video of the search query.").await?;
+                return Ok(());
+            }
+
+            if let Err(why) = &lava_client.play(guild_id.0, query_information.tracks[0].clone()).queue()
+                .await
+            {
+                error!("Failed to queue: {}", why);
+                return Ok(());
+            };
+
+            let message = MessageBuilder::new().push("Added to queue: ").push_mono_safe(&query_information.tracks[0].info.as_ref().unwrap().title).build();
+            if let Ok(tracks) = lava_client.get_tracks(query).await {
+                if tracks.tracks.len() > 1 {
+                    ctx.say("Note: This seems to be a playlist. If you want to add all tracks at once, use `playlist` instead of `play`.\n".to_string() + &*message).await?;
+                    return Ok(())
                 }
             }
+            ctx.say(message).await?;
         }
+    } else {
+        ctx.send(|msg| msg.ephemeral(true).content("Please provide a search query.")).await?;
     }
 
     Ok(())
@@ -227,7 +175,72 @@ pub async fn playlist(
     prefix_command,
     slash_command,
     guild_only,
-    description_localized("en-US", "Pause the music player.")
+    description_localized("en-US", "Queue all music from a playlist."),
+    discard_spare_arguments
+)]
+pub async fn playlist(
+    ctx: CowContext<'_>,
+    #[description = "A YouTube URL or query to a playlist."] #[rest] query: Option<String>)
+-> Result<(), Error> {
+    if let Some(query) = query {
+        if let Some(guild_id) = ctx.guild_id() {
+            let serenity = ctx.discord();
+            let lava_client = {
+                let data = serenity.data.read().await;
+                data.get::<Lavalink>().unwrap().clone()
+            };
+
+            let manager = songbird::get(serenity).await.unwrap().clone();
+
+            if manager.get(guild_id).is_none() {
+                if let Err(ex) = join_interactive(&ctx).await {
+                    ctx.say("Failed to connect to voice channel; maybe I don't have permissions?").await?;
+                    error!("Failed to connect to VC: {}", ex);
+                    return Ok(());
+                }
+            }
+
+            if let Some(_handler) = manager.get(guild_id) {
+                match lava_client.get_tracks(&query).await {
+                    Ok(tracks) => {
+                        for track in &tracks.tracks {
+                            if let Err(why) = &lava_client.play(guild_id, track.clone()).queue()
+                                .await
+                            {
+                                error!("Failed to queue from playlist: {}", why);
+                            };
+                        }
+
+                        if let Some(info) = &tracks.playlist_info {
+                            if let Some(name) = &info.name {
+                                ctx.say(MessageBuilder::new().push("Added to the queue ").push(tracks.tracks.len()).push(" tracks from ").push_mono_safe(name).push(".").build()).await?;
+                            } else {
+                                ctx.say(format!("Added to the queue {} tracks.", tracks.tracks.len())).await?;
+                            }
+                        } else {
+                            ctx.say(format!("Added to the queue {} tracks.", tracks.tracks.len())).await?;
+                        }
+                    }
+                    Err(ex) => {
+                        error!("Failed to load tracks: {}", ex);
+                        ctx.say("Could not load any tracks from the given input.").await?;
+                    }
+                }
+            }
+        }
+    } else {
+        ctx.send(|msg| msg.ephemeral(true).content("Please provide a search query.")).await?;
+    }
+
+    Ok(())
+}
+
+#[poise::command(
+    prefix_command,
+    slash_command,
+    guild_only,
+    description_localized("en-US", "Pause the music player."),
+    discard_spare_arguments
 )]
 pub async fn pause(ctx: CowContext<'_>) -> Result<(), Error> {
     if let Some(guild_id) = ctx.guild_id() {
@@ -259,7 +272,8 @@ pub async fn pause(ctx: CowContext<'_>) -> Result<(), Error> {
     slash_command,
     guild_only,
     description_localized("en-US", "Get the current music playing."),
-    aliases("np", "nowplaying")
+    aliases("np", "nowplaying"),
+    discard_spare_arguments
 )]
 pub async fn now_playing(ctx: CowContext<'_>) -> Result<(), Error> {
     let lava_client = {
@@ -317,7 +331,8 @@ pub async fn now_playing(ctx: CowContext<'_>) -> Result<(), Error> {
     prefix_command,
     slash_command,
     guild_only,
-    description_localized("en-US", "Skip the current song.")
+    description_localized("en-US", "Skip the current song."),
+    discard_spare_arguments
 )]
 pub async fn skip(ctx: CowContext<'_>) -> Result<(), Error> {
     let lava_client = {

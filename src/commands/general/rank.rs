@@ -93,7 +93,8 @@ pub async fn rank(
     guild_only,
     required_permissions = "ADMINISTRATOR",
     description_localized("en-US", "Disable/enable experience from being collected in the current channel."),
-    aliases("enablexp")
+    aliases("enablexp"),
+    discard_spare_arguments
 )]
 pub async fn disablexp(ctx: CowContext<'_>) -> Result<(), Error> {
     let db = cowdb!(ctx);

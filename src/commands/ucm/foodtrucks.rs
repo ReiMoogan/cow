@@ -11,11 +11,13 @@ fn process_schedules(data: &str) -> Option<String> {
         .map(|o| o.value().attr("src").unwrap().to_string())
 }
 
+/// Get the latest food truck schedule posted on the UC Merced website.
 #[poise::command(
     prefix_command,
     slash_command,
     description_localized("en-US", "Get the current food truck schedule."),
-    aliases("foodtruck")
+    aliases("foodtruck"),
+    discard_spare_arguments
 )]
 pub async fn foodtrucks(ctx: CowContext<'_>) -> Result<(), Error> {
     const TITLE: &str = "Food Truck Schedule";

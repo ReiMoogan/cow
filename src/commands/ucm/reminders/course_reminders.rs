@@ -7,7 +7,8 @@ use crate::commands::ucm::courses_db_models::Reminder;
 #[poise::command(
     prefix_command,
     slash_command,
-    description_localized("en-US", "List the reminders set.")
+    description_localized("en-US", "List the reminders set."),
+    discard_spare_arguments
 )]
 pub async fn list(ctx: CowContext<'_>) -> Result<(), Error> {
     let db = cowdb!(ctx);

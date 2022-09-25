@@ -9,7 +9,8 @@ use crate::{Database, db};
     prefix_command,
     slash_command,
     description_localized("en-US", "Get the current settings for the cowboard."),
-    guild_only
+    guild_only,
+    discard_spare_arguments
 )]
 pub async fn info(ctx: CowContext<'_>) -> Result<(), Error> {
     let db = cowdb!(ctx);
@@ -85,7 +86,7 @@ pub async fn emote(
 )]
 pub async fn addthreshold(
     ctx: CowContext<'_>,
-    #[description = "A positive number, greater than the removal bound."] add_threshold: i32)
+    #[description = "A positive number, greater than the removal bound."] #[min = 1] add_threshold: i32)
 -> Result<(), Error> {
     let db = cowdb!(ctx);
 
@@ -132,7 +133,7 @@ pub async fn addthreshold(
 )]
 pub async fn removethreshold(
     ctx: CowContext<'_>,
-    #[description = "A positive number, less than the addition bound."] remove_threshold: i32)
+    #[description = "A positive number, less than the addition bound."] #[min = 1] remove_threshold: i32)
 -> Result<(), Error> {
     let db = cowdb!(ctx);
 
@@ -221,7 +222,8 @@ pub async fn channel(
     slash_command,
     guild_only,
     description_localized("en-US", "Toggle webhook usage for the cowboard, versus the bot sending the messages."),
-    required_permissions = "ADMINISTRATOR"
+    required_permissions = "ADMINISTRATOR",
+    discard_spare_arguments
 )]
 pub async fn webhook(ctx: CowContext<'_>) -> Result<(), Error> {
     let db = cowdb!(ctx);

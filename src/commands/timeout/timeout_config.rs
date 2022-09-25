@@ -40,6 +40,7 @@ pub async fn set(
     guild_only,
     required_permissions = "ADMINISTRATOR",
     description_localized("en-US", "Gets the server-wide cooldown for messaging xp gain."),
+    discard_spare_arguments
 )]
 pub async fn get(ctx: CowContext<'_>) -> Result<(), Error> {
     let db = cowdb!(ctx);
