@@ -161,10 +161,18 @@ pub async fn pavilion(
         m.embed(|e| {
             e.title(&title);
             e.description("Note (9/10/2022): Item names may be incorrect, please check descriptions for the correct menu items. Regardless, items shown may not be available at the time of your visit. (I have no idea what the Pavilion is doing with their menu.)");
-            for group in menus.iter().take(4) { // Max four filled fields...
-                let (group_name, menu) = group;
-                let menu_truncated = menu.chars().take(1024).collect::<String>();
-                e.field(group_name, menu_truncated, false);
+
+            if menus.is_empty() {
+                e.field("No menu data!!", "Could not find the given group, please check your query.", false);
+            } else {
+                for group in menus.iter().take(4) { // Max four filled fields...
+                    let (group_name, menu) = group;
+                    let mut menu_truncated = menu.chars().take(1024).collect::<String>();
+                    if menu_truncated.is_empty() {
+                        menu_truncated = "This menu is empty.".to_string();
+                    }
+                    e.field(group_name, menu_truncated, false);
+                }
             }
 
             e
