@@ -1,11 +1,10 @@
-use std::collections::HashMap;
-use poise::{command, Command};
+use poise::{Command};
 use crate::{CowContext, Error};
 
 #[poise::command(
-prefix_command,
-slash_command,
-description_localized("en-US", "Display the list of commands available, as well as their descriptions.")
+    prefix_command,
+    slash_command,
+    description_localized("en-US", "Display the list of commands available, as well as their descriptions.")
 )]
 pub async fn help(
     ctx: CowContext<'_>,
@@ -19,7 +18,7 @@ pub async fn help(
     }
 }
 
-async fn help_single_command<U, E>(
+async fn help_single_command(
     ctx: &CowContext<'_>,
     command_name: &str
 ) -> Result<(), Error> {
@@ -55,7 +54,7 @@ async fn help_single_command<U, E>(
 }
 
 struct CommandHelp {
-    prefix: String,
+    prefix: Option<String>,
     name: String,
     description: String,
     subcommands: Vec<CommandHelp>
@@ -72,6 +71,8 @@ impl Eq for CommandHelp {}
 fn generate_command_help(cmd: &Command<(), Error>) -> CommandHelp {
     let description = if let Some(help_text) = cmd.help_text {
         help_text()
+    } else if let Some(description) = cmd.description_localizations.get("en-US") {
+        description.clone()
     } else if let Some(description) = cmd.description.as_ref() {
         description.clone()
     } else {
@@ -85,6 +86,7 @@ fn generate_command_help(cmd: &Command<(), Error>) -> CommandHelp {
     }
 
     CommandHelp {
+        prefix: Some(cmd.name.clone()),
         name: cmd.identifying_name.clone(),
         description,
         subcommands
@@ -92,12 +94,13 @@ fn generate_command_help(cmd: &Command<(), Error>) -> CommandHelp {
 }
 
 /// Code for printing an overview of all commands (e.g. `~help`)
-async fn help_all_commands<U, E>(
+async fn help_all_commands(
     ctx: &CowContext<'_>
 ) -> Result<(), Error> {
     let mut help: Vec<CommandHelp> = Vec::new();
 
     let mut general = CommandHelp {
+        prefix: None, // There is no prefix required.
         name: "General".to_string(),
         description: "Basic commands".to_string(),
         subcommands: Vec::new()
@@ -117,18 +120,46 @@ async fn help_all_commands<U, E>(
         }
     }
 
+    // Insert the general group at the beginning so it appears first.
+    help.insert(0, general);
+
     ctx.send(|b| b.embed(|e| {
         e
             .title("Moogan Command Help")
-            .description("You can fetch help for a specific command by passing the full command as a parameter.");
+            .description("You can fetch help for a specific command by passing the full command as a parameter.")
+            .colour(0xF6DBD8);
 
         for base_command in help {
+            let prefix = if let Some(prefix) = base_command.prefix {
+                format!("\nPrefix: `{}`", prefix)
+            } else {
+                "".to_string()
+            };
+
             let command_list = base_command.subcommands.iter()
-                .map(|cmd| format!("`{}`", cmd.name))
+                .map(|cmd| {
+                    // Hope there's no sub-subcommands.
+                    if cmd.subcommands.is_empty() {
+                        format!("`{}`", cmd.name)
+                    } else {
+                        let subprefix = if let Some(prefix) = cmd.prefix.as_ref() {
+                            format!("\nPrefix: `{}`", prefix)
+                        } else {
+                            "".to_string()
+                        };
+
+                        let subcommand_list = cmd.subcommands.iter()
+                            .map(|subcmd| format!("- `{}`", subcmd.name))
+                            .reduce(|a, b| format!("{}\n{}", a, b))
+                            .unwrap_or_default();
+
+                        format!("- __**{}**__{}\n\n{}", cmd.name, subprefix, subcommand_list)
+                    }
+                })
                 .reduce(|a, b| format!("{}\n{}", a, b))
                 .unwrap_or_default();
 
-            e.field(base_command.name, format!("_{}_\n\n{}", base_command.description, command_list), false);
+            e.field(base_command.name, format!("_{}_{}\n\n{}", base_command.description, prefix, command_list), true);
         }
 
         e

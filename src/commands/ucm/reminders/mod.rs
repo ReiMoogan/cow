@@ -17,7 +17,8 @@ use course_reminders::*;
     slash_command,
     description_localized("en-US", "Set up reminders for class registration, based off seats or waitlist."),
     subcommands("add", "remove", "list"),
-    aliases("remind", "reminder")
+    aliases("remind", "reminder"),
+    identifying_name = "Course Reminders"
 )]
 pub async fn reminders(_ctx: CowContext<'_>) -> Result<(), Error> {
     Ok(()) //list().inner(ctx).await
