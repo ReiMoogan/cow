@@ -1,4 +1,5 @@
 use poise::{Command};
+use serenity::utils::MessageBuilder;
 use crate::{CowContext, Error};
 
 /// If you need help using help, you're truly lost.
@@ -43,19 +44,23 @@ async fn help_single_command(
         subcommands: flattened_help
     };
 
+    let safe = MessageBuilder::new()
+        .push_mono_safe(command_name)
+        .build();
+
     for command in input {
         let new_command_help = command_help.subcommands.into_iter().find(|o| o.prefix.as_ref().map(|p| p.to_lowercase() == command).unwrap_or(false));
         if let Some(new_command_help) = new_command_help {
             command_help = new_command_help;
         } else {
-            ctx.say(format!("Command query `{}` not found.", command_name)).await?;
+            ctx.say(format!("Command query `{}` not found.", safe)).await?;
             return Ok(());
         }
     }
 
     ctx.send(|m| m.embed(|e|
         e
-            .title(command_name)
+            .title(safe)
             .description(&command_help.description)
     )).await?;
 
