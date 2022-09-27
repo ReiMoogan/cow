@@ -95,7 +95,7 @@ pub async fn dining(ctx: CowContext<'_>) -> Result<(), Error> {
     prefix_command,
     slash_command,
     description_localized("en-US", "Get the current menu at the UCM Pavilion and Yablokoff."),
-    aliases("pav", "yablokoff", "yab")
+    aliases("pav", "yablokoff", "yab", "pac", "pab")
 )]
 pub async fn pavilion(
     ctx: CowContext<'_>,
