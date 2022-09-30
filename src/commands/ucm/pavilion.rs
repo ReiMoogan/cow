@@ -115,7 +115,7 @@ pub async fn pavilion(
         if input_lower.contains("time") || input_lower.contains("hour") {
             print_pavilion_times(ctx).await?;
             return Ok(())
-        } else if input_lower.contains("announce") {
+        } else if input_lower.contains("announce") || input_lower.contains("schedule") {
             print_announcements(ctx).await?;
             return Ok(())
         }
@@ -160,7 +160,7 @@ pub async fn pavilion(
         m.embeds.clear();
         m.embed(|e| {
             e.title(&title);
-            e.description("Note (9/10/2022): Item names may be incorrect, please check descriptions for the correct menu items. Regardless, items shown may not be available at the time of your visit. (I have no idea what the Pavilion is doing with their menu.)");
+            e.description("Note (9/30/2022): `ucm pav announcements` has been updated, although I have no idea how long it'll function for.");
 
             if menus.is_empty() {
                 e.field("No menu data!!", "Could not find the given group, please check your query.", false);
@@ -210,8 +210,8 @@ async fn print_announcements(ctx: CowContext<'_>) -> Result<(), Box<dyn error::E
             .description("Loading data, please wait warmly...")
     })).await?;
 
-    let pav_announcement = process_announcement("ANNOUNCEMENT-PAV").await;
-    let wydc_announcement = process_announcement("ANNOUNCEMENT-WYDC").await;
+    let pav_announcement = process_announcement("pav").await;
+    let wydc_announcement = process_announcement("ywdc").await;
 
     message.edit(ctx, |m| {
         m.embeds.clear();
@@ -238,24 +238,26 @@ async fn process_announcement(name: &str) -> String {
                         .iter()
                         .filter(|o| o.location_special_group_ids.is_some())
                         .filter(|o| o.location_special_group_ids.as_deref().unwrap().first().is_some())
-                        .find(|o| o.location_special_group_ids.as_deref().unwrap().first().unwrap().name == name);
+                        .find(|o| o.location_special_group_ids.as_deref().unwrap().first().unwrap().name.to_lowercase().contains(name));
 
                     if let Some(location) = announcements_location {
                         match fetch_pavilion_groups(&client, &company_info, location).await {
                             Ok(groups) => {
-                                if let Some(group) = groups.menu_groups.get(0) {
-                                    if let Some(category) = groups.menu_categories.iter().find(|o| o.name.to_lowercase().contains("announce")) {
+                                if let Some(group) = groups.menu_groups.iter().find(|o| o.name.to_lowercase().contains("help")) {
+                                    if let Some(category) = groups.menu_categories.iter().find(|o| o.name.to_lowercase().contains("schedule")) {
                                         match fetch_pavilion_menu(&client, &company_info, location, &category.id, &group.id).await {
                                             Ok(menu) => {
                                                 let item = menu.menu_items.first();
                                                 if let Some(announcement) = item {
                                                     match fetch_pavilion_raw_materials(&client, &company_info, location, announcement).await {
                                                         Ok(materials) => {
-                                                            description = materials
+                                                            let temp = materials
                                                                 .iter()
                                                                 .map(|o| o.name.clone())
                                                                 .reduce(|a, b| format!("{}\n{}", a, b))
                                                                 .unwrap_or_else(|| "The announcement is empty?".to_string());
+
+                                                            description = format!("**{}**\n\n{}", announcement.description, temp);
                                                         }
                                                         Err(ex) => {
                                                             description = "Failed to get announcement data.".to_string();
@@ -329,8 +331,8 @@ async fn process_bigzpoon(day: Day, meal: Meal) -> Vec<(String, String)> {
                         .filter(|o| o.location_special_group_ids.as_deref().unwrap().first().is_some())
                         .collect::<Vec<_>>();
                     // I have no idea if they're resetting the numbers for spring, so I won't future-proof this.
-                    let pav_location = location_match.iter().find(|o| o.location_special_group_ids.as_deref().unwrap().first().unwrap().name.contains("PAV"));
-                    let ywdc_location = location_match.iter().find(|o| o.location_special_group_ids.as_deref().unwrap().first().unwrap().name == "YWDC-FALL");
+                    let pav_location = location_match.iter().find(|o| o.location_special_group_ids.as_deref().unwrap().first().unwrap().name.to_lowercase().contains("pav"));
+                    let ywdc_location = location_match.iter().find(|o| o.location_special_group_ids.as_deref().unwrap().first().unwrap().name.to_lowercase().contains("ywdc"));
 
                     get_menu_items(&day, &meal, &mut output, &client, &company_info, &restaurants, pav_location).await;
 
