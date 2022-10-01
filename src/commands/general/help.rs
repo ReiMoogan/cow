@@ -43,7 +43,8 @@ async fn help_single_command(
         prefix: None,
         name: "".to_string(),
         description: "".to_string(),
-        subcommands: flattened_help
+        subcommands: flattened_help,
+        aliases: Vec::new()
     };
 
     let safe = MessageBuilder::new()
@@ -51,7 +52,9 @@ async fn help_single_command(
         .build();
 
     for command in input {
-        let new_command_help = command_help.subcommands.into_iter().find(|o| o.prefix.as_ref().map(|p| p.to_lowercase() == command).unwrap_or(false));
+        let new_command_help = command_help.subcommands.into_iter()
+            .find(|o| o.prefix.as_ref().map(|p| p.to_lowercase() == command).unwrap_or(false) || // Check for main prefix
+                o.aliases.iter().map(|o| o.to_lowercase()).any(|o| o == command)); // Check for any aliases matching
         if let Some(new_command_help) = new_command_help {
             command_help = new_command_help;
         } else {
@@ -60,11 +63,24 @@ async fn help_single_command(
         }
     }
 
-    ctx.send(|m| m.embed(|e|
+    ctx.send(|m| m.embed(|e| {
+        e.title(&command_help.name).description(&command_help.description);
+
+        if let Some(prefix) = command_help.prefix.as_ref() {
+            e.field("Prefix", format!("`{}`", prefix), true);
+        }
+
+        if !command_help.aliases.is_empty() {
+            let aliases = command_help.aliases.iter()
+                .map(|o| format!("`{}`", o))
+                .reduce(|a, b| format!("{}, {}", a, b))
+                .unwrap();
+
+            e.field("Aliases", aliases, true);
+        }
+
         e
-            .title(safe)
-            .description(&command_help.description)
-    )).await?;
+    })).await?;
 
     Ok(())
 }
@@ -122,7 +138,8 @@ struct CommandHelp {
     prefix: Option<String>,
     name: String,
     description: String,
-    subcommands: Vec<CommandHelp>
+    subcommands: Vec<CommandHelp>,
+    aliases: Vec<String>
 }
 
 impl PartialEq for CommandHelp {
@@ -154,7 +171,8 @@ fn generate_command_help(cmd: &Command<(), Error>) -> CommandHelp {
         prefix: Some(cmd.name.clone()),
         name: cmd.identifying_name.clone(),
         description,
-        subcommands
+        subcommands,
+        aliases: cmd.aliases.iter().map(|o| o.to_string()).collect()
     }
 }
 
@@ -165,7 +183,8 @@ fn get_help_hierachy(ctx: &CowContext) -> Vec<CommandHelp> {
         prefix: None, // There is no prefix required.
         name: "General".to_string(),
         description: "Basic commands".to_string(),
-        subcommands: Vec::new()
+        subcommands: Vec::new(),
+        aliases: Vec::new()
     };
 
     for cmd in &ctx.framework().options().commands {

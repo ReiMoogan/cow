@@ -28,6 +28,7 @@ use crate::{CowContext, Error};
 
 #[poise::command(prefix_command, slash_command,
     subcommands("library", "courses", "courses_old", "pavilion", "professors", "foodtrucks", "calendar", "gym", "store", "reminders"),
+    discard_spare_arguments,
     description_localized("en-US", "Get information about UC Merced's services and facilities."),
     aliases("ucmerced"),
     identifying_name = "UC Merced"

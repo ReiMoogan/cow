@@ -11,6 +11,10 @@ use crate::commands::ucm::courses_db_models::Reminder;
     discard_spare_arguments
 )]
 pub async fn list(ctx: CowContext<'_>) -> Result<(), Error> {
+    list_code(ctx).await
+}
+
+pub async fn list_code(ctx: CowContext<'_>) -> Result<(), Error> {
     let db = cowdb!(ctx);
 
     match db.get_user_reminders(ctx.author().id).await {

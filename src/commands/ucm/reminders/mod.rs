@@ -17,11 +17,12 @@ use course_reminders::*;
     slash_command,
     description_localized("en-US", "Set up reminders for class registration, based off seats or waitlist."),
     subcommands("add", "remove", "list"),
+    discard_spare_arguments,
     aliases("remind", "reminder"),
     identifying_name = "Course Reminders"
 )]
-pub async fn reminders(_ctx: CowContext<'_>) -> Result<(), Error> {
-    Ok(()) //list().inner(ctx).await
+pub async fn reminders(ctx: CowContext<'_>) -> Result<(), Error> {
+    list_code(ctx).await
 }
 
 pub async fn check_reminders(data: Arc<RwLock<TypeMap>>, ctx: Arc<CacheAndHttp>) {

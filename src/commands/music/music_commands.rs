@@ -12,6 +12,10 @@ use crate::CowContext;
     description_localized("en-US", "List the commands available in the music module.")
 )]
 pub async fn help(ctx: CowContext<'_>) -> Result<(), Error> {
+    help_code(ctx).await
+}
+
+pub async fn help_code(ctx: CowContext<'_>) -> Result<(), Error> {
     ctx.say("`help, join, leave, play, playlist, pause, now_playing, skip, queue`").await?;
 
     Ok(())

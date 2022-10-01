@@ -13,6 +13,10 @@ use crate::{Database, db};
     discard_spare_arguments
 )]
 pub async fn info(ctx: CowContext<'_>) -> Result<(), Error> {
+    info_code(ctx).await
+}
+
+pub async fn info_code(ctx: CowContext<'_>) -> Result<(), Error> {
     let db = cowdb!(ctx);
 
     if let Some(guild_id) = ctx.guild_id() {

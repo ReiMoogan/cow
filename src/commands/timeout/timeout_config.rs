@@ -43,6 +43,10 @@ pub async fn set(
     discard_spare_arguments
 )]
 pub async fn get(ctx: CowContext<'_>) -> Result<(), Error> {
+    get_code(ctx).await
+}
+
+pub async fn get_code(ctx: CowContext<'_>) -> Result<(), Error> {
     let db = cowdb!(ctx);
     if let Some(server_id) = ctx.guild_id() {
         match db.get_timeout(server_id).await {

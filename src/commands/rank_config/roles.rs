@@ -90,6 +90,10 @@ pub async fn remove(
     discard_spare_arguments
 )]
 pub async fn list(ctx: CowContext<'_>) -> Result<(), Error> {
+    list_code(ctx).await
+}
+
+pub async fn list_code(ctx: CowContext<'_>) -> Result<(), Error> {
     let db = cowdb!(ctx);
     if let Some(guild_id) = ctx.guild_id() {
         match db.get_roles(guild_id).await {
