@@ -44,7 +44,7 @@ pub async fn foodtrucks(ctx: CowContext<'_>) -> Result<(), Error> {
                         sent_msg.edit(ctx, |m| {
                             m.embeds.clear();
                             m.embed(|e| {
-                                e.title(TITLE).image(schedule)
+                                e.title(TITLE).url(&schedule).image(&schedule)
                             })
                         }).await?;
                     } else {
