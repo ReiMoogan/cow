@@ -31,8 +31,10 @@ pub async fn foodtrucks(ctx: CowContext<'_>) -> Result<(), Error> {
         })
     }).await?;
 
-    const URL: &str = "https://dining.ucmerced.edu/food-trucks";
-    match reqwest::get(URL).await {
+    // Normally would be dining.ucmerced.edu, but my DNS server is borked.
+    const URL: &str = "https://162.249.105.233/food-trucks";
+    let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build()?;
+    match client.get(URL).header("Host", "dining.ucmerced.edu").send().await {
         Ok(response) => {
             match response.text().await {
                 Ok(data) => {
