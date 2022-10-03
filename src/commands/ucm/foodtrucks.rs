@@ -31,10 +31,8 @@ pub async fn foodtrucks(ctx: CowContext<'_>) -> Result<(), Error> {
         })
     }).await?;
 
-    // Normally would be dining.ucmerced.edu, but my DNS server is borked.
-    const URL: &str = "https://162.249.105.233/food-trucks";
-    let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build()?;
-    match client.get(URL).header("Host", "dining.ucmerced.edu").send().await {
+    const URL: &str = "https://dining.ucmerced.edu/food-trucks";
+    match reqwest::get(URL).await {
         Ok(response) => {
             match response.text().await {
                 Ok(data) => {
@@ -44,7 +42,7 @@ pub async fn foodtrucks(ctx: CowContext<'_>) -> Result<(), Error> {
                         sent_msg.edit(ctx, |m| {
                             m.embeds.clear();
                             m.embed(|e| {
-                                e.title(TITLE).url(&schedule).image(&schedule)
+                                e.title(TITLE).image(schedule)
                             })
                         }).await?;
                     } else {
