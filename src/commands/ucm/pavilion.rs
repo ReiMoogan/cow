@@ -160,12 +160,12 @@ pub async fn pavilion(
         m.embeds.clear();
         m.embed(|e| {
             e.title(&title);
-            e.description("Note (9/30/2022): `ucm pav announcements` has been updated, although I have no idea how long it'll function for.");
+            e.description("Note (10/4/2022): Late night options now appear by default!");
 
             if menus.is_empty() {
                 e.field("No menu data!!", "Could not find the given group, please check your query.", false);
             } else {
-                for group in menus.iter().take(4) { // Max four filled fields...
+                for group in menus.iter() {
                     let (group_name, menu) = group;
                     let mut menu_truncated = menu.chars().take(1024).collect::<String>();
                     if menu_truncated.is_empty() {
@@ -340,9 +340,25 @@ async fn process_bigzpoon(day: Day, meal: Meal) -> Vec<(String, String)> {
                     if YablokoffTime::is_dinner(&day) {
                         // Prepend the name, because "Dinner" exists verbatim in both categories (can be confused by a user)
                         let mut ywdc_output: Vec<(String, String)> = Vec::new();
-                        get_menu_items(&day, &meal, &mut ywdc_output, &client, &company_info, &restaurants, ywdc_location).await;
+
+                        let wildcard_meal = Meal::Other(String::default());
+
+                        let yab_meal = if matches!(meal, Meal::Dinner) {
+                            // Force all items to appear.
+                            &wildcard_meal
+                        } else {
+                            // Use the filter like usual
+                            &meal
+                        };
+
+                        get_menu_items(&day, yab_meal, &mut ywdc_output, &client, &company_info, &restaurants, ywdc_location).await;
                         for ywdc_menu in ywdc_output {
                             let (category, menu) = ywdc_menu;
+                            // I'll manually filter these out.
+                            if category.to_lowercase().contains("schedule") || category.to_lowercase().contains("how to") {
+                                continue;
+                            }
+
                             output.push((format!("Yablokoff {}", category), menu));
                         }
                     }
