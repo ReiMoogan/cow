@@ -6,6 +6,9 @@ target/
 Cargo.lock
 config.json
 
+# Logs
+logs/
+
 # User-specific files
 *.suo
 *.user
