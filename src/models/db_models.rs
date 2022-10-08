@@ -30,6 +30,11 @@ impl Experience {
     }
 }
 
+pub struct Disablements {
+    pub channel: bool,
+    pub guild: bool
+}
+
 pub struct Member {
     pub id: UserId,
     pub exp: Experience,

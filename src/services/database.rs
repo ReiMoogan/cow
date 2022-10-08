@@ -162,13 +162,14 @@ impl Database {
         Ok(out)
     }
 
-    pub async fn channel_disabled(&self, server_id: GuildId, channel_id: ChannelId) -> Result<bool, Box<dyn std::error::Error>> {
+    // True: disabled False: enabled
+    pub async fn toggle_server_ranking(&self, server_id: GuildId) -> Result<bool, Box<dyn std::error::Error>> {
         let mut conn = self.pool.get().await?;
         let server = Decimal::from_u64(*server_id.as_u64()).unwrap();
-        let channel = Decimal::from_u64(*channel_id.as_u64()).unwrap();
         let res = conn.query(
-            "SELECT CAST(1 AS BIT) FROM [Ranking].[DisabledChannel] WHERE server_id = @P1 AND channel_id = @P2",
-            &[&server, &channel])
+            "UPDATE [Ranking].[Server] SET ranking_disabled = ~ranking_disabled WHERE id = @P1;\
+            SELECT ranking_disabled FROM [Ranking].[Server] WHERE id = @P1;",
+            &[&server])
             .await?
             .into_row()
             .await?;
@@ -177,6 +178,38 @@ impl Database {
 
         if let Some(item) = res {
             out = item.get(0).unwrap();
+        }
+
+        Ok(out)
+    }
+
+    pub async fn get_disablements(&self, server_id: GuildId, channel_id: ChannelId) -> Result<Disablements, Box<dyn std::error::Error>> {
+        let mut conn = self.pool.get().await?;
+        let server = Decimal::from_u64(*server_id.as_u64()).unwrap();
+        let channel = Decimal::from_u64(*channel_id.as_u64()).unwrap();
+
+        let res = conn.query(
+            "SELECT \
+                (SELECT CAST(1 AS BIT) FROM [Ranking].[DisabledChannel] WHERE server_id = @P1 AND channel_id = @P2), \
+                (SELECT ranking_disabled FROM [Ranking].[Server] WHERE id = @P1);",
+            &[&server, &channel])
+            .await?
+            .into_row()
+            .await?;
+
+        let mut out: Disablements = Disablements {
+            channel: false,
+            guild: false
+        };
+
+        if let Some(item) = res {
+            let channel_disabled: Option<bool> = item.get(0);
+            let guild_disabled: Option<bool> = item.get(1);
+
+            out = Disablements {
+                channel: channel_disabled.unwrap_or_default(),
+                guild: guild_disabled.unwrap_or_default()
+            };
         }
 
         Ok(out)

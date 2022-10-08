@@ -30,6 +30,7 @@ pub async fn get_framework(pref: &str, _app_id: UserId, owners: HashSet<UserId>)
             rank(),
             register(),
             disablexp(),
+            disableserverxp(),
             levels(),
             help(),
             bangenshinplayers(),

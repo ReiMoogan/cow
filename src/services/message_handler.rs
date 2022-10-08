@@ -16,12 +16,12 @@ pub async fn non_command(ctx: &Context, msg: &Message) -> Result<(), Error>{
     let db = db!(ctx);
 
     if let Some(guild) = msg.guild(&ctx) {
-        match db.channel_disabled(guild.id, msg.channel_id).await {
+        match db.get_disablements(guild.id, msg.channel_id).await {
             Err(ex) => {
-                error!("Failed checking if the current channel was disabled: {}", ex);
+                error!("Failed checking if the current channel or guild was disabled: {}", ex);
             },
             Ok(result) => {
-                if result {
+                if result.channel || result.guild {
                     return Ok(());
                 }
             }
