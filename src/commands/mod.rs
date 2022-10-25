@@ -41,7 +41,13 @@ pub async fn get_framework(pref: &str, _app_id: UserId, owners: HashSet<UserId>)
             timeout(),
             ucm(),
             cowboard(),
-            music()
+            music(),
+            reimu(),
+            marisa(),
+            sanae(),
+            momiji(),
+            reisen(),
+            danbooru()
         ],
         prefix_options: poise::PrefixFrameworkOptions {
             prefix: Some(pref.into()),

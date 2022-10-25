@@ -10,4 +10,6 @@ pub struct Config {
     pub cmd_prefix: String,
     pub lavalink_ip: String,
     pub lavalink_password: String,
+    pub danbooru_login: String,
+    pub danbooru_api_key: String
 }
