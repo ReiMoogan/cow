@@ -184,7 +184,7 @@ async fn fetch_by_tag(ctx: CowContext<'_>, tag: &str) -> Result<(), Box<dyn std:
 
                     let title = MessageBuilder::new()
                         .push("Artist: ")
-                        .push_safe(post.file_url.clone().unwrap_or_else(|| "<unknown>".to_string()))
+                        .push_safe(post.tag_string_artist.clone().unwrap_or_else(|| "<unknown>".to_string()))
                         .build();
 
                     let _ = ctx.send(|m|
