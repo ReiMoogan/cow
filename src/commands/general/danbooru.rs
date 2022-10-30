@@ -2,10 +2,10 @@ use tracing::error;
 // Fun with stupid APIs!
 use tokio::fs;
 use crate::{Config, CowContext, Error};
-use serde::Deserialize;
+use serde::{Serialize, Deserialize};
 use regex::Regex;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Post {
     // Bytes.
     pub file_size: Option<u64>,
@@ -16,6 +16,13 @@ pub struct Post {
     pub file_url: Option<String>
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct DanbooruError {
+    pub success: bool,
+    pub error: String,
+    pub message: String
+}
+
 #[poise::command(
     prefix_command,
     description_localized("en-US", "Get Reimu images."),
@@ -23,8 +30,8 @@ pub struct Post {
     hide_in_help,
     user_cooldown = "2"
 )]
-pub async fn reimu(ctx: CowContext<'_>) -> Result<(), Error> {
-    fetch_by_tag(ctx, "hakurei_reimu").await
+pub async fn reimu(ctx: CowContext<'_>, #[rest] second_tag: Option<String>) -> Result<(), Error> {
+    fetch_by_tag(ctx, &*combine_tags("hakurei_reimu", second_tag)).await
 }
 
 #[poise::command(
@@ -34,8 +41,8 @@ pub async fn reimu(ctx: CowContext<'_>) -> Result<(), Error> {
     hide_in_help,
     user_cooldown = "2"
 )]
-pub async fn momiji(ctx: CowContext<'_>) -> Result<(), Error> {
-    fetch_by_tag(ctx, "inubashiri_momiji").await
+pub async fn momiji(ctx: CowContext<'_>, #[rest] second_tag: Option<String>) -> Result<(), Error> {
+    fetch_by_tag(ctx, &*combine_tags("inubashiri_momiji", second_tag)).await
 }
 
 #[poise::command(
@@ -45,8 +52,8 @@ pub async fn momiji(ctx: CowContext<'_>) -> Result<(), Error> {
     hide_in_help,
     user_cooldown = "2"
 )]
-pub async fn sanae(ctx: CowContext<'_>) -> Result<(), Error> {
-    fetch_by_tag(ctx, "kochiya_sanae").await
+pub async fn sanae(ctx: CowContext<'_>, #[rest] second_tag: Option<String>) -> Result<(), Error> {
+    fetch_by_tag(ctx, &*combine_tags("kochiya_sanae", second_tag)).await
 }
 
 #[poise::command(
@@ -56,8 +63,8 @@ pub async fn sanae(ctx: CowContext<'_>) -> Result<(), Error> {
     hide_in_help,
     user_cooldown = "2"
 )]
-pub async fn marisa(ctx: CowContext<'_>) -> Result<(), Error> {
-    fetch_by_tag(ctx, "kirisame_marisa").await
+pub async fn marisa(ctx: CowContext<'_>, #[rest] second_tag: Option<String>) -> Result<(), Error> {
+    fetch_by_tag(ctx, &*combine_tags("kirisame_marisa", second_tag)).await
 }
 
 #[poise::command(
@@ -67,8 +74,8 @@ pub async fn marisa(ctx: CowContext<'_>) -> Result<(), Error> {
     hide_in_help,
     user_cooldown = "2"
 )]
-pub async fn reisen(ctx: CowContext<'_>) -> Result<(), Error> {
-    fetch_by_tag(ctx, "reisen_udongein_inaba").await
+pub async fn reisen(ctx: CowContext<'_>, #[rest] second_tag: Option<String>) -> Result<(), Error> {
+    fetch_by_tag(ctx, &*combine_tags("reisen_udongein_inaba", second_tag)).await
 }
 
 #[poise::command(
@@ -83,10 +90,7 @@ pub async fn danbooru(
     #[description = "The command requested for help"]
     #[rest] search: Option<String>)
 -> Result<(), Error> {
-    let non_tag = Regex::new(r"[^A-Za-z0-9()_.><*]").unwrap();
-    let tag_option = search
-        .map(|o| o.trim().to_lowercase())
-        .map(|o| non_tag.replace_all(&*o, "_").to_string());
+    let tag_option = validate_tag(search);
 
     if let Some(tag) = tag_option {
         return fetch_by_tag(ctx, &tag).await;
@@ -95,6 +99,22 @@ pub async fn danbooru(
     }
 
     Ok(())
+}
+
+fn validate_tag(search: Option<String>) -> Option<String> {
+    let non_tag = Regex::new(r"[^A-Za-z0-9()_.><*]").unwrap();
+    search
+        .map(|o| o.trim().to_lowercase())
+        .map(|o| non_tag.replace_all(&*o, "_").to_string())
+}
+
+fn combine_tags(first: &str, second: Option<String>) -> String {
+    if let Some(second) = second {
+        format!("{}+{}", first, second)
+    }
+    else {
+        first.to_string()
+    }
 }
 
 fn is_nice_post(post: &Post) -> bool {
@@ -126,10 +146,10 @@ async fn fetch_by_tag(ctx: CowContext<'_>, tag: &str) -> Result<(), Box<dyn std:
             // I'm not even going to test this.
             format!("https://danbooru.donmai.us/posts/random.json?tags={}", tag)
         } else {
-            format!("https://danbooru.donmai.us/posts/random.json?tags=rating:s+{}", tag)
+            format!("https://safebooru.donmai.us/posts/random.json?tags={}", tag)
         }
     } else {
-        format!("https://danbooru.donmai.us/posts/random.json?tags=rating:s+{}", tag)
+        format!("https://safebooru.donmai.us/posts/random.json?tags={}", tag)
     };
 
     match client
@@ -139,18 +159,25 @@ async fn fetch_by_tag(ctx: CowContext<'_>, tag: &str) -> Result<(), Box<dyn std:
         .await {
         Ok(data) => {
             let text = data.text().await.unwrap();
-            error!("Response: {}", text);
+            if let Ok(ex) = serde_json::from_str::<DanbooruError>(&*text) {
+                error!("Danbooru returned an error: {} - {}", ex.error, ex.message);
+                ctx.say("Danbooru returned an error; invalid tag(s)?").await?;
+                return Ok(());
+            }
+
             match serde_json::from_str::<Post>(&*text) {
                 Ok(mut post) => {
+                    const MAX_ATTEMPTS: u8 = 5;
                     let mut attempts = 0;
-                    while !is_nice_post(&post) && attempts < 3 {
+                    while !is_nice_post(&post) && attempts < MAX_ATTEMPTS {
+                        error!("{}", serde_json::to_string_pretty(&post).unwrap());
                         tokio::time::sleep(std::time::Duration::from_millis(100)).await;
                         post = client.get(&url).basic_auth(&config.danbooru_login, Some(&config.danbooru_api_key)).send().await.unwrap().json::<Post>().await.unwrap();
                         attempts += 1;
                     }
 
-                    if attempts >= 3 {
-                        ctx.say("Temporary failure; rate limit?").await?;
+                    if attempts >= 5 {
+                        ctx.say(format!("Failed to get a quality image within {} attempts. Please try again.", MAX_ATTEMPTS)).await?;
                         return Ok(());
                     }
 
@@ -165,7 +192,7 @@ async fn fetch_by_tag(ctx: CowContext<'_>, tag: &str) -> Result<(), Box<dyn std:
                 },
                 Err(ex) => {
                     error!("No results found...: {}", ex);
-                    ctx.say("No results found...").await?;
+                    ctx.say("Danbooru did not provide a valid response...").await?;
                 }
             }
         },
