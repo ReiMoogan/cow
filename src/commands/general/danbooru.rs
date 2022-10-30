@@ -4,6 +4,7 @@ use tokio::fs;
 use crate::{Config, CowContext, Error};
 use serde::{Serialize, Deserialize};
 use regex::Regex;
+use serenity::utils::MessageBuilder;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Post {
@@ -181,9 +182,14 @@ async fn fetch_by_tag(ctx: CowContext<'_>, tag: &str) -> Result<(), Box<dyn std:
                         return Ok(());
                     }
 
+                    let title = MessageBuilder::new()
+                        .push("Artist: ")
+                        .push_safe(post.file_url.clone().unwrap_or_else(|| "<unknown>".to_string()))
+                        .build();
+
                     let _ = ctx.send(|m|
                         m.embed(|e|
-                            e.title(format!("Artist: {}", post.tag_string_artist.clone().unwrap()))
+                            e.title(title)
                                 .url(post.file_url.clone().unwrap())
                                 //.attachment(file_name);
                                 .image(post.file_url.unwrap())

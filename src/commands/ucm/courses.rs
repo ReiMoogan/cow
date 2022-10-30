@@ -127,6 +127,8 @@ async fn autocomplete_course(
             }
         }
         CourseQuery::NameOrNumber { query, term } => {
+            let term_formatted = format_term(term);
+
             match db.search_class_by_number(&*query, term).await {
                 Ok(any) => {
                     if any.is_empty() {
@@ -135,7 +137,7 @@ async fn autocomplete_course(
                                 any.iter()
                                     .take(10)
                                     .map(|o| o.course_title.clone().unwrap_or_else(|| "<unknown class>".to_string()))
-                                    .map(|o| format!("{} {}", o, format_term(term)))
+                                    .map(|o| format!("{} {}", o, term_formatted))
                                     .collect()
                             }
                             Err(ex) => {
@@ -144,7 +146,11 @@ async fn autocomplete_course(
                             }
                         }
                     } else {
-                        any.iter().map(|o| o.course_number.clone()).take(10).collect()
+                        any.iter()
+                            .take(10)
+                            .map(|o| o.course_number.clone())
+                            .map(|o| format!("{} {}", o, term_formatted))
+                            .collect()
                     }
                 }
                 Err(ex) => {
