@@ -104,9 +104,17 @@ pub async fn danbooru(
 
 fn validate_tag(search: Option<String>) -> Option<String> {
     let non_tag = Regex::new(r"[^A-Za-z0-9()_.><*]").unwrap();
-    search
-        .map(|o| o.trim().to_lowercase())
-        .map(|o| non_tag.replace_all(&*o, "_").to_string())
+
+    search.map(|o| {
+        o
+            .split('+') // User can split tags by +
+            .take(2) // Only two tags can be searched at a time
+            .map(|s| {
+                non_tag.replace_all(&*s.trim().to_lowercase(), "_").to_string() // Trim and lowercase the tag
+            })
+            .reduce(|a, b| format!("{}+{}", a, b)) // Combine the tags
+            .unwrap()
+    })
 }
 
 fn combine_tags(first: &str, second: Option<String>) -> String {
