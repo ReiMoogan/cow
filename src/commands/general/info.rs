@@ -13,21 +13,23 @@ pub async fn info(ctx: CowContext<'_>) -> Result<(), Error> {
     let mut sys = System::new();
     sys.refresh_cpu();
     sys.refresh_memory();
-    tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+    tokio::time::sleep(std::time::Duration::from_millis(500)).await;
     sys.refresh_cpu(); // Twice to get a CPU reading.
+    let uptime = sys.uptime();
 
     let message = format!("\
     Cow v{} - A Discord bot written by HelloAndrew and DoggySazHi \n\
     ```\
-    OS: {} {}\n\
-    System uptime: {:?} \n\n\
+    Server: {}\n\
+    System uptime: {}:{:0>2}:{:0>2}:{:0>2} \n\n\
     CPU: {:.2}% \n\
     Memory: {:?}/{:?} MiB \n\
     Swap: {:?}/{:?} MiB \n\
     ```",
     VERSION.unwrap_or("<unknown>"),
-    sys.name().unwrap_or_default(), sys.os_version().unwrap_or_default(),
-    sys.uptime(), sys.global_cpu_info().cpu_usage(),
+    sys.host_name().unwrap_or_default(),
+    uptime / 60 / 60 / 24, (uptime / 60 / 60) % 24, (uptime / 60) % 60, uptime % 60,
+    sys.global_cpu_info().cpu_usage(),
     sys.used_memory() / 1024 / 1024, sys.total_memory() / 1024 / 1024,
     sys.used_swap() / 1024 / 1024, sys.total_swap() / 1024 / 1024);
 

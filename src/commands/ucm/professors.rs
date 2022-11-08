@@ -7,8 +7,8 @@ async fn professor_embed(ctx: &CowContext<'_>, professor: &Professor) -> Result<
     let db = cowdb!(ctx);
 
     let current_date = Local::now().date();
-    let year = current_date.year();
-    let semester = if current_date.month() >= 3 && current_date.month() <= 10 { 30 } else { 10 };
+    let semester = if current_date.month() >= 3 && current_date.month() <= 9 { 30 } else { 10 };
+    let year = current_date.year() + (if semester == 10 && current_date.month() > 9 { 1 } else { 0 }); // Add one year if we're looking at Spring
     let term = year * 100 + semester;
 
     let classes = db.get_classes_for_professor(professor.id, term).await;
