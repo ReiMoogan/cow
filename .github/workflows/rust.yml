@@ -30,3 +30,9 @@ jobs:
         
     - name: Build
       run: cargo build --release --verbose
+      
+    - name: Upload executable
+      uses: actions/upload-artifact@v3
+      with:
+        name: cow
+        path: target/release/cow.exe
