@@ -39,7 +39,7 @@ async fn fetch_hours(client: &Client) -> Result<StoreConfig, Box<dyn error::Erro
         .text()
         .await?;
 
-    let result: StoreConfig = serde_json::from_str(&*response)?;
+    let result: StoreConfig = serde_json::from_str(&response)?;
 
     Ok(result)
 }

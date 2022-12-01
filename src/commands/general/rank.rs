@@ -181,7 +181,7 @@ pub async fn disablexp(ctx: CowContext<'_>) -> Result<(), Error> {
                 } else {
                     content = "Enabled".to_string();
                 }
-                content += &*format!(" collecting experience in <#{}>.", channel.as_u64());
+                content += &format!(" collecting experience in <#{}>.", channel.as_u64());
             },
             Err(ex) => {
                 content = "Failed to toggle channel xp status.".to_string();

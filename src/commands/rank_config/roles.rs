@@ -27,7 +27,7 @@ pub async fn add(
     let db = cowdb!(ctx);
 
     if let Some(guild) = ctx.guild() {
-        match db.add_role(guild.id, &*role.name, role.id, min_level).await {
+        match db.add_role(guild.id, &role.name, role.id, min_level).await {
             Ok(success) => {
                 if success {
                     ctx.say(format!("Successfully added <@&{}> with minimum level {}.", role.id.as_u64(), min_level)).await?;

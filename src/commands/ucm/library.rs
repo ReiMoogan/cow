@@ -18,7 +18,7 @@ pub async fn library(ctx: CowContext<'_>) -> Result<(), Error> {
                 Ok(data) => {
                     ctx.send(|m| {
                         let library = &data.locations[0].weeks[0];
-                        let start_date = chrono::NaiveDate::parse_from_str(&*library.sunday.date, "%Y-%m-%d").unwrap();
+                        let start_date = chrono::NaiveDate::parse_from_str(&library.sunday.date, "%Y-%m-%d").unwrap();
                         m.embeds.clear();
                         m.embed(|e| {
                             e

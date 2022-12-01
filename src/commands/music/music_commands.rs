@@ -162,7 +162,7 @@ pub async fn play(
             let message = MessageBuilder::new().push("Added to queue: ").push_mono_safe(&query_information.tracks[0].info.as_ref().unwrap().title).build();
             if let Ok(tracks) = lava_client.get_tracks(query).await {
                 if tracks.tracks.len() > 1 {
-                    ctx.say("Note: This seems to be a playlist. If you want to add all tracks at once, use `playlist` instead of `play`.\n".to_string() + &*message).await?;
+                    ctx.say("Note: This seems to be a playlist. If you want to add all tracks at once, use `playlist` instead of `play`.\n".to_string() + &message).await?;
                     return Ok(())
                 }
             }
@@ -289,8 +289,8 @@ pub async fn now_playing(ctx: CowContext<'_>) -> Result<(), Error> {
         if let Some(track) = &node.now_playing {
             let info = track.track.info.as_ref().unwrap();
             let re = Regex::new(r#"(?:youtube\.com/(?:[^/]+/.+/|(?:v|e(?:mbed)?)/|.*[?&]v=)|youtu\.be/)([^"&?/\s]{11})"#).unwrap();
-            let youtube_id = re.captures(&*info.uri).and_then(|caps| caps.get(1).map(|m| m.as_str()));
-            let spotify_thumbail = spotify::get_thumbnail(&*info.uri).await;
+            let youtube_id = re.captures(&info.uri).and_then(|caps| caps.get(1).map(|m| m.as_str()));
+            let spotify_thumbail = spotify::get_thumbnail(&info.uri).await;
             let server_name = ctx.guild().map(|o| o.name);
 
             ctx.send(|m| {
@@ -398,7 +398,7 @@ fn generate_queue(queue: &[TrackQueue]) -> Vec<String> {
                 break;
             }
 
-            page.push_str(&*next_line);
+            page.push_str(&next_line);
         }
 
         output.push(page);
@@ -441,7 +441,7 @@ pub async fn queue(
         }
 
         let page = &pages[page_num - 1];
-        let server_name = guild_id.name(&ctx.discord());
+        let server_name = guild_id.name(ctx.discord());
 
         ctx.send(|m| {
             m.embeds.clear();

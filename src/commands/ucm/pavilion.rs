@@ -13,7 +13,7 @@ async fn fetch_pavilion_company_info(client: &Client) -> Result<Company, Box<dyn
         .await?
         .text()
         .await?;
-    let result: PavResult<Company> = serde_json::from_str(&*response)?;
+    let result: PavResult<Company> = serde_json::from_str(&response)?;
 
     Ok(result.data)
 }
@@ -26,7 +26,7 @@ async fn fetch_pavilion_restaurants(client: &Client, company: &Company) -> Resul
         .await?
         .text()
         .await?;
-    let result: PavResult<Vec<Location>> = serde_json::from_str(&*response)?;
+    let result: PavResult<Vec<Location>> = serde_json::from_str(&response)?;
 
     Ok(result.data)
 }
@@ -41,7 +41,7 @@ async fn fetch_pavilion_groups(client: &Client, company: &Company, location: &Lo
         .await?
         .text()
         .await?;
-    let result: PavResult<MenuGroups> = serde_json::from_str(&*response)?;
+    let result: PavResult<MenuGroups> = serde_json::from_str(&response)?;
 
     Ok(result.data)
 }
@@ -59,7 +59,7 @@ async fn fetch_pavilion_menu(client: &Client, company: &Company, location: &Loca
         .await?
         .text()
         .await?;
-    let result: PavResult<MenuItems> = serde_json::from_str(&*response)?;
+    let result: PavResult<MenuItems> = serde_json::from_str(&response)?;
 
     Ok(result.data)
 }
@@ -75,7 +75,7 @@ async fn fetch_pavilion_raw_materials(client: &Client, company: &Company, locati
         .await?
         .text()
         .await?;
-    let result: PavResult<Vec<RawMaterial>> = serde_json::from_str(&*response)?;
+    let result: PavResult<Vec<RawMaterial>> = serde_json::from_str(&response)?;
 
     Ok(result.data)
 }
@@ -160,7 +160,6 @@ pub async fn pavilion(
         m.embeds.clear();
         m.embed(|e| {
             e.title(&title);
-            e.description("Note (10/4/2022): Late night options now appear by default!");
 
             if menus.is_empty() {
                 e.field("No menu data!!", "Could not find the given group, please check your query.", false);

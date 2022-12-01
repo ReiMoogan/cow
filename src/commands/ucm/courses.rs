@@ -129,10 +129,10 @@ async fn autocomplete_course(
         CourseQuery::NameOrNumber { query, term } => {
             let term_formatted = format_term(term);
 
-            match db.search_class_by_number(&*query, term).await {
+            match db.search_class_by_number(&query, term).await {
                 Ok(any) => {
                     if any.is_empty() {
-                        match db.search_class_by_name(&*query, term).await {
+                        match db.search_class_by_name(&query, term).await {
                             Ok(any) => {
                                 any.iter()
                                     .take(10)
@@ -179,7 +179,7 @@ pub async fn courses(
         return Ok(());
     }
 
-    match process_query(&*query) {
+    match process_query(&query) {
         CourseReferenceNumber(crn) => {
             let db = cowdb!(ctx);
             match db.get_class(crn).await {

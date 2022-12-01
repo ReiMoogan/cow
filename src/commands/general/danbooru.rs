@@ -32,7 +32,7 @@ pub struct DanbooruError {
     user_cooldown = "2"
 )]
 pub async fn reimu(ctx: CowContext<'_>, #[rest] second_tag: Option<String>) -> Result<(), Error> {
-    fetch_by_tag(ctx, &*combine_tags("hakurei_reimu", second_tag)).await
+    fetch_by_tag(ctx, &combine_tags("hakurei_reimu", second_tag)).await
 }
 
 #[poise::command(
@@ -43,7 +43,7 @@ pub async fn reimu(ctx: CowContext<'_>, #[rest] second_tag: Option<String>) -> R
     user_cooldown = "2"
 )]
 pub async fn momiji(ctx: CowContext<'_>, #[rest] second_tag: Option<String>) -> Result<(), Error> {
-    fetch_by_tag(ctx, &*combine_tags("inubashiri_momiji", second_tag)).await
+    fetch_by_tag(ctx, &combine_tags("inubashiri_momiji", second_tag)).await
 }
 
 #[poise::command(
@@ -54,7 +54,7 @@ pub async fn momiji(ctx: CowContext<'_>, #[rest] second_tag: Option<String>) -> 
     user_cooldown = "2"
 )]
 pub async fn sanae(ctx: CowContext<'_>, #[rest] second_tag: Option<String>) -> Result<(), Error> {
-    fetch_by_tag(ctx, &*combine_tags("kochiya_sanae", second_tag)).await
+    fetch_by_tag(ctx, &combine_tags("kochiya_sanae", second_tag)).await
 }
 
 #[poise::command(
@@ -65,7 +65,7 @@ pub async fn sanae(ctx: CowContext<'_>, #[rest] second_tag: Option<String>) -> R
     user_cooldown = "2"
 )]
 pub async fn marisa(ctx: CowContext<'_>, #[rest] second_tag: Option<String>) -> Result<(), Error> {
-    fetch_by_tag(ctx, &*combine_tags("kirisame_marisa", second_tag)).await
+    fetch_by_tag(ctx, &combine_tags("kirisame_marisa", second_tag)).await
 }
 
 #[poise::command(
@@ -76,7 +76,7 @@ pub async fn marisa(ctx: CowContext<'_>, #[rest] second_tag: Option<String>) -> 
     user_cooldown = "2"
 )]
 pub async fn reisen(ctx: CowContext<'_>, #[rest] second_tag: Option<String>) -> Result<(), Error> {
-    fetch_by_tag(ctx, &*combine_tags("reisen_udongein_inaba", second_tag)).await
+    fetch_by_tag(ctx, &combine_tags("reisen_udongein_inaba", second_tag)).await
 }
 
 #[poise::command(
@@ -102,15 +102,19 @@ pub async fn danbooru(
     Ok(())
 }
 
-fn validate_tag(search: Option<String>) -> Option<String> {
-    let non_tag = Regex::new(r"[^A-Za-z0-9()_.><*]").unwrap();
+fn convert_to_tag(input: &str) -> String {
+    let non_tag = Regex::new(r"[^A-Za-z0-9()_.><*:]").unwrap();
 
+    non_tag.replace_all(&input.trim().to_lowercase(), "_").to_string()
+}
+
+fn validate_tag(search: Option<String>) -> Option<String> {
     search.map(|o| {
         o
             .split('+') // User can split tags by +
             .take(2) // Only two tags can be searched at a time
             .map(|s| {
-                non_tag.replace_all(&*s.trim().to_lowercase(), "_").to_string() // Trim and lowercase the tag
+                convert_to_tag(s) // Trim and lowercase the tag
             })
             .reduce(|a, b| format!("{}+{}", a, b)) // Combine the tags
             .unwrap()
@@ -119,7 +123,7 @@ fn validate_tag(search: Option<String>) -> Option<String> {
 
 fn combine_tags(first: &str, second: Option<String>) -> String {
     if let Some(second) = second {
-        format!("{}+{}", first, second)
+        format!("{}+{}", first, convert_to_tag(&second))
     }
     else {
         first.to_string()
@@ -168,13 +172,13 @@ async fn fetch_by_tag(ctx: CowContext<'_>, tag: &str) -> Result<(), Box<dyn std:
         .await {
         Ok(data) => {
             let text = data.text().await.unwrap();
-            if let Ok(ex) = serde_json::from_str::<DanbooruError>(&*text) {
+            if let Ok(ex) = serde_json::from_str::<DanbooruError>(&text) {
                 error!("Danbooru returned an error: {} - {}", ex.error, ex.message);
                 ctx.say("Danbooru returned an error; invalid tag(s)?").await?;
                 return Ok(());
             }
 
-            match serde_json::from_str::<Post>(&*text) {
+            match serde_json::from_str::<Post>(&text) {
                 Ok(mut post) => {
                     const MAX_ATTEMPTS: u8 = 5;
                     let mut attempts = 0;

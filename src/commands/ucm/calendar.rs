@@ -110,12 +110,14 @@ pub async fn calendar(
         calendar_year -= 1;
     }
 
+    ctx.defer().await?;
+
     let url = format!("https://registrar.ucmerced.edu/schedules/academic-calendar/academic-calendar-{}-{}", calendar_year, calendar_year + 1);
     match reqwest::get(url).await {
         Ok(response) => {
             match response.text().await {
                 Ok(data) => {
-                    let schedules = process_calendar(&*data);
+                    let schedules = process_calendar(&data);
                     if let Some(calendar) = schedules {
                         print_schedule(&ctx, &calendar).await?;
                     } else {

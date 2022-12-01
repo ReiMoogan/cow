@@ -241,7 +241,7 @@ impl Database {
         search_query
             .trim()
             .split(' ')
-            .map(|o| o.replace('(', "").replace(')', "").replace('\"', "").replace('\'', "")) // *unqueries your query*
+            .map(|o| o.replace(['(', ')', '\"', '\''], "")) // *unqueries your query*
             .map(|o| format!("\"*{}*\"", o)) // Wildcards
             .reduce(|a, b| format!("{} AND {}", a, b))
             .unwrap()

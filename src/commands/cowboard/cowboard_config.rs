@@ -235,7 +235,7 @@ pub async fn webhook(ctx: CowContext<'_>) -> Result<(), Error> {
     if let Some(guild) = ctx.guild() {
         match db.get_cowboard_config(guild.id).await {
             Ok(mut config) => {
-                if config.channel == None {
+                if config.channel.is_none() {
                     ctx.say("Cowboard channel is not set up!").await?;
                     return Ok(());
                 }
@@ -245,7 +245,7 @@ pub async fn webhook(ctx: CowContext<'_>) -> Result<(), Error> {
                     Ok(guild_channels) => {
                         if let Some(guild_channel) = guild_channels.get(&channel)
                         {
-                            if config.webhook_id == None {
+                            if config.webhook_id.is_none() {
                                 match guild_channel.create_webhook(&ctx.discord().http, "MooganCowboard").await {
                                     Ok(webhook) => {
                                         config.webhook_id = Some(webhook.id.0);
@@ -265,7 +265,7 @@ pub async fn webhook(ctx: CowContext<'_>) -> Result<(), Error> {
                             if let Err(ex) = db.update_cowboard(&config).await {
                                 ctx.say("We couldn't update the cowboard, sorry... Try again later?").await?;
                                 error!("Failed to update cowboard: {}", ex);
-                            } else if config.webhook_id == None {
+                            } else if config.webhook_id.is_none() {
                                 ctx.say(format!("Disabled webhooks for <#{}>.", guild_channel)).await?;
                             } else {
                                 ctx.say(format!("Enabled webhooks for <#{}>.", guild_channel)).await?;

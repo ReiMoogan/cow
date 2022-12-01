@@ -36,7 +36,7 @@ pub async fn foodtrucks(ctx: CowContext<'_>) -> Result<(), Error> {
         Ok(response) => {
             match response.text().await {
                 Ok(data) => {
-                    let image_url = process_schedules(&*data);
+                    let image_url = process_schedules(&data);
 
                     if let Some(schedule) = image_url {
                         sent_msg.edit(ctx, |m| {

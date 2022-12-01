@@ -123,7 +123,7 @@ async fn main() -> Result<(), Box<dyn error::Error>>  {
     let token = config.token;
     let (app_id, owners) = fetch_bot_info(&token).await;
     let framework = get_framework(&config.cmd_prefix, app_id, owners).await;
-    let database = Arc::new(Database::new(&*config.sql_server_ip, config.sql_server_port, &*config.sql_server_username, &*config.sql_server_password).await.unwrap());
+    let database = Arc::new(Database::new(&config.sql_server_ip, config.sql_server_port, &config.sql_server_username, &config.sql_server_password).await.unwrap());
 
     let event_handler = Handler;
 

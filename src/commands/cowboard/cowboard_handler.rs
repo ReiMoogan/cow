@@ -127,7 +127,7 @@ async fn send_bot_message(ctx: &Context, message: &Message, config: &Cowboard) -
                         .author(|a|
                             a.name(&output_username).icon_url(message.author.face()))
                         .description(&safe_content)
-                        .timestamp(&message.timestamp)
+                        .timestamp(message.timestamp)
                         .footer(|f| f.text(format!("Message ID: {} / User ID: {}", message.id, message.author.id)));
 
                     if !attachments.is_empty() {
@@ -174,7 +174,7 @@ async fn update_bot_message(ctx: &Context, message: &Message, post_message: &mut
 
 async fn send_webhook_message(ctx: &Context, message: &Message, config: &mut Cowboard) -> Result<Message, Box<dyn error::Error + Send + Sync>> {
     let token = config.webhook_token.clone().unwrap();
-    if let Ok(webhook) = ctx.http.get_webhook_with_token(config.webhook_id.unwrap(), &*token).await {
+    if let Ok(webhook) = ctx.http.get_webhook_with_token(config.webhook_id.unwrap(), &token).await {
         let output_username = format_username(ctx, message).await;
         let safe_content = message.content_safe(ctx);
 
@@ -187,7 +187,7 @@ async fn send_webhook_message(ctx: &Context, message: &Message, config: &mut Cow
                         .author(|a|
                             a.name(&output_username).icon_url(message.author.face()))
                         .description(&safe_content)
-                        .timestamp(&message.timestamp)
+                        .timestamp(message.timestamp)
                         .footer(|f| f.text(format!("Message ID: {} / User ID: {}", message.id, message.author.id)));
 
                     if !attachments.is_empty() {
@@ -293,7 +293,7 @@ async fn format_username(ctx: &Context, message: &Message) -> String {
 
 async fn update_webhook_message(ctx: &Context, message: &Message, post_message: &Message, config: &mut Cowboard) {
     let token = config.webhook_token.clone().unwrap();
-    if let Ok(webhook) = ctx.http.get_webhook_with_token(config.webhook_id.unwrap(), &*token).await {
+    if let Ok(webhook) = ctx.http.get_webhook_with_token(config.webhook_id.unwrap(), &token).await {
         match count_reactions(ctx, message, config).await {
             Ok(reacts) => {
                 let link = message.link_ensured(&ctx.http).await;

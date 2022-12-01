@@ -23,7 +23,7 @@ fn process_hours(data: &str) -> Vec<(String, String)> {
             // New header, push values.
             extractor(&mut output, &temporary_name, &mut temporary_values);
             temporary_name = Some(text_data);
-        } else if temporary_name != None {
+        } else if temporary_name.is_some() {
             temporary_values.push(text_data);
         } else {
             // Can't read if there's no header.
@@ -75,7 +75,7 @@ pub async fn gym(ctx: CowContext<'_>) -> Result<(), Error> {
         Ok(response) => {
             match response.text().await {
                 Ok(data) => {
-                    let hours = process_hours(&*data);
+                    let hours = process_hours(&data);
 
                     if !hours.is_empty() {
                         sent_msg.edit(ctx, |m| {

@@ -8,7 +8,7 @@ async fn professor_embed(ctx: &CowContext<'_>, professor: &Professor) -> Result<
 
     let current_date = Local::now().date_naive();
     let semester = if current_date.month() >= 3 && current_date.month() <= 9 { 30 } else { 10 };
-    let year = current_date.year() + (if semester == 10 && current_date.month() > 9 { 1 } else { 0 }); // Add one year if we're looking at Spring
+    let year = current_date.year() + i32::from(semester == 10 && current_date.month() > 9); // Add one year if we're looking at Spring
     let term = year * 100 + semester;
 
     let classes = db.get_classes_for_professor(professor.id, term).await;
@@ -73,7 +73,7 @@ pub async fn professors(
     #[autocomplete = "autocomplete_professor"] #[description = "The professor's name"]  #[rest] query: String)
 -> Result<(), Error> {
     let db = cowdb!(ctx);
-    match db.search_professor(&*query).await {
+    match db.search_professor(&query).await {
         Ok(professors) => {
             print_matches(&ctx, &professors).await?;
         }
