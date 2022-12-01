@@ -233,7 +233,7 @@ enum CourseQuery {
 fn process_query(query: &str) -> CourseQuery {
     let args = query.split(' ');
 
-    let current_date = Local::now().date();
+    let current_date = Local::now().date_naive();
     let mut year = current_date.year();
     // You are required to specify if you want a summer class. Baka.
     let mut semester = if current_date.month() >= 3 && current_date.month() <= 10 { 30 } else { 10 };

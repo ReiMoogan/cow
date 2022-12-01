@@ -136,7 +136,7 @@ async fn main() -> Result<(), Box<dyn error::Error>>  {
                 .register_songbird()
                 .event_handler(event_handler)
         })
-        .user_data_setup(move |_ctx, _ready, _framework| {
+        .setup(move |_ctx, _ready, _framework| {
             Box::pin(async move {
                 Ok(())
             })

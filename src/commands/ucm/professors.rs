@@ -6,7 +6,7 @@ use crate::commands::ucm::courses_db_models::*;
 async fn professor_embed(ctx: &CowContext<'_>, professor: &Professor) -> Result<(), Error> {
     let db = cowdb!(ctx);
 
-    let current_date = Local::now().date();
+    let current_date = Local::now().date_naive();
     let semester = if current_date.month() >= 3 && current_date.month() <= 9 { 30 } else { 10 };
     let year = current_date.year() + (if semester == 10 && current_date.month() > 9 { 1 } else { 0 }); // Add one year if we're looking at Spring
     let term = year * 100 + semester;

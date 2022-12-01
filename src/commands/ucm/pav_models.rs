@@ -219,23 +219,23 @@ pub struct PavilionTime;
 
 impl PavilionTime {
 
-    // Turns out from_hms is not a constant function, so... this monstrosity has to occur.
+    // Turns out from_hms_opt is not a constant function, so... this monstrosity has to occur.
     // At least inlining is a thing.
 
     #[inline(always)]
-    pub fn breakfast_weekday_start() -> NaiveTime { NaiveTime::from_hms(7, 0, 0) }
+    pub fn breakfast_weekday_start() -> NaiveTime { NaiveTime::from_hms_opt(7, 0, 0).unwrap() }
     #[inline(always)]
-    pub fn breakfast_weekend_start() -> NaiveTime { NaiveTime::from_hms(9, 0, 0) }
+    pub fn breakfast_weekend_start() -> NaiveTime { NaiveTime::from_hms_opt(9, 0, 0).unwrap() }
     #[inline(always)]
-    pub fn breakfast_end() -> NaiveTime { NaiveTime::from_hms(10, 30, 0) }
+    pub fn breakfast_end() -> NaiveTime { NaiveTime::from_hms_opt(10, 30, 0).unwrap() }
     #[inline(always)]
-    pub fn lunch_start() -> NaiveTime { NaiveTime::from_hms(11, 0, 0) }
+    pub fn lunch_start() -> NaiveTime { NaiveTime::from_hms_opt(11, 0, 0).unwrap() }
     #[inline(always)]
-    pub fn lunch_end() -> NaiveTime { NaiveTime::from_hms(15, 0, 0) }
+    pub fn lunch_end() -> NaiveTime { NaiveTime::from_hms_opt(15, 0, 0).unwrap() }
     #[inline(always)]
-    pub fn dinner_start() -> NaiveTime { NaiveTime::from_hms(16, 0, 0) }
+    pub fn dinner_start() -> NaiveTime { NaiveTime::from_hms_opt(16, 0, 0).unwrap() }
     #[inline(always)]
-    pub fn dinner_end() -> NaiveTime { NaiveTime::from_hms(21, 0, 0) }
+    pub fn dinner_end() -> NaiveTime { NaiveTime::from_hms_opt(21, 0, 0).unwrap() }
 
 
     pub fn next_meal(datetime: &DateTime<Local>) -> (Day, Meal) {
@@ -260,9 +260,9 @@ pub struct YablokoffTime;
 
 impl YablokoffTime {
     #[inline(always)]
-    pub fn dinner_start() -> NaiveTime { NaiveTime::from_hms(15, 0, 0) }
+    pub fn dinner_start() -> NaiveTime { NaiveTime::from_hms_opt(15, 0, 0).unwrap() }
     #[inline(always)]
-    pub fn dinner_end() -> NaiveTime { NaiveTime::from_hms(0, 0, 0) }
+    pub fn dinner_end() -> NaiveTime { NaiveTime::from_hms_opt(0, 0, 0).unwrap() }
 
     #[allow(dead_code)]
     pub fn is_dinner(day_of_week: &Day) -> bool {
