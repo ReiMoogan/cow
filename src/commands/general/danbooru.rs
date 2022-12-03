@@ -18,6 +18,14 @@ pub struct Post {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+pub struct TagAutocomplete {
+    pub label: String,
+    pub value: String,
+    pub post_count: u64,
+    pub antecedent: Option<String>
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 pub struct DanbooruError {
     pub success: bool,
     pub error: String,
@@ -32,7 +40,7 @@ pub struct DanbooruError {
     user_cooldown = "2"
 )]
 pub async fn reimu(ctx: CowContext<'_>, #[rest] second_tag: Option<String>) -> Result<(), Error> {
-    fetch_by_tag(ctx, &combine_tags("hakurei_reimu", second_tag)).await
+    fetch_by_tag(ctx, &combine_tags("hakurei_reimu", &second_tag), second_tag.map(|o| vec![o])).await
 }
 
 #[poise::command(
@@ -43,7 +51,7 @@ pub async fn reimu(ctx: CowContext<'_>, #[rest] second_tag: Option<String>) -> R
     user_cooldown = "2"
 )]
 pub async fn momiji(ctx: CowContext<'_>, #[rest] second_tag: Option<String>) -> Result<(), Error> {
-    fetch_by_tag(ctx, &combine_tags("inubashiri_momiji", second_tag)).await
+    fetch_by_tag(ctx, &combine_tags("inubashiri_momiji", &second_tag), second_tag.map(|o| vec![o])).await
 }
 
 #[poise::command(
@@ -54,7 +62,7 @@ pub async fn momiji(ctx: CowContext<'_>, #[rest] second_tag: Option<String>) -> 
     user_cooldown = "2"
 )]
 pub async fn sanae(ctx: CowContext<'_>, #[rest] second_tag: Option<String>) -> Result<(), Error> {
-    fetch_by_tag(ctx, &combine_tags("kochiya_sanae", second_tag)).await
+    fetch_by_tag(ctx, &combine_tags("kochiya_sanae", &second_tag), second_tag.map(|o| vec![o])).await
 }
 
 #[poise::command(
@@ -65,7 +73,7 @@ pub async fn sanae(ctx: CowContext<'_>, #[rest] second_tag: Option<String>) -> R
     user_cooldown = "2"
 )]
 pub async fn marisa(ctx: CowContext<'_>, #[rest] second_tag: Option<String>) -> Result<(), Error> {
-    fetch_by_tag(ctx, &combine_tags("kirisame_marisa", second_tag)).await
+    fetch_by_tag(ctx, &combine_tags("kirisame_marisa", &second_tag), second_tag.map(|o| vec![o])).await
 }
 
 #[poise::command(
@@ -76,7 +84,7 @@ pub async fn marisa(ctx: CowContext<'_>, #[rest] second_tag: Option<String>) -> 
     user_cooldown = "2"
 )]
 pub async fn reisen(ctx: CowContext<'_>, #[rest] second_tag: Option<String>) -> Result<(), Error> {
-    fetch_by_tag(ctx, &combine_tags("reisen_udongein_inaba", second_tag)).await
+    fetch_by_tag(ctx, &combine_tags("reisen_udongein_inaba", &second_tag), second_tag.map(|o| vec![o])).await
 }
 
 #[poise::command(
@@ -91,10 +99,28 @@ pub async fn danbooru(
     #[description = "The command requested for help"]
     #[rest] search: Option<String>)
 -> Result<(), Error> {
-    let tag_option = validate_tag(search);
+    let original = search.map(|o| {
+        o
+            .split('+')
+            .take(2)
+            .map(|o| o.trim())
+            .map(|o| o.to_string())
+            .collect::<Vec<String>>()
+    });
+
+    let tag_option = original.as_ref().map(|o| {
+        o
+            .iter()
+            .map(|s| {
+                convert_to_tag(s) // Trim and lowercase the tag
+            })
+            .reduce(|a, b| format!("{}+{}", a, b)) // Combine the tags
+            .unwrap()
+    });
 
     if let Some(tag) = tag_option {
-        return fetch_by_tag(ctx, &tag).await;
+
+        return fetch_by_tag(ctx, &tag, original).await;
     } else {
         ctx.say("You need to pass a valid Danbooru tag to search for.").await?;
     }
@@ -108,22 +134,9 @@ fn convert_to_tag(input: &str) -> String {
     non_tag.replace_all(&input.trim().to_lowercase(), "_").to_string()
 }
 
-fn validate_tag(search: Option<String>) -> Option<String> {
-    search.map(|o| {
-        o
-            .split('+') // User can split tags by +
-            .take(2) // Only two tags can be searched at a time
-            .map(|s| {
-                convert_to_tag(s) // Trim and lowercase the tag
-            })
-            .reduce(|a, b| format!("{}+{}", a, b)) // Combine the tags
-            .unwrap()
-    })
-}
-
-fn combine_tags(first: &str, second: Option<String>) -> String {
+fn combine_tags(first: &str, second: &Option<String>) -> String {
     if let Some(second) = second {
-        format!("{}+{}", first, convert_to_tag(&second))
+        format!("{}+{}", first, convert_to_tag(second))
     }
     else {
         first.to_string()
@@ -143,7 +156,76 @@ fn is_nice_post(post: &Post) -> bool {
         !is_comic
 }
 
-async fn fetch_by_tag(ctx: CowContext<'_>, tag: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+async fn fetch_tag_autocomplete(query: &str, client: &reqwest::Client, danbooru_login: &str, danbooru_api_key: &str) -> Result<Vec<TagAutocomplete>, ()> {
+    match client
+        .get("https://danbooru.donmai.us/autocomplete.json")
+        .basic_auth(danbooru_login, Some(danbooru_api_key))
+        .query(&[("search[query]", query)])
+        .query(&[("search[type]", "tag_query")])
+        .query(&[("version", 1)])
+        .query(&[("limit", 10)])
+        .send()
+        .await {
+        Ok(data) => {
+            let text = data.text().await.unwrap();
+            if let Ok(ex) = serde_json::from_str::<DanbooruError>(&text) {
+                error!("Danbooru returned an error: {} - {}", ex.error, ex.message);
+                return Err(());
+            }
+
+            match serde_json::from_str::<Vec<TagAutocomplete>>(&text) {
+                Ok(tags) => {
+                    Ok(tags)
+                },
+                Err(ex) => {
+                    error!("No results found...: {}", ex);
+                    Err(())
+                }
+            }
+        },
+        Err(ex) => {
+            error!("Failed to send request: {}", ex);
+            Err(())
+        }
+    }
+}
+
+async fn handle_failure(ctx: CowContext<'_>, original: Option<Vec<String>>, client: &reqwest::Client, danbooru_login: &str, danbooru_api_key: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    if let Some(original) = original {
+        let mut message = MessageBuilder::new();
+        message.push("No results found for your query; you probably misspelled something. Did you mean:\n\n");
+
+        for tag in original {
+            message.push_mono_safe(&tag).push("\n");
+
+            match fetch_tag_autocomplete(&tag, client, danbooru_login, danbooru_api_key).await {
+                Ok(tags) => {
+                    for matching_tag in tags {
+                        if let Some(antecedent) = matching_tag.antecedent {
+                            message.push(format!("- `{}` -> {} `{}` ({})\n", antecedent, matching_tag.label, matching_tag.value, matching_tag.post_count));
+                        } else {
+                            message.push(format!("- {} `{}` ({})\n", matching_tag.label, matching_tag.value, matching_tag.post_count));
+                        }
+                    }
+                },
+                Err(_) => {
+                    message.push("- Error loading tags.\n");
+                }
+            }
+
+            message.push("\n");
+        }
+
+        ctx.say(message.build()).await?;
+    }
+    else {
+        ctx.say("No results were found, but it doesn't seem to be your fault. Try again later?").await?;
+    }
+
+    Ok(())
+}
+
+async fn fetch_by_tag(ctx: CowContext<'_>, tag: &str, original: Option<Vec<String>>) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let client = reqwest::Client::new();
 
     let config_json = fs::read_to_string("config.json").await?;
@@ -174,8 +256,7 @@ async fn fetch_by_tag(ctx: CowContext<'_>, tag: &str) -> Result<(), Box<dyn std:
             let text = data.text().await.unwrap();
             if let Ok(ex) = serde_json::from_str::<DanbooruError>(&text) {
                 error!("Danbooru returned an error: {} - {}", ex.error, ex.message);
-                ctx.say("Danbooru returned an error; invalid tag(s)?").await?;
-                return Ok(());
+                return handle_failure(ctx, original, &client, &config.danbooru_login, &config.danbooru_api_key).await;
             }
 
             match serde_json::from_str::<Post>(&text) {
@@ -222,3 +303,4 @@ async fn fetch_by_tag(ctx: CowContext<'_>, tag: &str) -> Result<(), Box<dyn std:
 
     Ok(())
 }
+
