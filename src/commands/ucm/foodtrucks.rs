@@ -1,14 +1,27 @@
+use chrono::{Datelike, Duration, Local};
 use tracing::error;
 use crate::{CowContext, Error};
 use scraper::{Html, Selector};
 
 fn process_schedules(data: &str) -> Option<String> {
+    let now = Local::now();
+    let monday = now - Duration::days(now.weekday().num_days_from_monday() as i64);
+    let monday_date = format!("{}-{}", monday.month(), monday.day());
+
     let page = Html::parse_document(data);
     let image = Selector::parse("p img").unwrap();
 
-    page.select(&image)
-        .next()
+    let links = page.select(&image)
         .map(|o| o.value().attr("src").unwrap().to_string())
+        .collect::<Vec<String>>();
+
+    let day = links.iter().find(|o| o.contains(&monday_date));
+
+    return if day.is_some() {
+        day.map(|o| o.to_string())
+    } else {
+        links.first().map(|o| o.to_string())
+    }
 }
 
 /// Get the latest food truck schedule posted on the UC Merced website.
