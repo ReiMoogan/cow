@@ -94,9 +94,7 @@ pub async fn rank(
         }
 
         if let Some(other_id) = user {
-            let serenity = ctx.discord();
-
-            if let Ok(other_user) = other_id.to_user(&serenity.http).await {
+            if let Ok(other_user) = other_id.to_user(&ctx).await {
                 rank_embed(&ctx, &server_id, &other_user).await;
             } else {
                 ctx.say("Could not find user...").await?;

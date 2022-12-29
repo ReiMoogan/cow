@@ -160,6 +160,7 @@ async fn fetch_tag_autocomplete(query: &str, client: &reqwest::Client, danbooru_
     match client
         .get("https://danbooru.donmai.us/autocomplete.json")
         .basic_auth(danbooru_login, Some(danbooru_api_key))
+        .header("User-Agent", "Moogan/0.2.23")
         .query(&[("search[query]", query)])
         .query(&[("search[type]", "tag_query")])
         .query(&[("version", 1)])
@@ -236,7 +237,7 @@ async fn fetch_by_tag(ctx: CowContext<'_>, tag: &str, original: Option<Vec<Strin
         return Ok(());
     }
 
-    let url = if let Ok(channel) = ctx.channel_id().to_channel(ctx.discord()).await {
+    let url = if let Ok(channel) = ctx.channel_id().to_channel(ctx).await {
         if channel.is_nsfw() {
             // I'm not even going to test this.
             format!("https://danbooru.donmai.us/posts/random.json?tags={}", tag)
@@ -250,6 +251,7 @@ async fn fetch_by_tag(ctx: CowContext<'_>, tag: &str, original: Option<Vec<Strin
     match client
         .get(&url)
         .basic_auth(&config.danbooru_login, Some(&config.danbooru_api_key))
+        .header("User-Agent", "Moogan/0.2.23")
         .send()
         .await {
         Ok(data) => {
@@ -259,6 +261,8 @@ async fn fetch_by_tag(ctx: CowContext<'_>, tag: &str, original: Option<Vec<Strin
                 return handle_failure(ctx, original, &client, &config.danbooru_login, &config.danbooru_api_key).await;
             }
 
+            error!("Response: {}", text);
+
             match serde_json::from_str::<Post>(&text) {
                 Ok(mut post) => {
                     const MAX_ATTEMPTS: u8 = 5;
@@ -266,7 +270,7 @@ async fn fetch_by_tag(ctx: CowContext<'_>, tag: &str, original: Option<Vec<Strin
                     while !is_nice_post(&post) && attempts < MAX_ATTEMPTS {
                         error!("{}", serde_json::to_string_pretty(&post).unwrap());
                         tokio::time::sleep(std::time::Duration::from_millis(100)).await;
-                        post = client.get(&url).basic_auth(&config.danbooru_login, Some(&config.danbooru_api_key)).send().await.unwrap().json::<Post>().await.unwrap();
+                        post = client.get(&url).basic_auth(&config.danbooru_login, Some(&config.danbooru_api_key)).header("User-Agent", "Moogan/0.2.23").send().await.unwrap().json::<Post>().await.unwrap();
                         attempts += 1;
                     }
 

@@ -241,12 +241,12 @@ pub async fn webhook(ctx: CowContext<'_>) -> Result<(), Error> {
                 }
 
                 let channel = ChannelId::from(config.channel.unwrap());
-                match guild.channels(&ctx.discord()).await {
+                match guild.channels(&ctx).await {
                     Ok(guild_channels) => {
                         if let Some(guild_channel) = guild_channels.get(&channel)
                         {
                             if config.webhook_id.is_none() {
-                                match guild_channel.create_webhook(&ctx.discord().http, "MooganCowboard").await {
+                                match guild_channel.create_webhook(&ctx, "MooganCowboard").await {
                                     Ok(webhook) => {
                                         config.webhook_id = Some(webhook.id.0);
                                         config.webhook_token = Some(webhook.token.unwrap())

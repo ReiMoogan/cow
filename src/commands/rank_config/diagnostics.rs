@@ -24,7 +24,6 @@ pub async fn scan(ctx: CowContext<'_>) -> Result<(), Error> {
     let db = cowdb!(ctx);
     if let Some(guild_id) = ctx.guild_id() {
         let mut message = MessageBuilder::new();
-        let serenity = ctx.discord();
 
         let discord_message = ctx.send(|m| {
             m.embeds.clear();
@@ -38,7 +37,7 @@ pub async fn scan(ctx: CowContext<'_>) -> Result<(), Error> {
         let role_set = roles.into_iter().filter_map(|r| r.role_id).collect::<HashSet<_>>();
         let users = db.get_users(guild_id).await?;
         for u in users {
-            if let Ok(member) = guild_id.member(&serenity.http, u.user).await {
+            if let Ok(member) = guild_id.member(&ctx, u.user).await {
                 let member_role_set: HashSet<RoleId> = HashSet::from_iter(member.roles.iter().cloned());
                 let intersection = role_set.intersection(&member_role_set).collect::<HashSet<_>>();
                 if let Some(expected_role) = u.role_id {
@@ -125,14 +124,12 @@ pub async fn fix(
             )
         }).await?;
         
-        let serenity = ctx.discord();
-
         let roles = db.get_roles(guild_id).await?;
         let role_map = roles.into_iter().filter(|r| r.role_id.is_some()).map(|r| (r.role_id.unwrap(), r.min_level)).collect::<HashMap<_, _>>();
         let role_set: HashSet<RoleId> = role_map.keys().cloned().collect(); // Mildly disgusting.
         let users = db.get_users(guild_id).await?;
         for u in users {
-            if let Ok(mut member) = guild_id.member(&serenity.http, u.user).await {
+            if let Ok(mut member) = guild_id.member(&ctx, u.user).await {
                 total += 1;
 
                 let member_role_set: HashSet<RoleId> = HashSet::from_iter(member.roles.iter().cloned());
@@ -144,7 +141,7 @@ pub async fn fix(
                     total_error += 1;
 
                     if intersection.is_empty() { // They do not have the role, and need it
-                        if let Err(ex) = member.add_role(&serenity.http, expected_role).await {
+                        if let Err(ex) = member.add_role(&ctx, expected_role).await {
                             error!("Failed to add role: {}", ex);
                             count_error += 1;
                         } else {
@@ -154,12 +151,12 @@ pub async fn fix(
                         let existing_role = intersection.into_iter().next().unwrap();
                         let promote = role_map[existing_role] < role_map[&expected_role];
                         if promote || option_demote.unwrap_or(false) { // Promote them
-                            if let Err(ex) = member.remove_role(&serenity.http, existing_role).await {
+                            if let Err(ex) = member.remove_role(&ctx, existing_role).await {
                                 error!("Failed to remove role for demoting: {}", ex);
                                 count_error += 1;
                             }
 
-                            if let Err(ex) = member.add_role(&serenity.http, expected_role).await {
+                            if let Err(ex) = member.add_role(&ctx, expected_role).await {
                                 error!("Failed to add role for promoting/demoting: {}", ex);
                                 count_error += 1;
                             } else if promote {
@@ -174,14 +171,14 @@ pub async fn fix(
                                 continue;
                             }
 
-                            if let Err(ex) = member.remove_role(&serenity.http, r).await {
+                            if let Err(ex) = member.remove_role(&ctx, r).await {
                                 error!("Failed to remove excess roles: {}", ex);
                                 count_error += 1;
                             }
                         }
 
                         if !member.roles.contains(&expected_role) {
-                            if let Err(ex) = member.add_role(&serenity.http, expected_role).await {
+                            if let Err(ex) = member.add_role(&ctx, expected_role).await {
                                 error!("Failed to add role: {}", ex);
                                 count_error += 1;
                             }
@@ -198,7 +195,7 @@ pub async fn fix(
 
                     if option_remove.unwrap_or(false) {
                         for r in intersection {
-                            if let Err(ex) = member.remove_role(&serenity.http, r).await {
+                            if let Err(ex) = member.remove_role(&ctx, r).await {
                                 error!("Failed to remove role: {}", ex);
                                 count_error += 1;
                             } else {

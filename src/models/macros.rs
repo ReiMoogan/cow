@@ -14,7 +14,7 @@ macro_rules! db {
 macro_rules! cowdb {
     ($ctx: expr) => {
         {
-            db!($ctx.discord())
+            db!($ctx.serenity_context())
         }
     }
 }

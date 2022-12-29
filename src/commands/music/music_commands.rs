@@ -38,7 +38,7 @@ pub async fn join_interactive(ctx: &CowContext<'_>) -> Result<(), Error> {
         }
     };
 
-    let serenity = ctx.discord();
+    let serenity = ctx.serenity_context();
     let manager = songbird::get(serenity).await.unwrap().clone();
 
     let (_, handler) = manager.join_gateway(guild_id, connect_to).await;
@@ -83,7 +83,7 @@ pub async fn join(ctx: CowContext<'_>) -> Result<(), Error> {
 pub async fn leave(ctx: CowContext<'_>) -> Result<(), Error> {
     let guild = ctx.guild().unwrap();
     let guild_id = guild.id;
-    let serenity = ctx.discord();
+    let serenity = ctx.serenity_context();
 
     let manager = songbird::get(serenity).await.unwrap().clone();
     let has_handler = manager.get(guild_id).is_some();
@@ -128,7 +128,7 @@ pub async fn play(
             }
         };
 
-        let serenity = ctx.discord();
+        let serenity = ctx.serenity_context();
         let lava_client = {
             let data = serenity.data.read().await;
             data.get::<Lavalink>().unwrap().clone()
@@ -188,7 +188,7 @@ pub async fn playlist(
 -> Result<(), Error> {
     if let Some(query) = query {
         if let Some(guild_id) = ctx.guild_id() {
-            let serenity = ctx.discord();
+            let serenity = ctx.serenity_context();
             let lava_client = {
                 let data = serenity.data.read().await;
                 data.get::<Lavalink>().unwrap().clone()
@@ -249,7 +249,7 @@ pub async fn playlist(
 pub async fn pause(ctx: CowContext<'_>) -> Result<(), Error> {
     if let Some(guild_id) = ctx.guild_id() {
         let lava_client = {
-            let data = ctx.discord().data.read().await;
+            let data = ctx.serenity_context().data.read().await;
             data.get::<Lavalink>().unwrap().clone()
         };
 
@@ -281,7 +281,7 @@ pub async fn pause(ctx: CowContext<'_>) -> Result<(), Error> {
 )]
 pub async fn now_playing(ctx: CowContext<'_>) -> Result<(), Error> {
     let lava_client = {
-        let data = ctx.discord().data.read().await;
+        let data = ctx.serenity_context().data.read().await;
         data.get::<Lavalink>().unwrap().clone()
     };
 
@@ -340,7 +340,7 @@ pub async fn now_playing(ctx: CowContext<'_>) -> Result<(), Error> {
 )]
 pub async fn skip(ctx: CowContext<'_>) -> Result<(), Error> {
     let lava_client = {
-        let data = ctx.discord().data.read().await;
+        let data = ctx.serenity_context().data.read().await;
         data.get::<Lavalink>().unwrap().clone()
     };
 
@@ -419,7 +419,7 @@ pub async fn queue(
     #[description = "The page of the queue to display"] #[min = 1] page: Option<usize>)
 -> Result<(), Error> {
     let lava_client = {
-        let data = ctx.discord().data.read().await;
+        let data = ctx.serenity_context().data.read().await;
         data.get::<Lavalink>().unwrap().clone()
     };
 
@@ -441,7 +441,7 @@ pub async fn queue(
         }
 
         let page = &pages[page_num - 1];
-        let server_name = guild_id.name(ctx.discord());
+        let server_name = guild_id.name(ctx.serenity_context());
 
         ctx.send(|m| {
             m.embeds.clear();
