@@ -78,9 +78,9 @@ async fn print_schedule(ctx: &CowContext<'_>, schedule: &AcademicCalendar) -> Re
                 let output = semester.dates.iter()
                     .map(|o| {
                         let (l, r) = o;
-                        format!("{} - {}", l, r)
+                        format!("{l} - {r}")
                     })
-                    .reduce(|a, b| format!("{}\n{}", a, b))
+                    .reduce(|a, b| format!("{a}\n{b}"))
                     .unwrap_or_else(|| "Nothing was written...".to_string());
 
                 e.field(&semester.name, output, false);

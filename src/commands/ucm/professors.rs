@@ -25,7 +25,7 @@ async fn professor_embed(ctx: &CowContext<'_>, professor: &Professor) -> Result<
             e.field(format!("Classes for {} (totalling {})", crate::commands::ucm::format_term(term), classes.len()),
                     classes.iter()
                         .map(|o| format!("- {} (`{}`): {}", &o.course_number, o.course_reference_number, o.course_title.clone().unwrap_or_else(|| "<unknown class name>".to_string())))
-                        .reduce(|a, b| if a.len() < 1000 { format!("{}\n{}", a, b) } else {a})
+                        .reduce(|a, b| if a.len() < 1000 { format!("{a}\n{b}") } else {a})
                         .unwrap_or_else(|| "This person is not teaching any classes for this term.".to_string()),
                     false);
         }
@@ -99,7 +99,7 @@ async fn print_matches(ctx: &CowContext<'_>, professors: &[Professor]) -> Result
                         .iter()
                         .take(10)
                         .map(|o| format!("`{}` - {}", o.full_name, o.department.clone().unwrap_or_else(|| "<unknown department>".to_string())))
-                        .reduce(|a, b| format!("{}\n{}", a, b))
+                        .reduce(|a, b| format!("{a}\n{b}"))
                         .unwrap(),
                     false);
             e

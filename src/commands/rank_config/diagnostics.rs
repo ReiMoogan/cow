@@ -211,12 +211,12 @@ pub async fn fix(
             m.embeds.clear();
             m.embed(|e| e
                 .title("Role Auto-fix")
-                .description(format!("Processed {} members in the database with {} errors found:\n\
-            - Trivial fixes: {}\n\
-            - Fixes for multiple roles: {}\n\
-            - Members with their roles fully revoked: {}\n\
-            - Members demoted: {}\n\
-            - Errors adding/removing roles: {}", total, total_error, count_trivial, count_multiple, count_remove, count_demote, count_error))
+                .description(format!("Processed {total} members in the database with {total_error} errors found:\n\
+            - Trivial fixes: {count_trivial}\n\
+            - Fixes for multiple roles: {count_multiple}\n\
+            - Members with their roles fully revoked: {count_remove}\n\
+            - Members demoted: {count_demote}\n\
+            - Errors adding/removing roles: {count_error}"))
             )
         }).await?;
     } else {

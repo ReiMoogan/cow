@@ -58,7 +58,7 @@ async fn help_single_command(
         if let Some(new_command_help) = new_command_help {
             command_help = new_command_help;
         } else {
-            ctx.say(format!("Command query `{}` not found.", safe)).await?;
+            ctx.say(format!("Command query `{safe}` not found.")).await?;
             return Ok(());
         }
     }
@@ -67,13 +67,13 @@ async fn help_single_command(
         e.title(&command_help.name).description(&command_help.description);
 
         if let Some(prefix) = command_help.prefix.as_ref() {
-            e.field("Prefix", format!("`{}`", prefix), true);
+            e.field("Prefix", format!("`{prefix}`"), true);
         }
 
         if !command_help.aliases.is_empty() {
             let aliases = command_help.aliases.iter()
-                .map(|o| format!("`{}`", o))
-                .reduce(|a, b| format!("{}, {}", a, b))
+                .map(|o| format!("`{o}`"))
+                .reduce(|a, b| format!("{a}, {b}"))
                 .unwrap();
 
             e.field("Aliases", aliases, true);
@@ -97,7 +97,7 @@ async fn help_all_commands(ctx: &CowContext<'_>) -> Result<(), Error> {
 
         for base_command in help {
             let prefix = if let Some(prefix) = base_command.prefix {
-                format!("\nPrefix: `{}`", prefix)
+                format!("\nPrefix: `{prefix}`")
             } else {
                 "".to_string()
             };
@@ -109,20 +109,20 @@ async fn help_all_commands(ctx: &CowContext<'_>) -> Result<(), Error> {
                         format!("`{}`", cmd.name)
                     } else {
                         let subprefix = if let Some(prefix) = cmd.prefix.as_ref() {
-                            format!("\nPrefix: `{}`", prefix)
+                            format!("\nPrefix: `{prefix}`")
                         } else {
                             "".to_string()
                         };
 
                         let subcommand_list = cmd.subcommands.iter()
                             .map(|subcmd| format!("- `{}`", subcmd.name))
-                            .reduce(|a, b| format!("{}\n{}", a, b))
+                            .reduce(|a, b| format!("{a}\n{b}"))
                             .unwrap_or_default();
 
                         format!("- __**{}**__{}\n\n{}", cmd.name, subprefix, subcommand_list)
                     }
                 })
-                .reduce(|a, b| format!("{}\n{}", a, b))
+                .reduce(|a, b| format!("{a}\n{b}"))
                 .unwrap_or_default();
 
             e.field(base_command.name, format!("_{}_{}\n\n{}", base_command.description, prefix, command_list), true);

@@ -31,11 +31,11 @@ pub async fn courses_old(
     // setting the session cookies
     let term_url = format!("https://reg-prod.ec.ucmerced.edu/StudentRegistrationSsb/ssb/term/search?\
         mode=courseSearch\
-        &term={}\
+        &term={term}\
         &studyPath=\
         &studyPathText=\
         &startDatepicker=\
-        &endDatepicker=", term);
+        &endDatepicker=");
     let search_url = "https://reg-prod.ec.ucmerced.edu/StudentRegistrationSsb/ssb/courseSearch/courseSearch";
 
     client.get(term_url).send().await?;
@@ -44,14 +44,14 @@ pub async fn courses_old(
     let major = selected_major.to_uppercase();
     
     let url = format!("https://reg-prod.ec.ucmerced.edu/StudentRegistrationSsb/ssb/courseSearchResults/courseSearchResults?\
-        txt_subject={}\
-        &txt_term={}\
+        txt_subject={major}\
+        &txt_term={term}\
         &startDatepicker=\
         &endDatepicker=\
         &pageOffset=0\
         &pageMaxSize=10\
         &sortColumn=subjectDescription\
-        &sortDirection=asc", major, term);
+        &sortDirection=asc");
 
     match client.get(url).send().await {
         Ok(response) => {
@@ -63,7 +63,7 @@ pub async fn courses_old(
                         m.embed(|e| {
                             e
                                 .title("Course List")
-                                .description(format!("For major: {}", major));
+                                .description(format!("For major: {major}"));
 
                             for course in course_list.data {
                                 let title = course.course_title.unwrap_or_else(|| "No Title".into());

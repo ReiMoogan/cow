@@ -242,8 +242,8 @@ impl Database {
             .trim()
             .split(' ')
             .map(|o| o.replace(['(', ')', '\"', '\''], "")) // *unqueries your query*
-            .map(|o| format!("\"*{}*\"", o)) // Wildcards
-            .reduce(|a, b| format!("{} AND {}", a, b))
+            .map(|o| format!("\"*{o}*\"")) // Wildcards
+            .reduce(|a, b| format!("{a} AND {b}"))
             .unwrap()
     }
 

@@ -139,13 +139,13 @@ pub async fn pavilion(
     if !custom_meal.is_empty() {
         meal = Meal::from(&*custom_meal);
         if !matches!(meal, Meal::Other(_)) {
-            title = format!("{} at the Pavilion/Yablokoff for {}", meal, day);
+            title = format!("{meal} at the Pavilion/Yablokoff for {day}");
         } else {
             // Do not let the bot print non-validated input.
-            title = format!("Custom Category at the Pavilion/Yablokoff for {}", day);
+            title = format!("Custom Category at the Pavilion/Yablokoff for {day}");
         }
     } else {
-        title = format!("{} at the Pavilion/Yablokoff for {}", meal, day);
+        title = format!("{meal} at the Pavilion/Yablokoff for {day}");
     }
 
     let message = ctx.send(|m| m.embed(|e| {
@@ -253,7 +253,7 @@ async fn process_announcement(name: &str) -> String {
                                                             let temp = materials
                                                                 .iter()
                                                                 .map(|o| o.name.clone())
-                                                                .reduce(|a, b| format!("{}\n{}", a, b))
+                                                                .reduce(|a, b| format!("{a}\n{b}"))
                                                                 .unwrap_or_else(|| "The announcement is empty?".to_string());
 
                                                             description = format!("**{}**\n\n{}", announcement.description, temp);
@@ -295,7 +295,7 @@ async fn process_announcement(name: &str) -> String {
                                 .filter(|o| o.location_special_group_ids.is_some())
                                 .filter(|o| o.location_special_group_ids.as_deref().unwrap().first().is_some())
                                 .map(|o| o.location_special_group_ids.as_deref().unwrap().first().unwrap().name.to_string())
-                                .reduce(|a, b| format!("{}, {}", a, b))
+                                .reduce(|a, b| format!("{a}, {b}"))
                                 .unwrap_or_else(|| "<none>".to_string())
                         );
                     }
@@ -358,7 +358,7 @@ async fn process_bigzpoon(day: Day, meal: Meal) -> Vec<(String, String)> {
                                 continue;
                             }
 
-                            output.push((format!("Yablokoff {}", category), menu));
+                            output.push((format!("Yablokoff {category}"), menu));
                         }
                     }
                 }
@@ -388,7 +388,7 @@ async fn get_menu_items(day: &Day, meal: &Meal, output: &mut Vec<(String, String
                             Ok(menu) => {
                                 menu.menu_items.into_iter()
                                     .map(|o| format!("**{}** - {}", o.name, o.description))
-                                    .reduce(|a, b| format!("{}\n{}", a, b))
+                                    .reduce(|a, b| format!("{a}\n{b}"))
                                     .unwrap_or_else(|| "There is nothing on the menu?".to_string())
                             }
                             Err(ex) => {
@@ -416,7 +416,7 @@ async fn get_menu_items(day: &Day, meal: &Meal, output: &mut Vec<(String, String
                 .filter(|o| o.location_special_group_ids.is_some())
                 .filter(|o| o.location_special_group_ids.as_deref().unwrap().first().is_some())
                 .map(|o| o.location_special_group_ids.as_deref().unwrap().first().unwrap().name.to_string())
-                .reduce(|a, b| format!("{}, {}", a, b))
+                .reduce(|a, b| format!("{a}, {b}"))
                 .unwrap_or_else(|| "<none>".to_string())
         );
     }

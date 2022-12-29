@@ -102,10 +102,10 @@ async fn fetch_bot_info(token: &str) -> (UserId, HashSet<UserId>) {
 
             match http.get_current_user().await {
                 Ok(app_id) => (app_id.id, owners),
-                Err(ex) => panic!("Are we not a bot? {}", ex)
+                Err(ex) => panic!("Are we not a bot? {ex}")
             }
         },
-        Err(ex) => panic!("Failed to fetch bot info: {}", ex)
+        Err(ex) => panic!("Failed to fetch bot info: {ex}")
     };
 
     (app_id, owners)
@@ -173,7 +173,8 @@ async fn main() -> Result<(), Box<dyn error::Error>>  {
             data.insert::<Database>(database.clone());
         }
 
-        // Start our reminder task and forget about it.
+        // Start our reminder task and forget about it. Tokio allows us to start without await.
+        #[allow(clippy::let_underscore_future)]
         let _ = tokio::task::spawn(commands::ucm::reminders::check_reminders(serenity.data.clone(), serenity.cache_and_http.clone()));
 
         let commands = &poise.options().commands;

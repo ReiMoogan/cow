@@ -49,7 +49,7 @@ fn read_hours(config: &StoreHours) -> Vec<(String, String)> {
 
     for week in config.store_hours.iter() {
         let week_str = if let Some(note) = week.note.as_ref() {
-            format!("Note: {}\n\n", note)
+            format!("Note: {note}\n\n")
         } else {
             String::new()
         };

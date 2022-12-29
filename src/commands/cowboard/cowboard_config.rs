@@ -29,7 +29,7 @@ pub async fn info_code(ctx: CowContext<'_>) -> Result<(), Error> {
                         .description("If the emote doesn't display properly below, you probably want to use a different one!")
                         .field("Emote", &config.emote, true)
                         .field("Raw Emote", MessageBuilder::new().push_mono(&config.emote).build(), true)
-                        .field("Channel", config.channel.map(|o| format!("<#{}>", o)).unwrap_or_else(|| "No Cowboard Channel".to_string()), true)
+                        .field("Channel", config.channel.map(|o| format!("<#{o}>")).unwrap_or_else(|| "No Cowboard Channel".to_string()), true)
                         .field("Add Threshold", MessageBuilder::new().push_mono(config.add_threshold).build(), true)
                         .field("Remove Threshold", MessageBuilder::new().push_mono(config.remove_threshold).build(), true)
                         .field("Webhook", if config.webhook_id.is_some() && config.webhook_token.is_some() { "Enabled" } else { "Disabled" }, true)
@@ -252,7 +252,7 @@ pub async fn webhook(ctx: CowContext<'_>) -> Result<(), Error> {
                                         config.webhook_token = Some(webhook.token.unwrap())
                                     }
                                     Err(ex) => {
-                                        ctx.say(format!("Failed to add webhook; maybe I do not have permissions for the channel <#{}>?", guild_channel)).await?;
+                                        ctx.say(format!("Failed to add webhook; maybe I do not have permissions for the channel <#{guild_channel}>?")).await?;
                                         error!("Failed to create webhook: {}", ex);
                                         return Ok(())
                                     }
@@ -266,14 +266,14 @@ pub async fn webhook(ctx: CowContext<'_>) -> Result<(), Error> {
                                 ctx.say("We couldn't update the cowboard, sorry... Try again later?").await?;
                                 error!("Failed to update cowboard: {}", ex);
                             } else if config.webhook_id.is_none() {
-                                ctx.say(format!("Disabled webhooks for <#{}>.", guild_channel)).await?;
+                                ctx.say(format!("Disabled webhooks for <#{guild_channel}>.")).await?;
                             } else {
-                                ctx.say(format!("Enabled webhooks for <#{}>.", guild_channel)).await?;
+                                ctx.say(format!("Enabled webhooks for <#{guild_channel}>.")).await?;
                             }
                         }
                         else
                         {
-                            ctx.say(format!("We don't have access to <#{}>... maybe it's hidden for us?", channel)).await?;
+                            ctx.say(format!("We don't have access to <#{channel}>... maybe it's hidden for us?")).await?;
                         }
                     }
                     Err(ex) => {

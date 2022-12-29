@@ -96,7 +96,7 @@ impl Display for Meal {
             Meal::Breakfast => write!(f, "Breakfast"),
             Meal::Lunch => write!(f, "Lunch"),
             Meal::Dinner => write!(f, "Dinner"),
-            Meal::Other(x) => write!(f, "{}", x)
+            Meal::Other(x) => write!(f, "{x}")
         }
     }
 }

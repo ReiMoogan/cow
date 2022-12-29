@@ -32,7 +32,7 @@ pub async fn add(
                 if success {
                     ctx.say(format!("Successfully added <@&{}> with minimum level {}.", role.id.as_u64(), min_level)).await?;
                 } else {
-                    ctx.say(format!("There is a duplicate role with minimum level {}.", min_level)).await?;
+                    ctx.say(format!("There is a duplicate role with minimum level {min_level}.")).await?;
                 }
             }
             Err(ex) => {
@@ -111,7 +111,7 @@ pub async fn list_code(ctx: CowContext<'_>) -> Result<(), Error> {
                                         }
                                         content
                                     })
-                                    .reduce(|a, b| {format!("{}\n{}", a, b)})
+                                    .reduce(|a, b| {format!("{a}\n{b}")})
                                     .unwrap_or_else(|| "No roles are registered on this server.".to_string())
                         )})}).await {
                     error!("Failed to send message to server: {}", ex);

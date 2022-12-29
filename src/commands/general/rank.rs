@@ -42,7 +42,7 @@ async fn rank_embed(ctx: &CowContext<'_>, server_id: &GuildId, user: &User) {
     let current_role = db.get_highest_role(*server_id, level).await.unwrap();
     let mut current_role_str: String = String::from("No role");
     if let Some(current_role_id) = current_role {
-        current_role_str = format!("Current role: <@&{}>", current_role_id);
+        current_role_str = format!("Current role: <@&{current_role_id}>");
     }
 
     let mut pfp_url = user.default_avatar_url();
@@ -52,7 +52,7 @@ async fn rank_embed(ctx: &CowContext<'_>, server_id: &GuildId, user: &User) {
 
     let mut rank_str = String::from("(Unranked)");
     if let Some(rank) = db.rank_within_members(*server_id, user.id).await.unwrap() {
-        rank_str = format!("#{}", rank);
+        rank_str = format!("#{rank}");
     }
 
     if let Err(ex) = ctx.send(|m| {
@@ -69,7 +69,7 @@ async fn rank_embed(ctx: &CowContext<'_>, server_id: &GuildId, user: &User) {
                 )
                 .description(current_role_str)
                 .field("Level", level, true)
-                .field("XP", format!("{}/{}", xp, next_level_xp), true)
+                .field("XP", format!("{xp}/{next_level_xp}"), true)
                 .field("Rank", rank_str, true)
                 .thumbnail(pfp_url)
     })}).await {
@@ -135,7 +135,7 @@ pub async fn levels(
                         let (index, member) = o;
                         format!("`#{}` <@{}> - Level {}, {} xp", (index as i32) + 10 * (level_page - 1) + 1, member.id, member.exp.level, member.exp.xp)
                     })
-                    .reduce(|a, b| {format!("{}\n{}", a, b)})
+                    .reduce(|a, b| {format!("{a}\n{b}")})
                     .unwrap_or_else(|| "There is nothing on this page.".to_string());
                 ctx.send(|m| {
                     m.embeds.clear();

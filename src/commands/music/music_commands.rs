@@ -51,7 +51,7 @@ pub async fn join_interactive(ctx: &CowContext<'_>) -> Result<(), Error> {
             };
 
             lava_client.create_session_with_songbird(&connection_info).await?;
-            ctx.say(format!("Joined <#{}>", connect_to)).await?;
+            ctx.say(format!("Joined <#{connect_to}>")).await?;
         }
         Err(ex) => {
             ctx.say("Failed to join your VC...").await?;
@@ -298,7 +298,7 @@ pub async fn now_playing(ctx: CowContext<'_>) -> Result<(), Error> {
                 m.embed(|e| {
                     e
                         .author(|a| a.name(match server_name {
-                            Some(name) => format!("Now Playing in {}", name),
+                            Some(name) => format!("Now Playing in {name}"),
                             None => "Now Playing".to_string()
                         }))
                         .title(&info.title)
@@ -308,11 +308,11 @@ pub async fn now_playing(ctx: CowContext<'_>) -> Result<(), Error> {
 
 
                     if let Some(requester) = track.requester {
-                        e.field("Requested By", format!("<@{}>", requester), true);
+                        e.field("Requested By", format!("<@{requester}>"), true);
                     }
 
                     if let Some(id) = youtube_id {
-                        e.thumbnail(format!("https://img.youtube.com/vi/{}/maxresdefault.jpg", id));
+                        e.thumbnail(format!("https://img.youtube.com/vi/{id}/maxresdefault.jpg"));
                     } else if let Some(url) = spotify_thumbail {
                         e.thumbnail(url);
                     }

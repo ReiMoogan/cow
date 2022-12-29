@@ -285,7 +285,7 @@ async fn format_username(ctx: &Context, message: &Message) -> String {
     let nickname = message.author_nick(&ctx.http).await;
 
     if let Some(nick) = nickname {
-        format!("{} ({})", nick, username)
+        format!("{nick} ({username})")
     } else {
         username
     }

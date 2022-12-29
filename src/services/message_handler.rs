@@ -38,7 +38,7 @@ pub async fn non_command(ctx: &Context, msg: &Message) -> Result<(), Error>{
 
                 let mut content = format!("<@{}> leveled up from {} to {}.", author.id.as_u64(), data.level - 1, data.level);
                 if let Some(new_rank_id) = data.new_rank {
-                    content += &format!("\nYou are now a <@&{}>.", new_rank_id);
+                    content += &format!("\nYou are now a <@&{new_rank_id}>.");
 
                     let mut error = false;
 

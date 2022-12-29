@@ -86,15 +86,15 @@ async fn ban_game_players(ctx: &CowContext<'_>, game_id: u64, message: impl AsRe
                 .any(|o| o == game_id) {
                 degenerates.push(u64::from(presence.user.id));
                 if let Ok(dm_channel) = presence.user.id.create_dm_channel(&ctx).await {
-                    dm_channel.say(&ctx, format!("You have been banned for playing haram games. Message: {}", message)).await?;
+                    dm_channel.say(&ctx, format!("You have been banned for playing haram games. Message: {message}")).await?;
                 }
                 let _ = guild.ban_with_reason(&ctx, presence.user.id, 0, &message).await;
             }
         }
 
-        let list = degenerates.iter().map(|o| format!("<@{}>", o)).reduce(|a, b| format!("{}, {}", a, b));
+        let list = degenerates.iter().map(|o| format!("<@{o}>")).reduce(|a, b| format!("{a}, {b}"));
         if let Some(output) = list {
-            ctx.say(format!("Successfully banned these degenerates: {}", output)).await?;
+            ctx.say(format!("Successfully banned these degenerates: {output}")).await?;
         } else {
             ctx.say("No haram activities detected.").await?;
         }

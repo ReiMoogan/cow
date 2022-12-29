@@ -16,7 +16,7 @@ fn process_hours(data: &str) -> Vec<(String, String)> {
             .map(|o| o.trim())
             .filter(|o| !o.is_empty())
             .map(|o| o.to_string())
-            .reduce(|a, b| format!("{}\n{}", a, b))
+            .reduce(|a, b| format!("{a}\n{b}"))
             .unwrap_or_default();
 
         if text.value().name() == "h3" {
@@ -42,7 +42,7 @@ fn extractor(output: &mut Vec<(String, String)>, temporary_name: &Option<String>
             output.push((temp_name.clone(), temporary_values
                 .iter()
                 .map(|o| o.to_string())
-                .reduce(|a, b| format!("{}\n{}", a, b))
+                .reduce(|a, b| format!("{a}\n{b}"))
                 .unwrap()));
 
             temporary_values.clear();

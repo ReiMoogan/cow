@@ -114,7 +114,7 @@ pub async fn danbooru(
             .map(|s| {
                 convert_to_tag(s) // Trim and lowercase the tag
             })
-            .reduce(|a, b| format!("{}+{}", a, b)) // Combine the tags
+            .reduce(|a, b| format!("{a}+{b}")) // Combine the tags
             .unwrap()
     });
 
@@ -240,12 +240,12 @@ async fn fetch_by_tag(ctx: CowContext<'_>, tag: &str, original: Option<Vec<Strin
     let url = if let Ok(channel) = ctx.channel_id().to_channel(ctx).await {
         if channel.is_nsfw() {
             // I'm not even going to test this.
-            format!("https://danbooru.donmai.us/posts/random.json?tags={}", tag)
+            format!("https://danbooru.donmai.us/posts/random.json?tags={tag}")
         } else {
-            format!("https://safebooru.donmai.us/posts/random.json?tags={}", tag)
+            format!("https://safebooru.donmai.us/posts/random.json?tags={tag}")
         }
     } else {
-        format!("https://safebooru.donmai.us/posts/random.json?tags={}", tag)
+        format!("https://safebooru.donmai.us/posts/random.json?tags={tag}")
     };
 
     match client
@@ -275,7 +275,7 @@ async fn fetch_by_tag(ctx: CowContext<'_>, tag: &str, original: Option<Vec<Strin
                     }
 
                     if attempts >= 5 {
-                        ctx.say(format!("Failed to get a quality image within {} attempts. Please try again.", MAX_ATTEMPTS)).await?;
+                        ctx.say(format!("Failed to get a quality image within {MAX_ATTEMPTS} attempts. Please try again.")).await?;
                         return Ok(());
                     }
 

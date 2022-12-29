@@ -31,12 +31,12 @@ pub fn from_ms(ms: u64) -> String {
     s -= mins * 60;
 
     if days != 0 {
-        format!("{}d {}h {}m {}s", days, hours, mins, s)
+        format!("{days}d {hours}h {mins}m {s}s")
     } else if hours != 0 {
-        format!("{}h {}m {}s", hours, mins, s)
+        format!("{hours}h {mins}m {s}s")
     } else if mins != 0 {
-        format!("{}m {}s", mins, s)
+        format!("{mins}m {s}s")
     } else {
-        format!("{}s", s)
+        format!("{s}s")
     }
 }

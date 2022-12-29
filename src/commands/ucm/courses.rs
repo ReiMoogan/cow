@@ -12,13 +12,13 @@ fn fix_time(time: &str) -> String {
     let hour = hour_str.parse::<u8>().unwrap();
 
     if hour == 0 {
-        return format!("12:{} AM", minute_str);
+        return format!("12:{minute_str} AM");
     }
     if hour == 12 {
-        return format!("12:{} PM", minute_str);
+        return format!("12:{minute_str} PM");
     }
     if hour < 12 {
-        return format!("{}:{} AM", hour, minute_str);
+        return format!("{hour}:{minute_str} AM");
     }
     format!("{}:{} PM", hour - 12, minute_str)
 }
@@ -64,14 +64,14 @@ async fn course_embed(ctx: &CowContext<'_>, class: &Class) -> Result<(), Error> 
             e.field("Waitlist", format!("{}/{}/{}", class.wait_available, class.wait_capacity - class.wait_available, class.wait_capacity), true);
 
             if let Ok(Some(description)) = description {
-                e.description(format!("{}\n\n{}", description, ENROLL_HELP));
+                e.description(format!("{description}\n\n{ENROLL_HELP}"));
             }
 
             if let Ok(professors) = professors {
                 e.field("Professor(s)",
                         professors.iter()
                             .map(|o| format!("- {}", o.full_name.clone()))
-                            .reduce(|a, b| format!("{}\n{}", a, b))
+                            .reduce(|a, b| format!("{a}\n{b}"))
                             .unwrap_or_else(|| "No professors are assigned to this course.".to_string()),
                         false);
             }
@@ -90,7 +90,7 @@ async fn course_embed(ctx: &CowContext<'_>, class: &Class) -> Result<(), Error> 
 
                                 output
                             })
-                            .reduce(|a, b| format!("{}\n{}", a, b))
+                            .reduce(|a, b| format!("{a}\n{b}"))
                             .unwrap_or_else(|| "No meetings are assigned to this course.".to_string()),
                         false);
             }
@@ -137,7 +137,7 @@ async fn autocomplete_course(
                                 any.iter()
                                     .take(10)
                                     .map(|o| o.course_title.clone().unwrap_or_else(|| "<unknown class>".to_string()))
-                                    .map(|o| format!("{} {}", o, term_formatted))
+                                    .map(|o| format!("{o} {term_formatted}"))
                                     .collect()
                             }
                             Err(ex) => {
@@ -149,7 +149,7 @@ async fn autocomplete_course(
                         any.iter()
                             .take(10)
                             .map(|o| o.course_number.clone())
-                            .map(|o| format!("{} {}", o, term_formatted))
+                            .map(|o| format!("{o} {term_formatted}"))
                             .collect()
                     }
                 }
@@ -187,7 +187,7 @@ pub async fn courses(
                     if let Some(class) = option_class {
                         course_embed(&ctx, &class).await?;
                     } else {
-                        ctx.say(format!("Could not find a class with the CRN `{}`.", crn)).await?;
+                        ctx.say(format!("Could not find a class with the CRN `{crn}`.")).await?;
                     }
                 }
                 Err(ex) => {
@@ -299,7 +299,7 @@ async fn print_matches(ctx: &CowContext<'_>, classes: &[PartialClass]) -> Result
                             .iter()
                             .take(10)
                             .map(|o| format!("`{}` - {}: {}", o.course_reference_number, o.course_number, o.course_title.clone().unwrap_or_else(|| "<unknown class name>".to_string())))
-                            .reduce(|a, b| format!("{}\n{}", a, b))
+                            .reduce(|a, b| format!("{a}\n{b}"))
                             .unwrap(),
                         false);
                 e
