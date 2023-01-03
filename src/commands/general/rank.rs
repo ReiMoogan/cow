@@ -130,7 +130,6 @@ pub async fn levels(
             Ok(pagination) => {
                 let content = pagination.members.into_iter()
                     .enumerate()
-                    .into_iter()
                     .map(|o| {
                         let (index, member) = o;
                         format!("`#{}` <@{}> - Level {}, {} xp", (index as i32) + 10 * (level_page - 1) + 1, member.id, member.exp.level, member.exp.xp)
