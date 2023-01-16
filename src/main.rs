@@ -131,10 +131,11 @@ async fn main() -> Result<(), Box<dyn error::Error>>  {
         .token(&token)
         .intents(GatewayIntents::all())
         .options(framework)
-        .client_settings(|settings| {
+        .client_settings(move |settings| {
             settings
                 .register_songbird()
                 .event_handler(event_handler)
+                .application_id(app_id.0)
         })
         .setup(move |_ctx, _ready, _framework| {
             Box::pin(async move {

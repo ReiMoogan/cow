@@ -330,7 +330,7 @@ async fn process_bigzpoon(day: Day, meal: Meal) -> Vec<(String, String)> {
                         .filter(|o| o.location_special_group_ids.as_deref().unwrap().first().is_some())
                         .collect::<Vec<_>>();
                     // I have no idea if they're resetting the numbers for spring, so I won't future-proof this.
-                    let pav_location = location_match.iter().find(|o| o.location_special_group_ids.as_deref().unwrap().first().unwrap().name.to_lowercase().contains("pav"));
+                    let pav_location = location_match.iter().find(|o| o.location_special_group_ids.as_deref().unwrap().first().unwrap().name.to_lowercase().contains("pvl"));
                     let ywdc_location = location_match.iter().find(|o| o.location_special_group_ids.as_deref().unwrap().first().unwrap().name.to_lowercase().contains("ywdc"));
 
                     get_menu_items(&day, &meal, &mut output, &client, &company_info, &restaurants, pav_location).await;

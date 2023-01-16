@@ -5,14 +5,21 @@ use scraper::{Html, Selector};
 
 fn process_schedules(data: &str) -> Option<String> {
     let now = Local::now();
-    let monday = now - Duration::days(now.weekday().num_days_from_monday() as i64);
+
+    let monday = if now.weekday() == chrono::Weekday::Sun {
+        now + Duration::days(1) // day after sunday
+    } else {
+        now - Duration::days(now.weekday().num_days_from_monday() as i64) // days before to monday
+    };
+
     let monday_date = format!("{}-{}", monday.month(), monday.day());
 
     let page = Html::parse_document(data);
-    let image = Selector::parse("p img").unwrap();
+    let image = Selector::parse("img").unwrap();
 
     let links = page.select(&image)
         .map(|o| o.value().attr("src").unwrap().to_string())
+        .filter(|o| !o.contains("svg") && !o.contains("logo"))
         .collect::<Vec<String>>();
 
     let day = links.iter().find(|o| o.contains(&monday_date));
