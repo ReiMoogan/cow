@@ -4,6 +4,7 @@ mod timeout;
 pub mod ucm;
 pub mod cowboard;
 mod music;
+pub mod minecraft;
 
 use std::{collections::HashSet};
 
@@ -22,6 +23,7 @@ use crate::commands::timeout::timeout;
 use crate::commands::ucm::ucm;
 use crate::commands::cowboard::cowboard;
 use crate::commands::music::music;
+use crate::commands::minecraft::*;
 
 pub async fn get_framework(pref: &str, _app_id: UserId, owners: HashSet<UserId>) -> poise::FrameworkOptions<(), Error> {
     poise::FrameworkOptions {
@@ -47,7 +49,8 @@ pub async fn get_framework(pref: &str, _app_id: UserId, owners: HashSet<UserId>)
             sanae(),
             momiji(),
             reisen(),
-            danbooru()
+            danbooru(),
+            minecraft()
         ],
         prefix_options: poise::PrefixFrameworkOptions {
             prefix: Some(pref.into()),

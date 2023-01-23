@@ -303,7 +303,7 @@ impl Database {
         Ok(res)
     }
 
-    // will also set role 
+    // will also set role
     pub async fn add_role(&self, server_id: GuildId, role_name: &str, role_id: RoleId, min_level: i32) -> Result<bool, Box<dyn std::error::Error + Send + Sync>> {
         let mut conn = self.pool.get().await?;
         let server = Decimal::from_u64(*server_id.as_u64()).unwrap();
