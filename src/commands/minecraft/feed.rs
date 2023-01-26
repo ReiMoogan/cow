@@ -1,6 +1,4 @@
-use tracing::error;
 use crate::{CowContext, Error};
-use proto_mc::ping::ping as mc_ping;
 
 #[poise::command(
     prefix_command,

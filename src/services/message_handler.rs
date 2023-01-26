@@ -5,12 +5,78 @@ use serenity::{
 use tracing::error;
 use serenity::model::channel::Message;
 use crate::{Database, db, Error};
+use crate::models::minecraft_db_models::*;
+use proto_mc::rcon::RCONClient;
+use crate::models::minecraft_db_models::Message as MCMessage;
 
 pub async fn non_command(ctx: &Context, msg: &Message) -> Result<(), Error>{
+    ranking_check(ctx, msg).await;
+    minecraft_check(ctx, msg).await;
+
+    Ok(())
+}
+
+async fn minecraft_check(ctx: &Context, msg: &Message) {
     let author = &msg.author;
 
     if author.bot {
-        return Ok(());
+        return;
+    }
+
+    let db = db!(ctx);
+
+    if let Ok(Some(feed)) = db.get_minecraft_channel(msg.channel_id).await {
+        let mut client = RCONClient::<&String>::new(&feed.host, &feed.password);
+        if (client.connect().await).is_err() { return; }
+        if (client.login().await).is_err() { return; }
+
+        let username = format!("{}#{:04}", msg.author.name, msg.author.discriminator);
+        let nickname = msg.author_nick(&ctx.http).await;
+        let display = if let Some(nick) = nickname {
+            format!("{nick} ({username})")
+        } else {
+            username
+        };
+
+        let mut message = msg.content.clone();
+        message.truncate(128);
+        message = message.replace("\n", " ");
+
+        let tellraw = vec![
+            TellRaw::Text("<".to_string()),
+            TellRaw::Message(MCMessage {
+                text: display,
+                color: "blue".to_string(),
+                click_event: ClickEvent {
+                    action: "copy_to_clipboard".to_string(),
+                    value: msg.link()
+                },
+                hover_event: HoverEvent {
+                    action: "show_text".to_string(),
+                    contents: vec![
+                        "Click to copy message link".to_string()
+                    ]
+                }
+            }),
+            TellRaw::Text("> ".to_string()),
+            TellRaw::Text(message)
+        ];
+
+        let json = serde_json::to_string(&tellraw).unwrap();
+
+        let command = format!("tellraw @a {json}");
+
+
+        if (client.send(&command).await).is_err() { return; }
+        if (client.disconnect().await).is_err() { return; }
+    }
+}
+
+async fn ranking_check(ctx: &Context, msg: &Message) {
+    let author = &msg.author;
+
+    if author.bot {
+        return;
     }
 
     let db = db!(ctx);
@@ -22,7 +88,7 @@ pub async fn non_command(ctx: &Context, msg: &Message) -> Result<(), Error>{
             },
             Ok(result) => {
                 if result.channel || result.guild {
-                    return Ok(());
+                    return;
                 }
             }
         }
@@ -33,7 +99,7 @@ pub async fn non_command(ctx: &Context, msg: &Message) -> Result<(), Error>{
             },
             Ok(data) => {
                 if data.level < 0 {
-                    return Ok(());
+                    return;
                 }
 
                 let mut content = format!("<@{}> leveled up from {} to {}.", author.id.as_u64(), data.level - 1, data.level);
@@ -74,13 +140,11 @@ pub async fn non_command(ctx: &Context, msg: &Message) -> Result<(), Error>{
                         .title("Level Up!")
                         .description(content)
                     )).await {
-                        error!("Error sending level-up message: {}", ex2)
+                    error!("Error sending level-up message: {}", ex2)
                 };
             }
         }
     }
-
-    Ok(())
 }
 
 pub async fn on_join(ctx: &Context, new_member: &Member) {
