@@ -40,7 +40,7 @@ async fn minecraft_check(ctx: &Context, msg: &Message) {
 
         let mut message = msg.content.clone();
         message.truncate(128);
-        message = message.replace("\n", " ");
+        message = message.replace('\n', " ");
 
         let tellraw = vec![
             TellRaw::Text("<".to_string()),
@@ -68,7 +68,7 @@ async fn minecraft_check(ctx: &Context, msg: &Message) {
 
 
         if (client.send(&command).await).is_err() { return; }
-        if (client.disconnect().await).is_err() { return; }
+        if (client.disconnect().await).is_err() { }
     }
 }
 

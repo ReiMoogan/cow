@@ -9,9 +9,9 @@ use crate::{CowContext, Error};
     discard_spare_arguments
 )]
 pub async fn feed(
-    ctx: CowContext<'_>,
-    #[description = "The hostname of the server."] host: String,
-    #[description = "The port of the server."] #[min = 1] #[max = 65535] port: Option<u16>)
+    _ctx: CowContext<'_>,
+    #[description = "The hostname of the server."] _host: String,
+    #[description = "The port of the server."] #[min = 1] #[max = 65535] _port: Option<u16>)
 -> Result<(), Error> {
 
     Ok(())

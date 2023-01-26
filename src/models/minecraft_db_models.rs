@@ -38,8 +38,8 @@ pub enum TellRaw {
 impl serde::Serialize for TellRaw {
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         match self {
-            &TellRaw::Message(ref message) => serializer.serialize_some(message),
-            &TellRaw::Text(ref text) => serializer.serialize_some(text),
+            TellRaw::Message(message) => serializer.serialize_some(message),
+            TellRaw::Text(text) => serializer.serialize_some(text),
         }
     }
 }
