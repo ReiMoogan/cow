@@ -18,6 +18,12 @@ pub async fn rcon(
     #[description = "The command to execute."] command: String,
     #[description = "The port of the server."] #[min = 1] #[max = 65535] port: Option<u16>)
 -> Result<(), Error> {
+    if ctx.author().id != 191397590946807809 && ctx.author().id != 338824307834880000 {
+        ctx.say("Andrew, you're not allowed to use this command. <:sanaepout:732061262539915338>").await?;
+
+        return Ok(());
+    }
+
     let input = parse_input(&host, port);
 
     match input {

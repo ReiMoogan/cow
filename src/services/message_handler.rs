@@ -8,6 +8,7 @@ use crate::{Database, db, Error};
 use crate::models::minecraft_db_models::*;
 use proto_mc::rcon::RCONClient;
 use crate::models::minecraft_db_models::Message as MCMessage;
+use regex::Regex;
 
 pub async fn non_command(ctx: &Context, msg: &Message) -> Result<(), Error>{
     ranking_check(ctx, msg).await;
@@ -38,36 +39,111 @@ async fn minecraft_check(ctx: &Context, msg: &Message) {
             username
         };
 
-        let mut message = msg.content.clone();
-        message.truncate(128);
-        message = message.replace('\n', " ");
+        // Remove the IDs from emotes.
+        let regex = Regex::new(r"(?m)<a?(:[^:]+:)\d+>").unwrap();
+        let mut message = msg.content_safe(&ctx.cache);
 
-        let tellraw = vec![
-            TellRaw::Text("<".to_string()),
-            TellRaw::Message(MCMessage {
-                text: display,
-                color: "blue".to_string(),
-                click_event: ClickEvent {
-                    action: "copy_to_clipboard".to_string(),
-                    value: msg.link()
-                },
-                hover_event: HoverEvent {
-                    action: "show_text".to_string(),
-                    contents: vec![
-                        "Click to copy message link".to_string()
-                    ]
+        if !message.is_empty() {
+            message = regex.replace_all(&message, "$1").to_string();
+            message.truncate(256);
+            message = message.replace('\n', " ");
+
+            let mut tellraw = vec![
+                TellRaw::Text("<".to_string()),
+                TellRaw::Message(MCMessage {
+                    text: display.to_string(),
+                    color: "blue".to_string(),
+                    italic: false,
+                    underlined: false,
+                    click_event: ClickEvent {
+                        action: "open_url".to_string(),
+                        value: msg.link()
+                    },
+                    hover_event: HoverEvent {
+                        action: "show_text".to_string(),
+                        contents: vec![
+                            "Open message link".to_string()
+                        ]
+                    }
+                }),
+                TellRaw::Text("> ".to_string())
+            ];
+
+            for part in message.split(' ') {
+                if part.starts_with("http") {
+                    tellraw.push(TellRaw::Message(MCMessage {
+                        text: part.to_string(),
+                        color: "white".to_string(),
+                        italic: false,
+                        underlined: true,
+                        click_event: ClickEvent {
+                            action: "open_url".to_string(),
+                            value: part.to_string()
+                        },
+                        hover_event: HoverEvent {
+                            action: "show_text".to_string(),
+                            contents: vec![
+                                "Open link".to_string()
+                            ]
+                        }
+                    }));
+                } else {
+                    tellraw.push(TellRaw::Text(part.to_string()));
                 }
-            }),
-            TellRaw::Text("> ".to_string()),
-            TellRaw::Text(message)
-        ];
 
-        let json = serde_json::to_string(&tellraw).unwrap();
+                tellraw.push(TellRaw::Text(" ".to_string()));
+            }
 
-        let command = format!("tellraw @a {json}");
+            let json = serde_json::to_string(&tellraw).unwrap();
 
+            let command = format!("tellraw @a {json}");
 
-        if (client.send(&command).await).is_err() { return; }
+            if (client.send(&command).await).is_err() { return; }
+        }
+
+        for attachment in &msg.attachments {
+            let tellraw = vec![
+                TellRaw::Text("<".to_string()),
+                TellRaw::Message(MCMessage {
+                    text: display.to_string(),
+                    color: "blue".to_string(),
+                    italic: false,
+                    underlined: false,
+                    click_event: ClickEvent {
+                        action: "open_url".to_string(),
+                        value: msg.link()
+                    },
+                    hover_event: HoverEvent {
+                        action: "show_text".to_string(),
+                        contents: vec![
+                            "Open message link".to_string()
+                        ]
+                    }
+                }),
+                TellRaw::Text("> ".to_string()),
+                TellRaw::Message(MCMessage {
+                    text: format!("Attached file: {}", attachment.filename),
+                    color: "white".to_string(),
+                    italic: true,
+                    underlined: false,
+                    click_event: ClickEvent {
+                        action: "open_url".to_string(),
+                        value: attachment.url.to_string()
+                    },
+                    hover_event: HoverEvent {
+                        action: "show_text".to_string(),
+                        contents: vec![
+                            "Open content".to_string()
+                        ]
+                    }
+                }),
+            ];
+
+            let json = serde_json::to_string(&tellraw).unwrap();
+            let command = format!("tellraw @a {json}");
+            if (client.send(&command).await).is_err() { return; }
+        }
+
         if (client.disconnect().await).is_err() { }
     }
 }

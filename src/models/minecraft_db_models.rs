@@ -11,6 +11,8 @@ pub struct Feed {
 pub struct Message {
     pub text: String,
     pub color: String,
+    pub italic: bool,
+    pub underlined: bool,
     #[serde(rename = "clickEvent")]
     pub click_event: ClickEvent,
     #[serde(rename = "hoverEvent")]
