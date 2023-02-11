@@ -6,7 +6,7 @@ fn process_hours(data: &str) -> Vec<(String, String)> {
     let mut output: Vec<(String, String)> = Vec::new();
 
     let page = Html::parse_document(data);
-    let text = Selector::parse(".content h3, .content p").unwrap();
+    let text = Selector::parse(".content .field-item h4, .content .field-item div, .content .field-item p").unwrap();
 
     let mut temporary_name: Option<String> = None;
     let mut temporary_values: Vec<String> = Vec::new();
@@ -19,7 +19,7 @@ fn process_hours(data: &str) -> Vec<(String, String)> {
             .reduce(|a, b| format!("{a}\n{b}"))
             .unwrap_or_default();
 
-        if text.value().name() == "h3" {
+        if text.value().name() == "h4" {
             // New header, push values.
             extractor(&mut output, &temporary_name, &mut temporary_values);
             temporary_name = Some(text_data);
