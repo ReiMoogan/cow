@@ -194,7 +194,7 @@ async fn print_pavilion_times(ctx: CowContext<'_>) -> Result<(), Error> {
             PavilionTime::dinner_start().format("%l:%M %p"), PavilionTime::dinner_end().format("%l:%M %p")), false)
         .field("Yablokoff on Weekdays", format!("Dinner: {} - {}",
             YablokoffTime::dinner_start().format("%l:%M %p"), YablokoffTime::dinner_end().format("%l:%M %p")), false)
-        .field("Lantern Cafe", "Monday to Friday: 7:00 AM - 5:00 PM", false)
+        .field("Lantern Cafe", "Monday to Friday: 8:00 AM - 7:00 PM", false)
         .field("Bobcat Snack Shop", "Monday to Friday: 8:00 AM - 6:00 PM", false)
     )).await?;
 
