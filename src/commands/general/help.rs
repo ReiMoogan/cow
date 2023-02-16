@@ -4,7 +4,7 @@ use crate::{CowContext, Error};
 
 /// Display the list of commands available, as well as their descriptions.
 ///
-/// If you need help using help, you're truly lost.
+/// If you need help using help, you are truly lost.
 #[poise::command(
     prefix_command,
     slash_command,
