@@ -119,7 +119,8 @@ async fn autocomplete_course(
 
     match process_query(query) {
         CourseReferenceNumber(crn) => {
-            let data = db.get_class(crn).await;
+            let (year, semester) = get_current_semester();
+            let data = db.get_class(crn, year * 100 + semester).await;
             if data.is_ok() && data.unwrap().is_some() {
                 vec![query.to_string()]
             } else {
@@ -182,7 +183,8 @@ pub async fn courses(
     match process_query(&query) {
         CourseReferenceNumber(crn) => {
             let db = cowdb!(ctx);
-            match db.get_class(crn).await {
+            let (year, semester) = get_current_semester();
+            match db.get_class(crn, year * 100 + semester).await {
                 Ok(option_class) => {
                     if let Some(class) = option_class {
                         course_embed(&ctx, &class).await?;
@@ -230,17 +232,31 @@ enum CourseQuery {
     NameOrNumber { query: String, term: i32 }
 }
 
-fn process_query(query: &str) -> CourseQuery {
-    let args = query.split(' ');
+pub fn to_crn(class_id: i32) -> i32 {
+    class_id % 100000
+}
 
+pub fn to_term(class_id: i32) -> i32 {
+    10 * (class_id / 100000)
+}
+
+pub fn get_current_semester() -> (i32, i32) {
     let current_date = Local::now().date_naive();
     let mut year = current_date.year();
     // You are required to specify if you want a summer class. Baka.
-    let mut semester = if current_date.month() >= 3 && current_date.month() <= 10 { 30 } else { 10 };
+    let semester = if current_date.month() >= 3 && current_date.month() <= 10 { 30 } else { 10 };
     if semester == 10 && current_date.month() > 9 {
         // Add one year if we're looking at Spring
         year += 1;
     }
+
+    (year, semester)
+}
+
+fn process_query(query: &str) -> CourseQuery {
+    let args = query.split(' ');
+
+    let (mut year, mut semester) = get_current_semester();
     let mut search_query = String::new();
 
     for arg in args {
@@ -287,7 +303,7 @@ async fn print_matches(ctx: &CowContext<'_>, classes: &[PartialClass]) -> Result
 
     if classes.len() == 1 {
         let db = cowdb!(ctx);
-        let class = db.get_class(classes[0].course_reference_number).await?.unwrap();
+        let class = db.get_class(classes[0].course_reference_number, to_term(classes[0].id)).await?.unwrap();
         course_embed(ctx, &class).await?;
     } else {
         ctx.send(|m| {

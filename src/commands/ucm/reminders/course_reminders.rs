@@ -3,6 +3,7 @@ use crate::{CowContext, cowdb, Error};
 
 use crate::{db, Database};
 use crate::commands::ucm::courses_db_models::Reminder;
+use crate::commands::ucm::courses::{format_term, to_term, to_crn, get_current_semester};
 
 #[poise::command(
     prefix_command,
@@ -28,7 +29,9 @@ pub async fn list_code(ctx: CowContext<'_>) -> Result<(), Error> {
                         e.description("You do not have any reminders set. Add some using `reminders add`.");
                     } else {
                         for reminder in reminders {
-                            e.field(format!("CRN {}", reminder.course_reference_number),
+                            let course_reference_number = to_crn(reminder.class_id);
+                            let term = to_term(reminder.class_id);
+                            e.field(format!("CRN {} for {}", course_reference_number, format_term(term)),
                                     format!("Minimum Trigger: `{}`\nFor Waitlist: `{}`\nTriggered: `{}`", reminder.min_trigger, reminder.for_waitlist, reminder.triggered),
                                     false);
                         }
@@ -69,10 +72,13 @@ pub async fn add(
     } else {
         1
     };
-    
+
+    let (year, semester) = get_current_semester();
+    let term = year * 100 + semester;
+
     let reminder = Reminder {
         user_id: ctx.author().id.0,
-        course_reference_number,
+        class_id: course_reference_number + term * 10000,
         min_trigger,
         for_waitlist: for_waitlist.unwrap_or(false),
         triggered: false
@@ -80,7 +86,7 @@ pub async fn add(
 
     let db = cowdb!(ctx);
 
-    if let Ok(Some(class)) = db.get_class(course_reference_number).await {
+    if let Ok(Some(class)) = db.get_class(course_reference_number, term).await {
         if let Err(ex) = db.add_reminder(&reminder).await {
             error!("Failed to add reminder: {}", ex);
             ctx.say("Error adding your reminder. Maybe you have a duplicate?").await?;

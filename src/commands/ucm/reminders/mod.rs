@@ -35,7 +35,7 @@ pub async fn check_reminders(data: Arc<RwLock<TypeMap>>, ctx: Arc<CacheAndHttp>)
             Ok(triggers) => {
                 for trigger in triggers {
                     if let Ok(user) = ctx.http.get_user(trigger.user_id).await {
-                        if let Ok(Some(class)) = db.get_class(trigger.course_reference_number).await {
+                        if let Ok(Some(class)) = db.get_class(trigger.course_reference_number, trigger.term).await {
                             if let Err(ex) = user.direct_message(&ctx.http, |m| {
                                 m.embed(|e| e
                                     .title("Reminder Triggered~")

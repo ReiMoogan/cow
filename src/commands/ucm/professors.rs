@@ -11,14 +11,16 @@ async fn professor_embed(ctx: &CowContext<'_>, professor: &Professor) -> Result<
     let year = current_date.year() + i32::from(semester == 10 && current_date.month() > 9); // Add one year if we're looking at Spring
     let term = year * 100 + semester;
 
-    let classes = db.get_classes_for_professor(professor.id, term).await;
+    let classes = db.get_classes_for_professor(&professor.email, term).await;
     let stats = db.get_stats().await;
     ctx.send(|m| m.embed(|e| {
         e.title(&professor.full_name);
         e.description("Note: this uses Rate My Professor, which may be off at times~");
-        e.field("Rating Score", professor.rating, true);
+        e.field("Rating Score", format!("{}/5", professor.rating), true);
+        e.field("Difficulty Score", format!("{}/5", professor.difficulty), true);
+        e.field("Take Again Percentage", format!("{}%", professor.would_take_again_percent), true);
         e.field("Number of Ratings", professor.num_ratings, true);
-        e.field("Email", professor.email.clone().unwrap(), true);
+        e.field("Email", &professor.email, true);
 
 
         if let Ok(classes) = classes {

@@ -5,7 +5,7 @@ use num_traits::FromPrimitive;
 
 pub struct Reminder {
     pub user_id: u64,
-    pub course_reference_number: i32,
+    pub class_id: i32,
     pub min_trigger: i32,
     pub for_waitlist: bool,
     pub triggered: bool
@@ -14,6 +14,7 @@ pub struct Reminder {
 pub struct Trigger {
     pub user_id: u64,
     pub course_reference_number: i32,
+    pub term: i32,
     pub min_trigger: i32
 }
 
@@ -134,14 +135,14 @@ pub struct Meeting {
 }
 
 pub struct Professor {
-    pub id: i32,
-    pub rmp_id: Option<i32>,
+    pub email: String,
+    pub rmp_id: Option<String>,
     pub last_name: String,
     pub first_name: String,
-    pub middle_name: Option<String>,
     pub full_name: String,
-    pub email: Option<String>,
     pub department: Option<String>,
     pub num_ratings: i32,
-    pub rating: f32
+    pub rating: f32,
+    pub difficulty: f32,
+    pub would_take_again_percent: f32
 }

@@ -13,13 +13,14 @@ use rust_decimal::{
 
 use crate::Database;
 use crate::commands::ucm::courses_db_models::*;
+use crate::commands::ucm::courses::{to_term, to_crn};
 
 impl Database {
     pub async fn get_user_reminders(&self, user_id: UserId) -> Result<Vec<Reminder>, Box<dyn std::error::Error + Send + Sync>> {
         let mut conn = self.pool.get().await?;
         let user_decimal = Decimal::from_u64(user_id.0).unwrap();
         let res = conn.query(
-            "SELECT course_reference_number, min_trigger, for_waitlist, triggered FROM [UniScraper].[UCM].[reminder] WHERE user_id = @P1",
+            "SELECT class_id, min_trigger, for_waitlist, triggered FROM [UniScraper].[UCM].[reminder] WHERE user_id = @P1",
             &[&user_decimal])
             .await?
             .into_first_result()
@@ -30,7 +31,7 @@ impl Database {
         for reminder in res {
             out.push(Reminder {
                 user_id: user_id.0,
-                course_reference_number: reminder.get(0).unwrap(),
+                class_id: reminder.get(0).unwrap(),
                 min_trigger: reminder.get(1).unwrap(),
                 for_waitlist: reminder.get(2).unwrap(),
                 triggered: reminder.get(3).unwrap()
@@ -46,8 +47,8 @@ impl Database {
 
         // Will panic if there is a duplicate, since I have uniqueness set.
         conn.execute(
-            "INSERT INTO [UniScraper].[UCM].[reminder] (user_id, course_reference_number, min_trigger, for_waitlist, triggered) VALUES (@P1, @P2, @P3, @P4, @P5)",
-            &[&user_decimal, &reminder.course_reference_number, &reminder.min_trigger, &reminder.for_waitlist, &reminder.triggered])
+            "INSERT INTO [UniScraper].[UCM].[reminder] (user_id, class_id, min_trigger, for_waitlist, triggered) VALUES (@P1, @P2, @P3, @P4, @P5)",
+            &[&user_decimal, &reminder.class_id, &reminder.min_trigger, &reminder.for_waitlist, &reminder.triggered])
             .await?;
 
         Ok(())
@@ -78,9 +79,11 @@ impl Database {
 
         for reminder in res {
             let user_id: Decimal = reminder.get(0).unwrap();
+            let course_id: i32 = reminder.get(1).unwrap();
             out.push(Trigger {
                 user_id: user_id.to_u64().unwrap(),
-                course_reference_number: reminder.get(1).unwrap(),
+                course_reference_number: to_crn(course_id),
+                term: to_term(course_id),
                 min_trigger: reminder.get(2).unwrap()
             });
         }
@@ -88,11 +91,11 @@ impl Database {
         Ok(out)
     }
 
-    pub async fn get_class(&self, course_reference_number: i32) -> Result<Option<Class>, Box<dyn std::error::Error + Send + Sync>> {
+    pub async fn get_class(&self, course_reference_number: i32, term: i32) -> Result<Option<Class>, Box<dyn std::error::Error + Send + Sync>> {
         let mut conn = self.pool.get().await?;
         let res = conn.query(
-            "SELECT id, term, course_number, campus_description, course_title, credit_hours, maximum_enrollment, enrollment, seats_available, wait_capacity, wait_available FROM [UniScraper].[UCM].[class] WHERE course_reference_number = @P1",
-            &[&course_reference_number])
+            "SELECT id, term, course_number, campus_description, course_title, credit_hours, maximum_enrollment, enrollment, seats_available, wait_capacity, wait_available FROM [UniScraper].[UCM].[class] WHERE course_reference_number = @P1 AND term = @P2",
+            &[&course_reference_number, &term])
             .await?
             .into_row()
             .await?;
@@ -105,7 +108,7 @@ impl Database {
             let course_title: Option<&str> = class.get(4);
             out = Some(Class {
                 id: class.get(0).unwrap(),
-                term: class.get(1).unwrap(),
+                term,
                 course_reference_number,
                 course_number: course_number.to_string(),
                 campus_description: campus_description.map(|o| o.to_string()),
@@ -126,7 +129,7 @@ impl Database {
     pub async fn get_professors_for_class(&self, class_id: i32) -> Result<Vec<Professor>, Box<dyn std::error::Error + Send + Sync>> {
         let mut conn = self.pool.get().await?;
         let res = conn.query(
-            "SELECT professor.id, rmp_id, last_name, first_name, middle_name, email, department, num_ratings, rating, full_name FROM [UniScraper].[UCM].[professor] INNER JOIN [UniScraper].[UCM].[faculty] ON professor.id = faculty.professor_id WHERE class_id = @P1;",
+            "SELECT rmp_id, last_name, first_name, email, department, num_ratings, rating, difficulty, would_take_again_percent, full_name FROM [UniScraper].[UCM].[professor] INNER JOIN [UniScraper].[UCM].[faculty] ON professor.email = faculty.professor_email WHERE class_id = @P1;",
             &[&class_id])
             .await?
             .into_first_result()
@@ -135,22 +138,22 @@ impl Database {
         let mut out: Vec<Professor> = Vec::new();
 
         for professor in res {
-            let last_name: &str = professor.get(2).unwrap();
-            let first_name: &str = professor.get(3).unwrap();
-            let middle_name: Option<&str> = professor.get(4);
-            let email: Option<&str> = professor.get(5);
-            let department: Option<&str> = professor.get(6);
+            let rmp_id: Option<&str> = professor.get(0);
+            let last_name: &str = professor.get(1).unwrap();
+            let first_name: &str = professor.get(2).unwrap();
+            let email: &str = professor.get(3).unwrap();
+            let department: Option<&str> = professor.get(4);
             let full_name: &str = professor.get(9).unwrap();
             out.push(Professor {
-                id: professor.get(0).unwrap(),
-                rmp_id: professor.get(1),
+                rmp_id: rmp_id.map(|o| o.to_string()),
                 last_name: last_name.to_string(),
                 first_name: first_name.to_string(),
-                middle_name: middle_name.map(|o| o.to_string()),
-                email: email.map(|o| o.to_string()),
+                email: email.to_string(),
                 department: department.map(|o| o.to_string()),
-                num_ratings: professor.get(7).unwrap(),
-                rating: professor.get(8).unwrap(),
+                num_ratings: professor.get(5).unwrap(),
+                rating: professor.get(6).unwrap(),
+                difficulty: professor.get(7).unwrap(),
+                would_take_again_percent: professor.get(8).unwrap(),
                 full_name: full_name.to_string()
             });
         }
@@ -286,7 +289,7 @@ impl Database {
 
         let input = self.create_full_text_query(search_query);
 
-        let res = conn.query("SELECT id, rmp_id, last_name, first_name, middle_name, email, department, num_ratings, rating, full_name FROM [UniScraper].[UCM].[professor] WHERE CONTAINS(full_name, @P1);", &[&input])
+        let res = conn.query("SELECT rmp_id, last_name, first_name, email, department, num_ratings, rating, difficulty, would_take_again_percent, full_name FROM [UniScraper].[UCM].[professor] WHERE CONTAINS(full_name, @P1);", &[&input])
             .await?
             .into_first_result()
             .await?;
@@ -294,22 +297,22 @@ impl Database {
         let mut out: Vec<Professor> = Vec::new();
 
         for professor in res {
-            let last_name: &str = professor.get(2).unwrap();
-            let first_name: &str = professor.get(3).unwrap();
-            let middle_name: Option<&str> = professor.get(4);
-            let email: Option<&str> = professor.get(5);
-            let department: Option<&str> = professor.get(6);
+            let rmp_id: Option<&str> = professor.get(0);
+            let last_name: &str = professor.get(1).unwrap();
+            let first_name: &str = professor.get(2).unwrap();
+            let email: &str = professor.get(3).unwrap();
+            let department: Option<&str> = professor.get(4);
             let full_name: &str = professor.get(9).unwrap();
             out.push(Professor {
-                id: professor.get(0).unwrap(),
-                rmp_id: professor.get(1),
+                rmp_id: rmp_id.map(|o| o.to_string()),
                 last_name: last_name.to_string(),
                 first_name: first_name.to_string(),
-                middle_name: middle_name.map(|o| o.to_string()),
-                email: email.map(|o| o.to_string()),
+                email: email.to_string(),
                 department: department.map(|o| o.to_string()),
-                num_ratings: professor.get(7).unwrap(),
-                rating: professor.get(8).unwrap(),
+                num_ratings: professor.get(5).unwrap(),
+                rating: professor.get(6).unwrap(),
+                difficulty: professor.get(7).unwrap(),
+                would_take_again_percent: professor.get(8).unwrap(),
                 full_name: full_name.to_string()
             });
         }
@@ -317,13 +320,13 @@ impl Database {
         Ok(out)
     }
 
-    pub async fn get_classes_for_professor(&self, professor_id: i32, term: i32) -> Result<Vec<PartialClass>, Box<dyn std::error::Error + Send + Sync>> {
+    pub async fn get_classes_for_professor(&self, professor_email: &str, term: i32) -> Result<Vec<PartialClass>, Box<dyn std::error::Error + Send + Sync>> {
         let mut conn = self.pool.get().await?;
 
         let res = conn.query("SELECT class.id, class.course_reference_number, class.course_number, class.course_title FROM [UniScraper].[UCM].[professor] \
-            INNER JOIN [UniScraper].[UCM].[faculty] ON professor.id = faculty.professor_id \
+            INNER JOIN [UniScraper].[UCM].[faculty] ON professor.email = faculty.professor_email \
             INNER JOIN [UniScraper].[UCM].[class] ON class.id = faculty.class_id \
-            WHERE class.term = @P1 AND professor.id = @P2", &[&term, &professor_id])
+            WHERE class.term = @P1 AND professor.email = @P2", &[&term, &professor_email])
             .await?
             .into_first_result()
             .await?;
