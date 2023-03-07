@@ -81,7 +81,7 @@ async fn init_logger() -> std::io::Result<()> {
     ).expect("Failed to set global subscriber");
 
     const VERSION: Option<&str> = option_env!("CARGO_PKG_VERSION");
-    info!("Initializing cow v{}", VERSION.unwrap_or("<unknown>"));
+    info!("Initializing cowBot v{}", VERSION.unwrap_or("<unknown>"));
     info!("Reading from {}", env::current_dir()?.display());
 
     Ok(())
