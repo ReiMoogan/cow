@@ -202,7 +202,7 @@ pub async fn pavilion(
 }
 
 pub async fn print_full_menu(ctx: &Context, interaction: &MessageComponentInteraction) -> Result<(), Error> {
-    let data = interaction.data.custom_id.split(':').into_iter().collect::<Vec<_>>();
+    let data = interaction.data.custom_id.split(':').collect::<Vec<_>>();
     if data.len() != 3 {
         interaction.create_followup_message(&ctx, |r| {
             r.ephemeral(true).content("Failed to decode component data... please try using the \"full\" parameter with the command.")
@@ -214,13 +214,12 @@ pub async fn print_full_menu(ctx: &Context, interaction: &MessageComponentIntera
     let day = Day::try_from(data[1]).unwrap();
     let meal = Meal::from(data[2]);
 
-    let title: String;
-    if !matches!(meal, Meal::Other(_)) {
-        title = format!("{meal} at the Pavilion/Yablokoff for {day}");
+    let title = if !matches!(meal, Meal::Other(_)) {
+        format!("{meal} at the Pavilion/Yablokoff for {day}")
     } else {
         // Do not let the bot print non-validated input.
-        title = format!("Custom Category at the Pavilion/Yablokoff for {day}");
-    }
+        format!("Custom Category at the Pavilion/Yablokoff for {day}")
+    };
 
     let menus = process_bigzpoon(&day, &meal).await;
 
@@ -272,7 +271,7 @@ fn menu_filter(mut menus: Vec<(String, String)>, e: &mut CreateEmbed, print_all:
                 return false;
             }
 
-            return true;
+            true
         });
 
         if !yab_items.is_empty() {
@@ -445,10 +444,10 @@ async fn process_bigzpoon(day: &Day, meal: &Meal) -> Vec<(String, String)> {
                     let pav_location = location_match.iter().find(|o| o.location_special_group_ids.as_deref().unwrap().first().unwrap().name.to_lowercase().contains("pvl"));
                     let ywdc_location = location_match.iter().find(|o| o.location_special_group_ids.as_deref().unwrap().first().unwrap().name.to_lowercase().contains("ywdc"));
 
-                    get_menu_items(&day, &meal, &mut output, &client, &company_info, &restaurants, pav_location).await;
+                    get_menu_items(day, meal, &mut output, &client, &company_info, &restaurants, pav_location).await;
 
                     // YWDC does not have next-week options. Also, it must be a weekday.
-                    if YablokoffTime::is_dinner(&day) {
+                    if YablokoffTime::is_dinner(day) {
                         // Prepend the name, because "Dinner" exists verbatim in both categories (can be confused by a user)
                         let mut ywdc_output: Vec<(String, String)> = Vec::new();
 
@@ -459,10 +458,10 @@ async fn process_bigzpoon(day: &Day, meal: &Meal) -> Vec<(String, String)> {
                             &wildcard_meal
                         } else {
                             // Use the filter like usual
-                            &meal
+                            meal
                         };
 
-                        get_menu_items(&day, yab_meal, &mut ywdc_output, &client, &company_info, &restaurants, ywdc_location).await;
+                        get_menu_items(day, yab_meal, &mut ywdc_output, &client, &company_info, &restaurants, ywdc_location).await;
                         for ywdc_menu in ywdc_output {
                             let (category, menu) = ywdc_menu;
                             // I'll manually filter these out.

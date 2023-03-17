@@ -65,9 +65,9 @@ impl TryFrom<&str> for Day {
     }
 }
 
-impl Into<String> for Day {
-    fn into(self) -> String {
-        match self {
+impl From<Day> for String {
+    fn from(val: Day) -> Self {
+        match val {
             Day::Sunday => "su".to_string(),
             Day::Monday => "mo".to_string(),
             Day::Tuesday => "tu".to_string(),
@@ -104,9 +104,9 @@ impl From<&str> for Meal {
     }
 }
 
-impl Into<String> for Meal {
-    fn into(self) -> String {
-        match self {
+impl From<Meal> for String {
+    fn from(val: Meal) -> Self {
+        match val {
             Meal::Breakfast => "breakfast".to_string(),
             Meal::Lunch => "lunch".to_string(),
             Meal::Dinner => "dinner".to_string(),
