@@ -65,6 +65,20 @@ impl TryFrom<&str> for Day {
     }
 }
 
+impl Into<String> for Day {
+    fn into(self) -> String {
+        match self {
+            Day::Sunday => "su".to_string(),
+            Day::Monday => "mo".to_string(),
+            Day::Tuesday => "tu".to_string(),
+            Day::Wednesday => "we".to_string(),
+            Day::Thursday => "th".to_string(),
+            Day::Friday => "fr".to_string(),
+            Day::Saturday => "sa".to_string()
+        }
+    }
+}
+
 impl Display for Day {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -86,6 +100,17 @@ impl From<&str> for Meal {
             "lunch" => Meal::Lunch,
             "dinner" => Meal::Dinner,
             other => Meal::Other(other.to_string())
+        }
+    }
+}
+
+impl Into<String> for Meal {
+    fn into(self) -> String {
+        match self {
+            Meal::Breakfast => "breakfast".to_string(),
+            Meal::Lunch => "lunch".to_string(),
+            Meal::Dinner => "dinner".to_string(),
+            Meal::Other(x) => x
         }
     }
 }

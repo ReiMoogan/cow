@@ -3,10 +3,10 @@ use crate::{CowContext, Error};
 use crate::commands::ucm::pav_models::*;
 use tracing::error;
 use std::error;
-use std::time::Duration;
 use serenity::builder::CreateEmbed;
+use serenity::client::Context;
 use serenity::model::application::component::ButtonStyle;
-use serenity::model::application::interaction::InteractionResponseType;
+use serenity::model::application::interaction::message_component::MessageComponentInteraction;
 
 // Probably can be hard-coded to be 61bd7ecd8c760e0011ac0fac.
 async fn fetch_pavilion_company_info(client: &Client) -> Result<Company, Box<dyn error::Error + Send + Sync>> {
@@ -165,8 +165,7 @@ pub async fn pavilion(
             .description("Loading data, please wait warmly...")
     })).await?;
 
-    let menus = process_bigzpoon(day, meal).await;
-    let full_menu = menus.clone();
+    let menus = process_bigzpoon(&day, &meal).await;
 
     message.edit(ctx, |m| {
         m.embeds.clear();
@@ -175,9 +174,12 @@ pub async fn pavilion(
             m.components(|c| {
                 c.create_action_row(|r| {
                     r.create_button(|b| {
+                        let mut data = format!("full_menu:{}:{}", <Day as Into<String>>::into(day), <Meal as Into<String>>::into(meal));
+                        data.truncate(100);
+
                         b.style(ButtonStyle::Primary)
                             .label("Show Full Menu")
-                            .custom_id("full_menu")
+                            .custom_id(data)
                     })
                 })
             });
@@ -196,21 +198,38 @@ pub async fn pavilion(
         })
     }).await?;
 
-    let interaction =
-        match message.message().await.unwrap().await_component_interaction(&ctx).timeout(Duration::from_secs(60 * 3)).await {
-            Some(x) => x,
-            None => return Ok(()),
-        };
+    Ok(())
+}
 
-    interaction.create_interaction_response(&ctx, |r| {
-        r.kind(InteractionResponseType::ChannelMessageWithSource)
-            .interaction_response_data(|d| {
-                d.ephemeral(true)
-                    .embed(|e| {
-                        e.title(&title);
-                        menu_filter(full_menu, e, true);
-                        e
-                    })
+pub async fn print_full_menu(ctx: &Context, interaction: &MessageComponentInteraction) -> Result<(), Error> {
+    let data = interaction.data.custom_id.split(':').into_iter().collect::<Vec<_>>();
+    if data.len() != 3 {
+        interaction.create_followup_message(&ctx, |r| {
+            r.ephemeral(true).content("Failed to decode component data... please try using the \"full\" parameter with the command.")
+        }).await?;
+
+        return Ok(());
+    }
+
+    let day = Day::try_from(data[1]).unwrap();
+    let meal = Meal::from(data[2]);
+
+    let title: String;
+    if !matches!(meal, Meal::Other(_)) {
+        title = format!("{meal} at the Pavilion/Yablokoff for {day}");
+    } else {
+        // Do not let the bot print non-validated input.
+        title = format!("Custom Category at the Pavilion/Yablokoff for {day}");
+    }
+
+    let menus = process_bigzpoon(&day, &meal).await;
+
+    interaction.create_followup_message(&ctx, |r| {
+        r.ephemeral(true)
+            .embed(|e| {
+                e.title(&title);
+                menu_filter(menus, e, true);
+                e
             })
     }).await?;
 
@@ -408,7 +427,7 @@ async fn process_announcement(name: &str) -> String {
     description
 }
 
-async fn process_bigzpoon(day: Day, meal: Meal) -> Vec<(String, String)> {
+async fn process_bigzpoon(day: &Day, meal: &Meal) -> Vec<(String, String)> {
     let mut output: Vec<(String, String)> = Vec::new();
     let client = Client::new();
 

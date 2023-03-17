@@ -20,6 +20,7 @@ use serenity::{
     prelude::TypeMapKey
 };
 use serenity::model::application::command::Command;
+use serenity::model::application::interaction::Interaction;
 use songbird::SerenityInit;
 use tracing::{error, info};
 use tracing_subscriber::fmt;
@@ -61,6 +62,21 @@ impl EventHandler for Handler {
 
     async fn ready(&self, ctx: Context, ready: Ready) {
         bot_init::ready(&ctx, &ready).await;
+    }
+
+    async fn interaction_create(&self, ctx: Context, interaction: Interaction) {
+        if let Some(component) = interaction.message_component() {
+            if component.data.custom_id.starts_with("full_menu") {
+                if let Err(ex) = component.defer(&ctx).await {
+                    error!("Failed to defer component: {}", ex);
+                    return;
+                }
+
+                if let Err(ex) = commands::ucm::pavilion::print_full_menu(&ctx, &component).await {
+                    error!("Failed to print full menu: {}", ex);
+                }
+            }
+        }
     }
 }
 

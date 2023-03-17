@@ -4,7 +4,7 @@ mod courses;
 mod courses_old;
 mod professors;
 mod course_models;
-mod pavilion;
+pub mod pavilion;
 mod pav_models;
 pub mod reminders;
 mod courses_db;
