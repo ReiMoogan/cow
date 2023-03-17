@@ -3,6 +3,10 @@ use crate::{CowContext, Error};
 use crate::commands::ucm::pav_models::*;
 use tracing::error;
 use std::error;
+use std::time::Duration;
+use serenity::builder::CreateEmbed;
+use serenity::model::application::component::ButtonStyle;
+use serenity::model::application::interaction::InteractionResponseType;
 
 // Probably can be hard-coded to be 61bd7ecd8c760e0011ac0fac.
 async fn fetch_pavilion_company_info(client: &Client) -> Result<Company, Box<dyn error::Error + Send + Sync>> {
@@ -106,6 +110,7 @@ pub async fn pavilion(
 
     // Basically a string builder for custom meals.
     let mut custom_meal = String::new();
+    let mut print_full_menu = false;
 
     let input = options.unwrap_or_default();
     let args = input.split(' ').collect::<Vec<_>>();
@@ -128,6 +133,12 @@ pub async fn pavilion(
         }
         // Otherwise, it's a custom meal option.
         else {
+            let input_lower = arg.to_lowercase();
+            if input_lower == "all" || input_lower == "full" {
+                print_full_menu = true;
+                continue;
+            }
+
             if !custom_meal.is_empty() {
                 custom_meal += " ";
             }
@@ -155,30 +166,112 @@ pub async fn pavilion(
     })).await?;
 
     let menus = process_bigzpoon(day, meal).await;
+    let full_menu = menus.clone();
 
     message.edit(ctx, |m| {
         m.embeds.clear();
+
+        if !menus.is_empty() && !print_full_menu {
+            m.components(|c| {
+                c.create_action_row(|r| {
+                    r.create_button(|b| {
+                        b.style(ButtonStyle::Primary)
+                            .label("Show Full Menu")
+                            .custom_id("full_menu")
+                    })
+                })
+            });
+        }
+
         m.embed(|e| {
             e.title(&title);
 
             if menus.is_empty() {
                 e.field("No menu data!!", "Could not find the given group, please check your query.", false);
             } else {
-                for group in menus.iter() {
-                    let (group_name, menu) = group;
-                    let mut menu_truncated = menu.chars().take(1024).collect::<String>();
-                    if menu_truncated.is_empty() {
-                        menu_truncated = "This menu is empty.".to_string();
-                    }
-                    e.field(group_name, menu_truncated, false);
-                }
+                menu_filter(menus, e, print_full_menu);
             }
 
             e
         })
     }).await?;
 
+    let interaction =
+        match message.message().await.unwrap().await_component_interaction(&ctx).timeout(Duration::from_secs(60 * 3)).await {
+            Some(x) => x,
+            None => return Ok(()),
+        };
+
+    interaction.create_interaction_response(&ctx, |r| {
+        r.kind(InteractionResponseType::ChannelMessageWithSource)
+            .interaction_response_data(|d| {
+                d.ephemeral(true)
+                    .embed(|e| {
+                        e.title(&title);
+                        menu_filter(full_menu, e, true);
+                        e
+                    })
+            })
+    }).await?;
+
     Ok(())
+}
+
+fn menu_filter(mut menus: Vec<(String, String)>, e: &mut CreateEmbed, print_all: bool) {
+    if !print_all {
+        let mut yab_items = String::new();
+        let mut yab_late_items = String::new();
+
+        menus.retain_mut(|(group, menu)| {
+            let group_lower = group.to_lowercase();
+            // Ignore Field of Greens and Common Grounds and Yablokoff Suan Nai and Midori.
+            if group_lower.contains("fog") || group_lower.contains("field") || group_lower.contains("cg") || group_lower.contains("common") || group_lower.contains("suan") || group_lower.contains("midori") {
+                return false;
+            }
+
+            // If it's Yablokoff, add it to the yab_items string.
+            if group_lower.contains("yablokoff") {
+                // Late night should be separate.
+                if group_lower.contains("late") {
+                    if !yab_late_items.is_empty() {
+                        yab_late_items += "\n";
+                    }
+
+                    yab_late_items += menu;
+                    return false;
+                }
+
+                if menu.starts_with("There is nothing") {
+                    return false;
+                }
+
+                if !yab_items.is_empty() {
+                    yab_items += "\n";
+                }
+
+                yab_items += menu;
+                return false;
+            }
+
+            return true;
+        });
+
+        if !yab_items.is_empty() {
+            menus.push(("Yablokoff".to_string(), yab_items));
+        }
+
+        if !yab_late_items.is_empty() {
+            menus.push(("Yablokoff Late Night".to_string(), yab_late_items));
+        }
+    }
+
+    for (group_name, menu) in menus.iter() {
+        let mut menu_truncated = menu.chars().take(1024).collect::<String>();
+        if menu_truncated.is_empty() {
+            menu_truncated = "This menu is empty.".to_string();
+        }
+        e.field(group_name, menu_truncated, false);
+    }
 }
 
 async fn print_pavilion_times(ctx: CowContext<'_>) -> Result<(), Error> {
