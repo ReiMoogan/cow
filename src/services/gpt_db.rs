@@ -1,0 +1,27 @@
+use serenity::model::id::UserId;
+use rust_decimal::{
+    Decimal,
+    prelude::FromPrimitive
+};
+
+use crate::Database;
+
+impl Database {
+    pub async fn has_gpt_enabled(&self, user_id: UserId) -> Result<bool, Box<dyn std::error::Error + Send + Sync>> {
+        let mut conn = self.pool.get().await?;
+        let user = Decimal::from_u64(*user_id.as_u64()).unwrap();
+        let res = conn.query(
+            "SELECT gpt_enabled FROM [Ranking].[User] WHERE id = @P1;",
+            &[&user])
+            .await?
+            .into_row()
+            .await?;
+
+        if let Some(row) = res {
+            let gpt_enabled: Option<u8> = row.get(0);
+            Ok(gpt_enabled.unwrap_or_default() != 0)
+        } else {
+            Ok(false)
+        }
+    }
+}

@@ -5,6 +5,7 @@ pub mod ucm;
 pub mod cowboard;
 mod music;
 pub mod minecraft;
+mod gpt;
 
 use std::{collections::HashSet};
 
@@ -24,6 +25,7 @@ use crate::commands::ucm::ucm;
 use crate::commands::cowboard::cowboard;
 use crate::commands::music::music;
 use crate::commands::minecraft::*;
+use crate::commands::gpt::*;
 
 pub async fn get_framework(pref: &str, _app_id: UserId, owners: HashSet<UserId>) -> poise::FrameworkOptions<(), Error> {
     poise::FrameworkOptions {
@@ -50,7 +52,8 @@ pub async fn get_framework(pref: &str, _app_id: UserId, owners: HashSet<UserId>)
             momiji(),
             reisen(),
             danbooru(),
-            minecraft()
+            minecraft(),
+            gpt()
         ],
         prefix_options: poise::PrefixFrameworkOptions {
             prefix: Some(pref.into()),

@@ -11,5 +11,6 @@ pub struct Config {
     pub lavalink_ip: String,
     pub lavalink_password: String,
     pub danbooru_login: String,
-    pub danbooru_api_key: String
+    pub danbooru_api_key: String,
+    pub openai_api_key: String
 }
