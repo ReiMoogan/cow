@@ -49,7 +49,7 @@ sysinfo = "0.28.2"
 # Minecraft protocols
 proto-mc = { git = "https://github.com/DoggySazHi/proto-mc" }
 # ChatGPT / OpenAI
-chatgpt_rs = "1.0.0"
+chatgpt_rs = "1.1.3"
 
 # Discord API
 [dependencies.serenity]

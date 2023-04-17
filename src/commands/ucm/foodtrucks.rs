@@ -19,15 +19,16 @@ fn process_schedules(data: &str) -> Option<String> {
 
     let links = page.select(&image)
         .map(|o| o.value().attr("src").unwrap().to_string())
-        .filter(|o| !o.contains("svg") && !o.contains("logo"))
+        // filter out the logo, food truck image, translate icon, and svg images
+        .filter(|o| !o.contains("svg") && !o.contains("logo") && !o.contains("translate") && !o.contains("food_trucks_20211006-4"))
         .collect::<Vec<String>>();
 
     let day = links.iter().find(|o| o.contains(&monday_date));
 
-    return if day.is_some() {
+    if day.is_some() {
         day.map(|o| o.to_string())
     } else {
-        links.first().map(|o| o.to_string())
+        None
     }
 }
 
@@ -69,7 +70,7 @@ pub async fn foodtrucks(ctx: CowContext<'_>) -> Result<(), Error> {
                         sent_msg.edit(ctx, |m| {
                             m.embeds.clear();
                             m.embed(|e| {
-                                e.title(TITLE).description("Could not get any valid schedules... Did the website change layout?")
+                                e.title(TITLE).description("Could not get any valid schedules... either the school didn't update their website, or they changed their layout. If you see a valid schedule on https://dining.ucmerced.edu/food-trucks, please ping DoggySazHi!")
                             })
                         }).await?;
                         error!("Unable to read food truck website");
