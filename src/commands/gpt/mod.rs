@@ -7,7 +7,7 @@ use ask::*;
     prefix_command,
     slash_command,
     description_localized("en-US", "Use GPT commands from Discord."),
-    subcommands("ask"),
+    subcommands("ask", "chat", "resetchat"),
     discard_spare_arguments,
     aliases("chatgpt"),
     identifying_name = "GPT"
