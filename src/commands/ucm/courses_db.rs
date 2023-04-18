@@ -54,13 +54,13 @@ impl Database {
         Ok(())
     }
 
-    pub async fn remove_reminder(&self, user_id: UserId, course_reference_number: i32) -> Result<bool, Box<dyn std::error::Error + Send + Sync>> {
+    pub async fn remove_reminder(&self, user_id: UserId, class_id: i32) -> Result<bool, Box<dyn std::error::Error + Send + Sync>> {
         let mut conn = self.pool.get().await?;
         let user_decimal = Decimal::from_u64(user_id.0).unwrap();
 
         let total = conn.execute(
-            "DELETE FROM [UniScraper].[UCM].[reminder] WHERE user_id = @P1 AND course_reference_number = @P2",
-            &[&user_decimal, &course_reference_number])
+            "DELETE FROM [UniScraper].[UCM].[reminder] WHERE user_id = @P1 AND class_id = @P2",
+            &[&user_decimal, &class_id])
             .await?.total();
 
         Ok(total > 0)

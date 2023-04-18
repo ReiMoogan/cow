@@ -112,9 +112,12 @@ pub async fn remove(
     ctx: CowContext<'_>,
     #[description = "The CRN of the class to disable reminders for"] #[min = 10000] course_reference_number: i32)
 -> Result<(), Error> {
+    let (year, semester) = get_current_semester();
+    let term = year * 100 + semester;
+    let class_id = course_reference_number + term * 10000;
 
     let db = cowdb!(ctx);
-    match db.remove_reminder(ctx.author().id, course_reference_number).await {
+    match db.remove_reminder(ctx.author().id, class_id).await {
         Ok(success) => {
             if success {
                 ctx.say("Successfully removed your reminder.").await?;
