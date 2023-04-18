@@ -4,7 +4,6 @@ use crate::{CowContext, cowdb, Error};
 use std::error;
 use crate::commands::ucm::courses_db_models::*;
 use crate::{Database, db};
-use crate::commands::ucm::courses::CourseQuery::CourseReferenceNumber;
 
 fn fix_time(time: &str) -> String {
     let hour_str = &time[..2];
@@ -118,9 +117,8 @@ async fn autocomplete_course(
     let db = cowdb!(ctx);
 
     match process_query(query) {
-        CourseReferenceNumber(crn) => {
-            let (year, semester) = get_current_semester();
-            let data = db.get_class(crn, year * 100 + semester).await;
+        CourseQuery::CourseReferenceNumber { crn, term } => {
+            let data = db.get_class(crn, term).await;
             if data.is_ok() && data.unwrap().is_some() {
                 vec![query.to_string()]
             } else {
@@ -181,15 +179,14 @@ pub async fn courses(
     }
 
     match process_query(&query) {
-        CourseReferenceNumber(crn) => {
+        CourseQuery::CourseReferenceNumber { crn, term } => {
             let db = cowdb!(ctx);
-            let (year, semester) = get_current_semester();
-            match db.get_class(crn, year * 100 + semester).await {
+            match db.get_class(crn, term).await {
                 Ok(option_class) => {
                     if let Some(class) = option_class {
                         course_embed(&ctx, &class).await?;
                     } else {
-                        ctx.say(format!("Could not find a class with the CRN `{crn}`.")).await?;
+                        ctx.say(format!("Could not find a class with the CRN `{crn}`.\n- Did you mistype the input?\n- CRNs are term-specific.\n- Current search term: {}", format_term(term))).await?;
                     }
                 }
                 Err(ex) => {
@@ -206,7 +203,7 @@ pub async fn courses(
                         match search_course_by_name(&ctx, &query, term).await {
                             Ok(any) => {
                                 if !any {
-                                    ctx.say("Failed to find any classes with the given query. Did you mistype the input?").await?;
+                                    ctx.say(format!("Failed to find any classes with the given query.\n- Did you mistype the input?\n- Course names, numbers, and even CRNs are term-specific.\n- Current search term: {}", format_term(term))).await?;
                                 }
                             }
                             Err(ex) => {
@@ -228,7 +225,7 @@ pub async fn courses(
 }
 
 enum CourseQuery {
-    CourseReferenceNumber(i32),
+    CourseReferenceNumber { crn: i32, term: i32 },
     NameOrNumber { query: String, term: i32 }
 }
 
@@ -258,12 +255,14 @@ fn process_query(query: &str) -> CourseQuery {
 
     let (mut year, mut semester) = get_current_semester();
     let mut search_query = String::new();
+    let mut crn = 0;
 
     for arg in args {
         if let Ok(numeric) = arg.parse::<i32>() {
             // Make sure it's not a year lol
             if numeric >= 10000 {
-                return CourseReferenceNumber(numeric);
+                crn = numeric;
+                continue;
             } else if numeric >= 2005 {
                 year = numeric;
                 continue;
@@ -279,12 +278,26 @@ fn process_query(query: &str) -> CourseQuery {
     }
 
     let term = year * 100 + semester;
-    CourseQuery::NameOrNumber { query: search_query, term }
+    if crn != 0 {
+        CourseQuery::CourseReferenceNumber { crn, term }
+    } else {
+        CourseQuery::NameOrNumber { query: search_query, term }
+    }
 }
 
 async fn search_course_by_number(ctx: &CowContext<'_>, search_query: &str, term: i32) -> Result<bool, Box<dyn error::Error + Send + Sync>> {
     let db = cowdb!(ctx);
+    error!("Searching for {}", search_query);
     let classes = db.search_class_by_number(search_query, term).await?;
+    let query = search_query.trim().to_lowercase();
+    let exact_match = classes.iter().find(|c| c.course_number.trim().to_lowercase() == query);
+
+    // return early if exact exact match
+    if let Some(class) = exact_match {
+        print_matches(ctx, std::slice::from_ref(class)).await?;
+        return Ok(true);
+    }
+
     print_matches(ctx, &classes).await?;
 
     Ok(!classes.is_empty())
