@@ -53,7 +53,8 @@ pub async fn get_framework(pref: &str, _app_id: UserId, owners: HashSet<UserId>)
             reisen(),
             danbooru(),
             minecraft(),
-            gpt()
+            gpt(),
+            moogan()
         ],
         prefix_options: poise::PrefixFrameworkOptions {
             prefix: Some(pref.into()),

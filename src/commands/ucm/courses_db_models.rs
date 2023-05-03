@@ -41,6 +41,7 @@ pub struct PartialClass {
 }
 
 bitflags! {
+    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
     pub struct Days: u8 {
         const BASE = 0;
         const SUNDAY = 1;
