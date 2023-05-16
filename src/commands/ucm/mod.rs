@@ -33,6 +33,7 @@ use crate::{CowContext, Error};
     aliases("ucmerced"),
     identifying_name = "UC Merced"
 )]
-pub async fn ucm(_ctx: CowContext<'_>) -> Result<(), Error> {
+pub async fn ucm(ctx: CowContext<'_>) -> Result<(), Error> {
+    ctx.send(|m| m.ephemeral(true).content("Please invoke a subcommand. To list them, try `!help ucm` or `/help ucm`.")).await?;
     Ok(())
 }

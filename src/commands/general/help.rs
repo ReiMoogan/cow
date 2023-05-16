@@ -79,6 +79,15 @@ async fn help_single_command(
             e.field("Aliases", aliases, true);
         }
 
+        if !command_help.subcommands.is_empty() {
+            let subcommands = command_help.subcommands.iter()
+                .map(|o| format!("`{}`", o.prefix.as_ref().unwrap_or(&o.name)))
+                .reduce(|a, b| format!("{a}, {b}"))
+                .unwrap();
+
+            e.field("Subcommands", subcommands, false);
+        }
+
         e
     })).await?;
 
