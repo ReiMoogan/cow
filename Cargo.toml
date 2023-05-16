@@ -50,6 +50,8 @@ sysinfo = "0.28.2"
 proto-mc = { git = "https://github.com/DoggySazHi/proto-mc" }
 # ChatGPT / OpenAI
 chatgpt_rs = "1.1.3"
+# RNG
+rand = "0.8.5"
 
 # Discord API
 [dependencies.serenity]

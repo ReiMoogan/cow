@@ -197,16 +197,12 @@ async fn handle_failure(ctx: CowContext<'_>, original: Option<Vec<String>>, clie
         message.push("No results found for your query; you probably misspelled something. Did you mean:\n\n");
 
         for tag in original {
-            message.push_mono_safe(&tag).push("\n");
+            message.push("Instead of ").push_mono_safe(&tag).push("\n");
 
             match fetch_tag_autocomplete(&tag, client, danbooru_login, danbooru_api_key).await {
                 Ok(tags) => {
                     for matching_tag in tags {
-                        if let Some(antecedent) = matching_tag.antecedent {
-                            message.push(format!("- `{}` -> {} `{}` ({})\n", antecedent, matching_tag.label, matching_tag.value, matching_tag.post_count));
-                        } else {
-                            message.push(format!("- {} `{}` ({})\n", matching_tag.label, matching_tag.value, matching_tag.post_count));
-                        }
+                        message.push(format!("- `{}`\n", matching_tag.value));
                     }
                 },
                 Err(_) => {

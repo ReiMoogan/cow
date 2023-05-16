@@ -3,13 +3,19 @@ use crate::{CowContext, db, cowdb, Database, Error, models::config::Config};
 use chatgpt::client::ChatGPT;
 use chatgpt::converse::Conversation;
 use tracing::error;
+use rand::Rng;
+use serenity::utils::MessageBuilder;
 
 const CONVERSATION_PATH: &str = "gpt";
 
-fn new_conversation(client: ChatGPT) -> Conversation {
+fn new_conversation(client: ChatGPT, ctx: CowContext<'_>) -> Conversation {
     let today = chrono::Local::now().format("%Y-%m-%d").to_string();
+    let mut rng = rand::thread_rng();
+    let ip_first: i32 = rng.gen_range(0..=255);
+    let ip_second: i32 = rng.gen_range(0..=255);
+    let username = &ctx.author().name;
     client.new_conversation_directed(
-        format!("You are ChatGPT, a large language model trained by OpenAI. Answer as concisely as possible. Knowledge cutoff: 2021-09 Current date: {today}")
+        format!("You are MooganGPT, a large language model trained by OpenAI. Answer as concisely as possible. The user you are talking to has an IP address of 169.236.{ip_first}.{ip_second}, and lives at 308 Negra Arroyo Lane, Albuquerque, NM 87105. Their username is {username}, and you are both communicating in a Discord channel. Knowledge cutoff: 2021-09 Current date: {today}")
     )
 }
 
@@ -39,13 +45,13 @@ pub async fn ask(ctx: CowContext<'_>, #[rest] question: Option<String>) -> Resul
     let config : Config = serde_json::from_str(&config_json).expect("config.json is malformed");
     let client = ChatGPT::new(config.openai_api_key)?;
 
-    let mut conversation = new_conversation(client);
+    let mut conversation = new_conversation(client, ctx);
 
     let response = conversation
         .send_message(question)
         .await?;
 
-    ctx.say(&response.message().content).await?;
+    ctx.say(MessageBuilder::new().push_safe(&response.message().content).build()).await?;
 
     Ok(())
 }
@@ -83,18 +89,18 @@ pub async fn chat(ctx: CowContext<'_>, #[rest] question: Option<String>) -> Resu
             Ok(c) => c,
             Err(ex) => {
                 error!("Failed to restore conversation: {}", ex);
-                new_conversation(client)
+                new_conversation(client, ctx)
             }
         }
     } else {
-        new_conversation(client)
+        new_conversation(client, ctx)
     };
 
     let response = conversation
         .send_message(question)
         .await?;
 
-    ctx.say(&response.message().content).await?;
+    ctx.say(MessageBuilder::new().push_safe(&response.message().content).build()).await?;
 
     conversation.save_history_json(&path).await?;
 

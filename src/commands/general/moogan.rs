@@ -32,6 +32,21 @@ pub struct DallEImage {
     discard_spare_arguments
 )]
 pub async fn moogan(ctx: CowContext<'_>) -> Result<(), Error> {
+    ctx.defer().await?;
+
+    let client = Client::builder().danger_accept_invalid_certs(true).build().unwrap();
+    const URL: &str = "https://reimu.williamle.com";
+    if let Ok(response) = client.get(URL).send().await {
+        let bytes = response.bytes().await?;
+
+        ctx.send(|m| m.embed(|e|
+            e
+                .title("Live Moogan Reaction")
+                .attachment("moogan_live_reaction.png")
+        ).attachment(AttachmentType::Bytes { data: Cow::from(bytes.as_ref()), filename: "moogan_live_reaction.png".to_string() })).await?;
+        return Ok(());
+    }
+
     let config_json = fs::read_to_string("config.json").await?;
     let config : Config = serde_json::from_str(&config_json).expect("config.json is malformed");
 
@@ -46,7 +61,6 @@ pub async fn moogan(ctx: CowContext<'_>) -> Result<(), Error> {
     let body_serialized = serde_json::to_string(&body).unwrap();
 
     let client = Client::new();
-    ctx.defer().await?;
 
     let response = client
         .post("https://api.openai.com/v1/images/generations")
