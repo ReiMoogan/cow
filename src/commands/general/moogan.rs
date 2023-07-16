@@ -1,4 +1,5 @@
 use std::borrow::Cow;
+use std::time::Duration;
 use reqwest::Client;
 use tokio::fs;
 use crate::{CowContext, Error, models::config::Config};
@@ -34,17 +35,19 @@ pub struct DallEImage {
 pub async fn moogan(ctx: CowContext<'_>) -> Result<(), Error> {
     ctx.defer().await?;
 
-    let client = Client::builder().danger_accept_invalid_certs(true).build().unwrap();
+    let client = Client::builder().danger_accept_invalid_certs(true).timeout(Duration::from_secs(10)).build().unwrap();
     const URL: &str = "https://reimu.williamle.com";
     if let Ok(response) = client.get(URL).send().await {
-        let bytes = response.bytes().await?;
+        if response.status().is_success() {
+            let bytes = response.bytes().await?;
 
-        ctx.send(|m| m.embed(|e|
-            e
-                .title("Live Moogan Reaction")
-                .attachment("moogan_live_reaction.png")
-        ).attachment(AttachmentType::Bytes { data: Cow::from(bytes.as_ref()), filename: "moogan_live_reaction.png".to_string() })).await?;
-        return Ok(());
+            ctx.send(|m| m.embed(|e|
+                e
+                    .title("Live Moogan Reaction")
+                    .attachment("moogan_live_reaction.png")
+            ).attachment(AttachmentType::Bytes { data: Cow::from(bytes.as_ref()), filename: "moogan_live_reaction.png".to_string() })).await?;
+            return Ok(());
+        }
     }
 
     let config_json = fs::read_to_string("config.json").await?;
