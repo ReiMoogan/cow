@@ -157,7 +157,7 @@ async fn send_bot_message(ctx: &Context, message: &Message, config: &Cowboard) -
     }
 }
 
-async fn update_bot_message(ctx: &Context, message: &Message, post_message: &mut Message, config: &mut Cowboard) {
+async fn update_bot_message(ctx: &Context, message: &Message, post_message: &mut Message, config: &Cowboard) {
     match count_reactions(ctx, message, config).await {
         Ok(reacts) => {
             let link = message.link_ensured(&ctx.http).await;

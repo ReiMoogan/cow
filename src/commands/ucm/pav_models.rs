@@ -287,7 +287,11 @@ impl YablokoffTime {
     #[inline(always)]
     pub fn dinner_start() -> NaiveTime { NaiveTime::from_hms_opt(15, 0, 0).unwrap() }
     #[inline(always)]
-    pub fn dinner_end() -> NaiveTime { NaiveTime::from_hms_opt(0, 0, 0).unwrap() }
+    pub fn dinner_end() -> NaiveTime { NaiveTime::from_hms_opt(21, 0, 0).unwrap() }
+    #[inline(always)]
+    pub fn late_night_start() -> NaiveTime { NaiveTime::from_hms_opt(21, 0, 0).unwrap() }
+    #[inline(always)]
+    pub fn late_night_end() -> NaiveTime { NaiveTime::from_hms_opt(0, 0, 0).unwrap() }
 
     #[allow(dead_code)]
     pub fn is_dinner(day_of_week: &Day) -> bool {
