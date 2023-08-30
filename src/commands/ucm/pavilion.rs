@@ -3,7 +3,6 @@ use crate::{CowContext, Error};
 use crate::commands::ucm::pav_models::*;
 use tracing::error;
 use std::error;
-use chrono::Datelike;
 use serenity::builder::CreateEmbed;
 use serenity::client::Context;
 use serenity::model::application::component::ButtonStyle;
@@ -188,10 +187,6 @@ pub async fn pavilion(
 
         m.embed(|e| {
             e.title(&title);
-            // TODO remove code after then lol
-            if date.month() < 8 || (date.month() == 8 && date.day() < 30){
-                e.description("Note: Yablokoff menu data is showing, although it's supposed to be closed until August 30th. IDK why, but thanks UCM.");
-            }
 
             if menus.is_empty() {
                 e.field("No menu data!!", "Could not find the given group, please check your query.", false);
@@ -308,7 +303,8 @@ async fn print_pavilion_times(ctx: CowContext<'_>) -> Result<(), Error> {
             PavilionTime::breakfast_weekend_start().format("%l:%M %p"), PavilionTime::breakfast_end().format("%l:%M %p"),
             PavilionTime::lunch_start().format("%l:%M %p"), PavilionTime::lunch_end().format("%l:%M %p"),
             PavilionTime::dinner_start().format("%l:%M %p"), PavilionTime::dinner_end().format("%l:%M %p")), false)
-        .field("Yablokoff on Weekdays", format!("Dinner: {} - {}\nLate Night: {} - {}",
+        .field("Yablokoff on Weekdays", format!("Lunch: {} - {}\nDinner: {} - {}\nLate Night: {} - {}",
+            YablokoffTime::lunch_start().format("%l:%M %p"), YablokoffTime::lunch_end().format("%l:%M %p"),
             YablokoffTime::dinner_start().format("%l:%M %p"), YablokoffTime::dinner_end().format("%l:%M %p"),
             YablokoffTime::late_night_start().format("%l:%M %p"), YablokoffTime::late_night_end().format("%l:%M %p")), false)
         .field("Lantern Cafe", "Weekdays: 8:00 AM - 7:00 PM\nSaturday: 9:00 AM - 3:00 PM", false)

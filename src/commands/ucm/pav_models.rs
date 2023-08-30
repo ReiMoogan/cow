@@ -285,9 +285,13 @@ pub struct YablokoffTime;
 
 impl YablokoffTime {
     #[inline(always)]
+    pub fn lunch_start() -> NaiveTime { NaiveTime::from_hms_opt(10, 30, 0).unwrap() }
+    #[inline(always)]
+    pub fn lunch_end() -> NaiveTime { NaiveTime::from_hms_opt(14, 0, 0).unwrap() }
+    #[inline(always)]
     pub fn dinner_start() -> NaiveTime { NaiveTime::from_hms_opt(15, 0, 0).unwrap() }
     #[inline(always)]
-    pub fn dinner_end() -> NaiveTime { NaiveTime::from_hms_opt(21, 0, 0).unwrap() }
+    pub fn dinner_end() -> NaiveTime { NaiveTime::from_hms_opt(20, 0, 0).unwrap() }
     #[inline(always)]
     pub fn late_night_start() -> NaiveTime { NaiveTime::from_hms_opt(21, 0, 0).unwrap() }
     #[inline(always)]
