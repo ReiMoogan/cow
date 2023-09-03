@@ -106,7 +106,7 @@ pub async fn pavilion(
     #[description = "\"hours\" for hours, day of the week, and/or \"breakfast\"/\"lunch\"/\"dinner\""] #[rest] options: Option<String>)
 -> Result<(), Error> {
     let date = chrono::offset::Local::now();
-    let (mut day, mut meal) = PavilionTime::next_meal(&date);
+    let (mut day, mut meal) = next_meal(&date);
 
     // Basically a string builder for custom meals.
     let mut custom_meal = String::new();

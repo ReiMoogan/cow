@@ -1,9 +1,10 @@
 use serde::Deserialize;
 use std::convert::{TryFrom, From};
 use std::fmt::{Display, Formatter};
+use std::ops::Sub;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
-use chrono::{Datelike, DateTime, Local, NaiveTime, Weekday};
+use chrono::{Datelike, DateTime, Duration, Local, NaiveTime, Weekday};
 
 #[derive(FromPrimitive)]
 pub enum Day {
@@ -261,23 +262,6 @@ impl PavilionTime {
     pub fn dinner_start() -> NaiveTime { NaiveTime::from_hms_opt(16, 0, 0).unwrap() }
     #[inline(always)]
     pub fn dinner_end() -> NaiveTime { NaiveTime::from_hms_opt(21, 0, 0).unwrap() }
-
-
-    pub fn next_meal(datetime: &DateTime<Local>) -> (Day, Meal) {
-        let day = Day::from(datetime.weekday());
-        let time = datetime.time();
-
-        if time < PavilionTime::breakfast_end() {
-            return (day, Meal::Breakfast);
-        } else if time < PavilionTime::lunch_end() {
-            return (day, Meal::Lunch);
-        } else if time < PavilionTime::dinner_end() {
-            return (day, Meal::Dinner);
-        }
-
-        // Give them the breakfast from the day after.
-        (Day::from(datetime.weekday().succ()), Meal::Breakfast)
-    }
 }
 
 // Yablokoff Wallace Dining Center Times (also hard-coded)
@@ -302,4 +286,23 @@ impl YablokoffTime {
         // Ensure it's not a weekend, since it's closed then.
         !(matches!(day_of_week, Day::Saturday) || matches!(day_of_week, Day::Sunday))
     }
+}
+
+pub fn next_meal(datetime: &DateTime<Local>) -> (Day, Meal) {
+    let day = Day::from(datetime.weekday());
+    let time = datetime.time();
+
+    if time < PavilionTime::breakfast_end() {
+        return (day, Meal::Breakfast);
+    } else if time < PavilionTime::lunch_end() {
+        return (day, Meal::Lunch);
+    // Midnight is 0, so we subtract 1 microsecond to get the last second of the day because needless precision.
+    } else if
+            (YablokoffTime::is_dinner(&day) && time < YablokoffTime::late_night_end().sub(Duration::microseconds(1))) ||
+            (!YablokoffTime::is_dinner(&day) && time < PavilionTime::dinner_end()) {
+        return (day, Meal::Dinner);
+    }
+
+    // Give them the breakfast from the day after.
+    (Day::from(datetime.weekday().succ()), Meal::Breakfast)
 }
