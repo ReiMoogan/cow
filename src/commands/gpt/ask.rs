@@ -1,22 +1,31 @@
 use tokio::fs;
-use crate::{CowContext, db, cowdb, Database, Error, models::config::Config};
-use chatgpt::client::ChatGPT;
-use chatgpt::converse::Conversation;
-use tracing::error;
+use crate::{CowContext, db, cowdb, Database, Error};
 use rand::Rng;
-use serenity::utils::MessageBuilder;
+use tracing::error;
+use crate::commands::gpt::openai::create_chat_completion;
+use crate::commands::gpt::openai_models::{ChatCompletionRequest, ChatCompletionMessage};
 
 const CONVERSATION_PATH: &str = "gpt";
 
-fn new_conversation(client: ChatGPT, ctx: CowContext<'_>) -> Conversation {
+fn new_conversation(ctx: CowContext<'_>) -> ChatCompletionRequest {
+    let mut request = ChatCompletionRequest {
+        model: "gpt-3.5-turbo".to_string(),
+        messages: vec![]
+    };
+
     let today = chrono::Local::now().format("%Y-%m-%d").to_string();
     let mut rng = rand::thread_rng();
     let ip_first: i32 = rng.gen_range(0..=255);
     let ip_second: i32 = rng.gen_range(0..=255);
     let username = &ctx.author().name;
-    client.new_conversation_directed(
-        format!("You are MooganGPT, a large language model trained by OpenAI. Answer as concisely as possible. The user you are talking to has an IP address of 169.236.{ip_first}.{ip_second}, and lives at 308 Negra Arroyo Lane, Albuquerque, NM 87105. Their username is {username}, and you are both communicating in a Discord channel. Knowledge cutoff: 2021-09 Current date: {today}")
-    )
+
+    request.messages.push(ChatCompletionMessage {
+        role: "system".to_string(),
+        content: format!("You are MooganGPT, a large language model trained by OpenAI. Answer as concisely as possible. The user you are talking to has an IP address of 169.236.{ip_first}.{ip_second}, and lives at 308 Negra Arroyo Lane, Albuquerque, NM 87105. Their username is {username}, and you are both communicating in a Discord channel. Knowledge cutoff: 2021-09 Current date: {today}"),
+        name: None
+    });
+
+    request
 }
 
 #[poise::command(
@@ -41,17 +50,18 @@ pub async fn ask(ctx: CowContext<'_>, #[rest] question: Option<String>) -> Resul
     ctx.defer().await?;
 
     let question = question.unwrap();
-    let config_json = fs::read_to_string("config.json").await?;
-    let config : Config = serde_json::from_str(&config_json).expect("config.json is malformed");
-    let client = ChatGPT::new(config.openai_api_key)?;
 
-    let mut conversation = new_conversation(client, ctx);
+    let mut conversation = new_conversation(ctx);
+    conversation.messages.push(ChatCompletionMessage {
+        role: "user".to_string(),
+        content: question,
+        name: Some(ctx.author().id.to_string())
+    });
 
-    let response = conversation
-        .send_message(question)
-        .await?;
+    let response = create_chat_completion(&conversation).await?;
+    let text = response.choices.last().map(|o| o.message.content.clone()).unwrap_or_else(|| "Couldn't generate a response...".to_string());
 
-    ctx.say(MessageBuilder::new().push_safe(&response.message().content).build()).await?;
+    ctx.send(|m| m.content(text).allowed_mentions(|o| o.empty_users().empty_parse().empty_roles())).await?;
 
     Ok(())
 }
@@ -78,31 +88,55 @@ pub async fn chat(ctx: CowContext<'_>, #[rest] question: Option<String>) -> Resu
     ctx.defer().await?;
 
     let question = question.unwrap();
-    let config_json = fs::read_to_string("config.json").await?;
-    let config : Config = serde_json::from_str(&config_json).expect("config.json is malformed");
-    let client = ChatGPT::new(config.openai_api_key)?;
 
     fs::create_dir_all(CONVERSATION_PATH).await?;
     let path = format!("{}/{}.json", CONVERSATION_PATH, id);
     let mut conversation = if fs::try_exists(&path).await? {
-        match client.restore_conversation_json(&path).await {
-            Ok(c) => c,
+        match fs::read_to_string(&path).await {
+            Ok(data) => {
+                match serde_json::from_str::<Vec<ChatCompletionMessage>>(&data) {
+                    Ok(mut messages) => {
+                        let mut temp_conversation = new_conversation(ctx);
+                        temp_conversation.messages.clear();
+                        temp_conversation.messages.append(&mut messages);
+                        temp_conversation
+                    }
+                    Err(ex) => {
+                        error!("Failed to deserialize conversation: {}", ex);
+                        new_conversation(ctx)
+                    }
+                }
+            }
             Err(ex) => {
-                error!("Failed to restore conversation: {}", ex);
-                new_conversation(client, ctx)
+                error!("Failed to read conversation: {}", ex);
+                new_conversation(ctx)
             }
         }
     } else {
-        new_conversation(client, ctx)
+        new_conversation(ctx)
     };
 
-    let response = conversation
-        .send_message(question)
-        .await?;
+    conversation.messages.push(ChatCompletionMessage {
+        role: "user".to_string(),
+        content: question,
+        name: Some(ctx.author().id.to_string())
+    });
 
-    ctx.say(MessageBuilder::new().push_safe(&response.message().content).build()).await?;
+    let response = create_chat_completion(&conversation).await?;
+    let text = response.choices.last().map(|o| o.message.content.clone()).unwrap_or_else(|| "Couldn't generate a response...".to_string());
 
-    conversation.save_history_json(&path).await?;
+    ctx.send(|m| m.content(text).allowed_mentions(|o| o.empty_users().empty_parse().empty_roles())).await?;
+
+    if let Some(message) = response.choices.last() {
+        conversation.messages.push(ChatCompletionMessage {
+            role: message.message.role.clone(),
+            content: message.message.content.clone(),
+            name: message.message.name.clone()
+        });
+
+        let output_json = serde_json::to_string(&conversation.messages)?;
+        fs::write(&path, output_json).await?;
+    }
 
     Ok(())
 }

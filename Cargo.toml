@@ -1,7 +1,7 @@
 [package]
 name = "cow"
 description = "moo"
-version = "0.2.43"
+version = "0.2.44"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -48,8 +48,6 @@ poise = { git = "https://github.com/DoggySazHi/poise-moogan", branch = "develop"
 sysinfo = "0.29.8"
 # Minecraft protocols
 proto-mc = { git = "https://github.com/DoggySazHi/proto-mc" }
-# ChatGPT / OpenAI
-chatgpt_rs = "1.1.3"
 # RNG
 rand = "0.8.5"
 
