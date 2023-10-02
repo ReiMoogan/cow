@@ -35,12 +35,12 @@ fn new_conversation(ctx: CowContext<'_>) -> ChatCompletionRequest {
     discard_spare_arguments
 )]
 pub async fn ask(ctx: CowContext<'_>, #[rest] question: Option<String>) -> Result<(), Error> {
-    let db = cowdb!(ctx);
-
-    if !db.has_gpt_enabled(ctx.author().id).await? {
-        ctx.send(|m| m.content("You are not allowed to use this command.").ephemeral(true)).await?;
-        return Ok(());
-    }
+    // let db = cowdb!(ctx);
+    //
+    // if !db.has_gpt_enabled(ctx.author().id).await? {
+    //     ctx.send(|m| m.content("You are not allowed to use this command.").ephemeral(true)).await?;
+    //     return Ok(());
+    // }
 
     if question.is_none() {
         ctx.send(|m| m.content("You need to provide a question.").ephemeral(true)).await?;
@@ -73,12 +73,12 @@ pub async fn ask(ctx: CowContext<'_>, #[rest] question: Option<String>) -> Resul
     discard_spare_arguments
 )]
 pub async fn chat(ctx: CowContext<'_>, #[rest] question: Option<String>) -> Result<(), Error> {
-    let db = cowdb!(ctx);
+    // let db = cowdb!(ctx);
     let id = ctx.author().id;
-    if !db.has_gpt_enabled(id).await? {
-        ctx.send(|m| m.content("You are not allowed to use this command.").ephemeral(true)).await?;
-        return Ok(());
-    }
+    // if !db.has_gpt_enabled(id).await? {
+    //     ctx.send(|m| m.content("You are not allowed to use this command.").ephemeral(true)).await?;
+    //     return Ok(());
+    // }
 
     if question.is_none() {
         ctx.send(|m| m.content("You need to provide a question.").ephemeral(true)).await?;
@@ -148,12 +148,12 @@ pub async fn chat(ctx: CowContext<'_>, #[rest] question: Option<String>) -> Resu
     discard_spare_arguments
 )]
 pub async fn resetchat(ctx: CowContext<'_>) -> Result<(), Error> {
-    let db = cowdb!(ctx);
+    // let db = cowdb!(ctx);
     let id = ctx.author().id;
-    if !db.has_gpt_enabled(id).await? {
-        ctx.send(|m| m.content("You are not allowed to use this command.").ephemeral(true)).await?;
-        return Ok(());
-    }
+    // if !db.has_gpt_enabled(id).await? {
+    //     ctx.send(|m| m.content("You are not allowed to use this command.").ephemeral(true)).await?;
+    //     return Ok(());
+    // }
 
     ctx.defer().await?;
     fs::remove_file(format!("{}/{}.json", CONVERSATION_PATH, id)).await?;

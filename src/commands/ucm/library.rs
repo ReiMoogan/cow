@@ -7,6 +7,7 @@ use crate::commands::ucm::libcal_models::Calendar;
     prefix_command,
     slash_command,
     description_localized("en-US", "Get the hours for the Kolligian Library."),
+    aliases("lib"),
     discard_spare_arguments
 )]
 pub async fn library(ctx: CowContext<'_>) -> Result<(), Error> {
