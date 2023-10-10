@@ -53,7 +53,7 @@ pub async fn moogan(ctx: CowContext<'_>) -> Result<(), Error> {
     let config_json = fs::read_to_string("config.json").await?;
     let config : Config = serde_json::from_str(&config_json).expect("config.json is malformed");
 
-    const MOOGAN_PROMPT: &str = "a photo of Reimu Hakurei from Touhou Project in a cow onesie looking at the viewer, anime, cartoon, no human characteristics, high quality";
+    const MOOGAN_PROMPT: &str = "a photo of Reimu Hakurei from Touhou Project in a cow onesie looking at the viewer, anime, cartoon, no human characteristics, high quality, adult";
 
     let body = DallERequest {
         prompt: MOOGAN_PROMPT.to_string(),
