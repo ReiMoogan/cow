@@ -1,6 +1,7 @@
 mod ask;
 mod openai;
 mod openai_models;
+mod dictionary;
 
 use crate::{CowContext, Error};
 use ask::*;

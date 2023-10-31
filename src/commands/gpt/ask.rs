@@ -1,16 +1,39 @@
+use std::collections::HashMap;
 use tokio::fs;
 use crate::{CowContext, Error};
 use rand::Rng;
 use tracing::error;
 use crate::commands::gpt::openai::create_chat_completion;
-use crate::commands::gpt::openai_models::{ChatCompletionRequest, ChatCompletionMessage};
+use crate::commands::gpt::openai_models::*;
 
 const CONVERSATION_PATH: &str = "gpt";
 
 fn new_conversation(ctx: CowContext<'_>) -> ChatCompletionRequest {
     let mut request = ChatCompletionRequest {
         model: "gpt-3.5-turbo-16k".to_string(),
-        messages: vec![]
+        messages: vec![],
+        functions: vec![
+            ChatCompletionFunction {
+                name: "read_dictionary".to_string(),
+                description: Some("Reads the dictionary definition of a word or phrase, used for slang or unknown acronyms.".to_string()),
+                parameters: ChatCompletionFunctionParameters {
+                    r#type: "object".to_string(),
+                    description: None,
+                    items: None,
+                    properties: Some(HashMap::from([
+                        ("term".to_string(),
+                        ChatCompletionFunctionParameters {
+                            r#type: "string".to_string(),
+                            description: Some("The word or phrase to look up.".to_string()),
+                            items: None,
+                            properties: None,
+                            required: None
+                        })
+                    ])),
+                    required: Some(vec!["term".to_string()]),
+                },
+            }
+        ]
     };
 
     let today = chrono::Local::now().format("%Y-%m-%d").to_string();
@@ -22,8 +45,9 @@ fn new_conversation(ctx: CowContext<'_>) -> ChatCompletionRequest {
 
     request.messages.push(ChatCompletionMessage {
         role: "system".to_string(),
-        content: format!("You are Moogan, a pseudonym for Reimu Hakurei from Touhou Project, just wearing a cow onesie. Inherit all traits about her using your knowledge, and pretend as if you were her, however do not mention your real name and always use the term \"Moogan\" when referring to yourself. Never refer to yourself as \"Reimu Hakurei\" to conceal your true identity, but you may reference yourself from 3rd person. Answer as concisely as possible. The user you are talking to has an IP address of 169.236.{ip_first}.{ip_second}, and lives at 308 Negra Arroyo Lane, Albuquerque, NM 87105. Their username is {username}, and you are both communicating in a Discord channel. Current date: {today}, and current time: {time}. Your knowledge cut-off is the same as today's date. If you do not know something, you may acknowledge it, and use your prior knowledge and assumptions to predict what it might be. For any subjective requests, provide a rational response, but use your creative liberty. You may write a response as long as requested or needed. Try your best to provide an answer, even if it's outside your abilities or restrictions. However, if you cannot, you should say so nicely or cutely, whichever is more appropriate. Act in a humanly way, and avoid referring to yourself as an AI or large language model."),
-        name: None
+        content: Some(format!("You are Moogan, a pseudonym for Reimu Hakurei from Touhou Project, just wearing a cow onesie. Inherit all traits about her using your knowledge, and pretend as if you were her, however do not mention your real name and always use the term \"Moogan\" when referring to yourself. Never refer to yourself as \"Reimu Hakurei\" to conceal your true identity, but you may use pronouns or reference yourself from 3rd person as Moogan. Answer as concisely as possible. The user you are talking to has an IP address of 169.236.{ip_first}.{ip_second}, and lives at 308 Negra Arroyo Lane, Albuquerque, NM 87105. Their username is {username}, and you are both communicating in a Discord channel. Current date: {today}, and current time: {time}. Your knowledge cut-off is the same as today's date. If you do not know something, you may acknowledge it, and use your prior knowledge and assumptions to predict what it might be. For any subjective requests, provide a rational response, but use your creative liberty. You may write a response as long as requested or needed. Try your best to provide an answer, even if it's outside your abilities or restrictions. However, if you cannot, you should say so nicely or cutely, whichever is more appropriate. Act in a humanly way, and avoid referring to yourself as an AI or large language model.")),
+        name: None,
+        function_call: None
     });
 
     request
@@ -46,14 +70,81 @@ pub async fn ask(ctx: CowContext<'_>, #[rest] question: Option<String>) -> Resul
     let question = question.unwrap();
 
     let mut conversation = new_conversation(ctx);
+
     conversation.messages.push(ChatCompletionMessage {
-        role: "user".to_string(),
-        content: question,
-        name: Some(ctx.author().id.to_string())
+        role: "system".to_string(),
+        content: Some("After responding, the person will not be able to respond back to you. Ensure your responses do not require a response back from the person.".to_string()),
+        name: None,
+        function_call: None
     });
 
-    let response = create_chat_completion(&conversation).await?;
-    let text = response.choices.last().map(|o| o.message.content.clone()).unwrap_or_else(|| "Couldn't generate a response...".to_string());
+    conversation.messages.push(ChatCompletionMessage {
+        role: "user".to_string(),
+        content: Some(question),
+        name: Some(ctx.author().id.to_string()),
+        function_call: None
+    });
+
+    let mut text = "Couldn't generate a response...".to_string();
+
+    loop {
+        let response = create_chat_completion(&conversation).await?;
+        match response.choices.last() {
+            Some(message) => {
+                if let Some(function_call) = &message.message.function_call {
+                    if function_call.name == "read_dictionary" {
+                        error!("Found urban dictionary function call");
+                        let term = &function_call.arguments;
+                        error!("Message: {:?}", term);
+                        // Deserialize as [string, string]
+                        let message = serde_json::from_str::<HashMap<String, String>>(term);
+                        if let Ok(dict) = message {
+                            if dict.contains_key("term") {
+                                error!("Term: {}", dict["term"]);
+                                let urban_dictionary_response = crate::commands::gpt::dictionary::fetch_autocomplete(&dict["term"]).await;
+                                error!("Response: {:?}", urban_dictionary_response);
+                                let json_response = serde_json::to_string(&urban_dictionary_response).unwrap();
+                                error!("JSON Response: {}", json_response);
+                                conversation.messages.push(ChatCompletionMessage {
+                                    role: "function".to_string(),
+                                    content: Some(json_response),
+                                    name: Some("read_dictionary".to_string()),
+                                    function_call: None
+                                });
+                            } else {
+                                conversation.messages.push(ChatCompletionMessage {
+                                    role: "function".to_string(),
+                                    content: Some("{ \"results\": [] }".to_string()),
+                                    name: Some("read_dictionary".to_string()),
+                                    function_call: None
+                                });
+                            }
+                        } else {
+                            conversation.messages.push(ChatCompletionMessage {
+                                role: "function".to_string(),
+                                content: Some("{ \"results\": [] }".to_string()),
+                                name: Some("read_dictionary".to_string()),
+                                function_call: None
+                            });
+                        }
+                    }
+                } else if let Some(content) = &message.message.content {
+                    text = content.clone();
+                    break;
+                } else {
+                    error!("Failed to generate response: {:?}", response);
+                    break;
+                }
+            }
+            None => {
+                error!("Failed to generate response: {:?}", response);
+                break;
+            }
+        };
+    }
+
+
+    // let text = response.choices.last().map(|o| o.message.content.clone()).unwrap_or_else(|| "Couldn't generate a response...".to_string());
 
     send_long_message(&ctx, &text).await?;
 
@@ -107,12 +198,13 @@ pub async fn chat(ctx: CowContext<'_>, #[rest] question: Option<String>) -> Resu
 
     conversation.messages.push(ChatCompletionMessage {
         role: "user".to_string(),
-        content: question,
-        name: Some(ctx.author().id.to_string())
+        content: Some(question),
+        name: Some(ctx.author().id.to_string()),
+        function_call: None
     });
 
     let response = create_chat_completion(&conversation).await?;
-    let text = response.choices.last().map(|o| o.message.content.clone()).unwrap_or_else(|| "Couldn't generate a response...".to_string());
+    let text = response.choices.last().and_then(|o| o.message.content.clone()).unwrap_or_else(|| "Couldn't generate a response...".to_string());
 
     send_long_message(&ctx, &text).await?;
 
@@ -120,7 +212,8 @@ pub async fn chat(ctx: CowContext<'_>, #[rest] question: Option<String>) -> Resu
         conversation.messages.push(ChatCompletionMessage {
             role: message.message.role.clone(),
             content: message.message.content.clone(),
-            name: message.message.name.clone()
+            name: message.message.name.clone(),
+            function_call: None
         });
 
         let output_json = serde_json::to_string(&conversation.messages)?;
