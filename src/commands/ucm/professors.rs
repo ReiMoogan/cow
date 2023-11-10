@@ -92,7 +92,7 @@ async fn print_matches(ctx: &CowContext<'_>, professors: &[Professor]) -> Result
     if professors.is_empty() {
         ctx.say("No matches were found. Check your query for typos or generalize it. Or, we may not have the person logged.").await?;
     } else if professors.len() == 1 {
-        professor_embed(ctx, professors.get(0).unwrap()).await?;
+        professor_embed(ctx, professors.first().unwrap()).await?;
     } else {
         ctx.send(|m| m.embed(|e| {
             e.title("Professor Search").description("Multiple results were found for your query. Try refining your input.");

@@ -229,9 +229,9 @@ impl Database {
             .into_results()
             .await?;
 
-        let count: i32 = res.get(1).unwrap().get(0).unwrap().get(0).unwrap();
+        let count: i32 = res.get(1).unwrap().first().unwrap().get(0).unwrap();
 
-        let members = res.get(0).unwrap().iter()
+        let members = res.first().unwrap().iter()
             .map(|row| {
                 let id: rust_decimal::Decimal = row.get(0).unwrap();
                 Member {

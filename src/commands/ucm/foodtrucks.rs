@@ -52,7 +52,7 @@ fn process_schedules(data: &str) -> Option<String> {
     });
 
     if day.is_some() {
-        return day.map(|o| o.to_string());
+        day.map(|o| o.to_string())
     } else {
         None
     }

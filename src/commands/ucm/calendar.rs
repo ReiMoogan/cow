@@ -52,7 +52,7 @@ fn process_calendar(data: &str) -> Option<AcademicCalendar> {
                     .map(|col| col.text().next().map(|o| o.to_string()).unwrap_or_else(|| "<unknown>".to_string()))
                     .collect::<Vec<_>>();
 
-                (items.get(0).map(|o| o.to_string()).unwrap_or_else(|| "<unknown>".to_string()),
+                (items.first().map(|o| o.to_string()).unwrap_or_else(|| "<unknown>".to_string()),
                  items.get(1).map(|o| o.to_string()).unwrap_or_else(|| "<unknown>".to_string()))
             })
             .collect::<Vec<_>>()
