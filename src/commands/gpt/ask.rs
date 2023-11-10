@@ -233,7 +233,8 @@ pub async fn resetchat(ctx: CowContext<'_>) -> Result<(), Error> {
     let id = ctx.author().id;
 
     ctx.defer().await?;
-    fs::remove_file(format!("{}/{}.json", CONVERSATION_PATH, id)).await?;
+    // Ignore if the file exists or not. Don't err if it doesn't exist.
+    _ = fs::remove_file(format!("{}/{}.json", CONVERSATION_PATH, id)).await;
     ctx.send(|m| m.content("Successfully reset conversation.").ephemeral(true)).await?;
 
     Ok(())
