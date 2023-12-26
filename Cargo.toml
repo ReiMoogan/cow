@@ -50,6 +50,8 @@ sysinfo = "0.29.8"
 proto-mc = { git = "https://github.com/DoggySazHi/proto-mc" }
 # RNG
 rand = "0.8.5"
+pdfium-render = "0.8.16"
+image = "0.24.7"
 
 # Discord API
 [dependencies.serenity]

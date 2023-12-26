@@ -206,6 +206,9 @@ async fn main() -> Result<(), Box<dyn error::Error>>  {
         }
     }
 
+    // download ucm maps and save them in this directory
+    let _ = tokio::task::spawn(services::map_download::dl_and_convert_all_maps());
+
     if let Err(ex) = poise.start().await {
         error!("Discord bot client error: {:?}", ex);
     }
