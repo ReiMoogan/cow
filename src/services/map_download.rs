@@ -25,7 +25,7 @@ fn export_pdf_to_jpegs(path: &impl AsRef<Path>, out_path: &str, password: Option
             .as_rgba8() // ... then converts it to an image::Image...
             .ok_or(PdfiumError::ImageError)?
             .save_with_format(
-                format!("{}/floor_{}.png", out_path, index),
+                format!("{}/floor_{}.jpg", out_path, index),
                 image::ImageFormat::Jpeg
             ) // ... and saves it to a file.
             .map_err(|_| PdfiumError::ImageError)?;
