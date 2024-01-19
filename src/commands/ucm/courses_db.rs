@@ -18,7 +18,7 @@ use crate::commands::ucm::courses::{to_term, to_crn};
 impl Database {
     pub async fn get_user_reminders(&self, user_id: UserId) -> Result<Vec<Reminder>, Box<dyn std::error::Error + Send + Sync>> {
         let mut conn = self.pool.get().await?;
-        let user_decimal = Decimal::from_u64(user_id.0).unwrap();
+        let user_decimal = Decimal::from_u64(user_id.get()).unwrap();
         let res = conn.query(
             "SELECT class_id, min_trigger, for_waitlist, triggered FROM [UniScraper].[UCM].[reminder] WHERE user_id = @P1",
             &[&user_decimal])
@@ -30,7 +30,7 @@ impl Database {
 
         for reminder in res {
             out.push(Reminder {
-                user_id: user_id.0,
+                user_id: user_id.get(),
                 class_id: reminder.get(0).unwrap(),
                 min_trigger: reminder.get(1).unwrap(),
                 for_waitlist: reminder.get(2).unwrap(),
@@ -56,7 +56,7 @@ impl Database {
 
     pub async fn remove_reminder(&self, user_id: UserId, class_id: i32) -> Result<bool, Box<dyn std::error::Error + Send + Sync>> {
         let mut conn = self.pool.get().await?;
-        let user_decimal = Decimal::from_u64(user_id.0).unwrap();
+        let user_decimal = Decimal::from_u64(user_id.get()).unwrap();
 
         let total = conn.execute(
             "DELETE FROM [UniScraper].[UCM].[reminder] WHERE user_id = @P1 AND class_id = @P2",

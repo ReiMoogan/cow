@@ -11,16 +11,12 @@ use std::fs;
 use std::sync::Arc;
 use std::env;
 use std::error;
-use lavalink_rs::{LavalinkClient, gateway::LavalinkEventHandler};
-use serenity::{
-    async_trait,
-    client::{Context, EventHandler},
-    model::{channel::{Reaction}, gateway::{Ready, GatewayIntents}, id::{UserId, ChannelId, MessageId}, guild::Member},
-    http::Http,
-    prelude::TypeMapKey
-};
-use serenity::model::application::command::Command;
-use serenity::model::application::interaction::Interaction;
+use lavalink_rs::client::LavalinkClient;
+use lavalink_rs::model::events;
+use lavalink_rs::model::events::Events;
+use lavalink_rs::node::NodeBuilder;
+use serenity::{async_trait, client::{Context, EventHandler}, model::{channel::{Reaction}, gateway::{Ready, GatewayIntents}, id::{UserId, ChannelId, MessageId}, guild::Member}, http::Http, prelude::TypeMapKey, Client};
+use serenity::all::{ApplicationId, Command, Interaction};
 use songbird::SerenityInit;
 use tracing::{error, info};
 use tracing_subscriber::fmt;
@@ -38,9 +34,6 @@ impl TypeMapKey for Lavalink {
 }
 
 struct LavalinkHandler;
-
-#[async_trait]
-impl LavalinkEventHandler for LavalinkHandler { }
 
 #[async_trait]
 impl EventHandler for Handler {
@@ -113,7 +106,7 @@ async fn fetch_bot_info(token: &str) -> (UserId, HashSet<UserId>) {
             if let Some(team) = info.team {
                 owners.insert(team.owner_user_id);
             } else {
-                owners.insert(info.owner.id);
+                owners.insert(info.owner.expect("Who built me?").id);
             }
 
             match http.get_current_user().await {
@@ -144,69 +137,59 @@ async fn main() -> Result<(), Box<dyn error::Error>>  {
     let event_handler = Handler;
 
     let poise = poise::Framework::builder()
-        .token(&token)
-        .intents(GatewayIntents::all())
         .options(framework)
-        .client_settings(move |settings| {
-            settings
-                .register_songbird()
-                .event_handler(event_handler)
-                .application_id(app_id.0)
-        })
         .setup(move |_ctx, _ready, _framework| {
             Box::pin(async move {
                 Ok(())
             })
         })
-        .build()
+        .build();
+
+    let mut serenity = Client::builder(&token, GatewayIntents::all())
+        .framework(poise)
+        .register_songbird()
+        .event_handler(event_handler)
+        .application_id(ApplicationId::from(app_id.get()))
         .await
-        .expect("Failed to create client");
+        .expect("Moogan could not be initialized...");
 
-    {
-        let serenity = poise.client();
+    let lavalink_enabled = !config.lavalink_ip.is_empty() && !config.lavalink_password.is_empty();
 
-        let lavalink_enabled = !config.lavalink_ip.is_empty() && !config.lavalink_password.is_empty();
+    if lavalink_enabled {
+        let events = Events {
+            ..Default::default()
+        };
 
-        if lavalink_enabled {
-            match LavalinkClient::builder(*app_id.as_u64())
-                .set_host(config.lavalink_ip)
-                .set_password(
-                    config.lavalink_password,
-                )
-                .build(LavalinkHandler)
-                .await {
-                Ok(lava_client) => {
-                    let mut data = serenity.data.write().await;
-                    data.insert::<Lavalink>(lava_client);
-                }
-                Err(ex) => {
-                    error!("Failed to initialize LavaLink. {}", ex);
-                }
-            }
-        }
+        let node_local = NodeBuilder {
+            hostname: config.lavalink_ip.to_string(),
+            is_ssl: false,
+            events: Events::default(),
+            password: config.lavalink_password.clone(),
+            user_id: app_id.get().into(),
+            session_id: None,
+        };
+
+        let lava_client = LavalinkClient::new(events, vec![node_local]);
+        lava_client.start().await;
 
         {
             let mut data = serenity.data.write().await;
-            data.insert::<Database>(database.clone());
-        }
-
-        // Start our reminder task and forget about it. Tokio allows us to start without await.
-        #[allow(clippy::let_underscore_future)]
-        let _ = tokio::task::spawn(commands::ucm::reminders::check_reminders(serenity.data.clone(), serenity.cache_and_http.clone()));
-
-        let commands = &poise.options().commands;
-        let command_builders = poise::builtins::create_application_commands(commands);
-        let try_create_commands = Command::set_global_application_commands(&serenity.cache_and_http.http, |commands| {
-            *commands = command_builders;
-            commands
-        }).await;
-
-        if let Err(ex) = try_create_commands {
-            error!("Failed to create slash commands: {}", ex);
+            data.insert::<Lavalink>(lava_client);
         }
     }
 
-    if let Err(ex) = poise.start().await {
+    {
+        let mut data = serenity.data.write().await;
+        data.insert::<Database>(database.clone());
+    }
+
+    // Start our reminder task and forget about it. Tokio allows us to start without await.
+    #[allow(clippy::let_underscore_future)]
+    let _ = tokio::task::spawn(commands::ucm::reminders::check_reminders(serenity.data.clone(), serenity.http.clone()));
+
+    poise::builtins::register_globally(&serenity.http, &poise.options().commands).await?;
+
+    if let Err(ex) = serenity.start().await {
         error!("Discord bot client error: {:?}", ex);
     }
 

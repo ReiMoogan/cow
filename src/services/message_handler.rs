@@ -9,6 +9,7 @@ use crate::models::minecraft_db_models::*;
 use proto_mc::rcon::RCONClient;
 use crate::models::minecraft_db_models::Message as MCMessage;
 use regex::Regex;
+use serenity::all::{CreateEmbed, CreateMessage};
 
 pub async fn non_command(ctx: &Context, msg: &Message) -> Result<(), Error>{
     ranking_check(ctx, msg).await;
@@ -28,10 +29,15 @@ async fn minecraft_check(ctx: &Context, msg: &Message) {
 
     if let Ok(Some(feed)) = db.get_minecraft_channel(msg.channel_id).await {
         let mut client = RCONClient::<&String>::new(&feed.host, &feed.password);
-        if (client.connect().await).is_err() { return; }
-        if (client.login().await).is_err() { return; }
+        if client.connect().await.is_err() { return; }
+        if client.login().await.is_err() { return; }
 
-        let username = format!("{}#{:04}", msg.author.name, msg.author.discriminator);
+        let username = if let Some(discriminator) = msg.author.discriminator {
+            format!("{}#{:04}", msg.author.name, discriminator)
+        } else {
+            msg.author.name.clone()
+        };
+
         let nickname = msg.author_nick(&ctx.http).await;
         let display = if let Some(nick) = nickname {
             format!("{nick} ({username})")
@@ -98,7 +104,7 @@ async fn minecraft_check(ctx: &Context, msg: &Message) {
 
             let command = format!("tellraw @a {json}");
 
-            if (client.send(&command).await).is_err() { return; }
+            if client.send(&command).await.is_err() { return; }
         }
 
         for attachment in &msg.attachments {
@@ -141,10 +147,10 @@ async fn minecraft_check(ctx: &Context, msg: &Message) {
 
             let json = serde_json::to_string(&tellraw).unwrap();
             let command = format!("tellraw @a {json}");
-            if (client.send(&command).await).is_err() { return; }
+            if client.send(&command).await.is_err() { return; }
         }
 
-        if (client.disconnect().await).is_err() { }
+        if client.disconnect().await.is_err() { }
     }
 }
 
@@ -157,7 +163,7 @@ async fn ranking_check(ctx: &Context, msg: &Message) {
 
     let db = db!(ctx);
 
-    if let Some(guild) = msg.guild(ctx) {
+    if let Some(guild) = msg.guild(&ctx.cache) {
         match db.get_disablements(guild.id, msg.channel_id).await {
             Err(ex) => {
                 error!("Failed checking if the current channel or guild was disabled: {}", ex);
@@ -178,14 +184,14 @@ async fn ranking_check(ctx: &Context, msg: &Message) {
                     return;
                 }
 
-                let mut content = format!("<@{}> leveled up from {} to {}.", author.id.as_u64(), data.level - 1, data.level);
+                let mut content = format!("<@{}> leveled up from {} to {}.", author.id.get(), data.level - 1, data.level);
                 if let Some(new_rank_id) = data.new_rank {
                     content += &format!("\nYou are now a <@&{new_rank_id}>.");
 
                     let mut error = false;
 
                     match msg.member(&ctx.http).await {
-                        Ok(mut member) => {
+                        Ok(member) => {
                             if let Some(old_rank_id) = data.old_rank {
                                 let old_rank = RoleId::from(old_rank_id);
                                 if member.roles.contains(&old_rank) {
@@ -211,11 +217,9 @@ async fn ranking_check(ctx: &Context, msg: &Message) {
                     }
                 }
 
-                if let Err(ex2) =
-                    msg.channel_id.send_message(&ctx.http, |m| m.embed(|e| e
-                        .title("Level Up!")
-                        .description(content)
-                    )).await {
+                let new_message = CreateMessage::new().embed(CreateEmbed::new().title("Level Up!").description(content));
+
+                if let Err(ex2) = msg.channel_id.send_message(&ctx.http, new_message).await {
                     error!("Error sending level-up message: {}", ex2)
                 };
             }
@@ -229,7 +233,7 @@ pub async fn on_join(ctx: &Context, new_member: &Member) {
     }
 
     let db = db!(ctx);
-    let mut member = new_member.clone();
+    let member = new_member.clone();
     let guild_id = new_member.guild_id;
 
     let experience = db.get_xp(guild_id, member.user.id).await.unwrap();
@@ -237,8 +241,7 @@ pub async fn on_join(ctx: &Context, new_member: &Member) {
     if let Some(current_role_id) = current_role {
         if let Err(ex) = member.add_role(&ctx.http, current_role_id).await {
             error!("Failed to add role for server {}: {}", guild_id, ex);
-            if let Err(ex2) = member.user.direct_message(&ctx.http, |m|
-                m.content("I tried to re-add your roles, but the server didn't let me. Sorry~")).await {
+            if let Err(ex2) = member.user.direct_message(&ctx.http, CreateMessage::new().content("I tried to add your role, but the server didn't let me. Sorry~")).await {
                 error!("Failed to send error message to user {}: {}", member.user.id, ex2);
             }
         }

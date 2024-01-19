@@ -6,10 +6,11 @@ use crate::{CowContext, Error, models::config::Config};
 use tracing::error;
 
 use serde::{Serialize, Deserialize};
-use serenity::model::channel::AttachmentType;
+use serenity::all::CreateAttachment;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct DallERequest {
+    pub model: String,
     pub prompt: String,
     pub n: u8,
     pub size: String
@@ -45,7 +46,7 @@ pub async fn moogan(ctx: CowContext<'_>) -> Result<(), Error> {
                 e
                     .title("Live Moogan Reaction")
                     .attachment("moogan_live_reaction.png")
-            ).attachment(AttachmentType::Bytes { data: Cow::from(bytes.as_ref()), filename: "moogan_live_reaction.png".to_string() })).await?;
+            ).attachment(CreateAttachment::bytes(bytes.as_ref(), "moogan_live_reaction.png"))).await?;
             return Ok(());
         }
     }
@@ -53,9 +54,10 @@ pub async fn moogan(ctx: CowContext<'_>) -> Result<(), Error> {
     let config_json = fs::read_to_string("config.json").await?;
     let config : Config = serde_json::from_str(&config_json).expect("config.json is malformed");
 
-    const MOOGAN_PROMPT: &str = "a photo of Reimu Hakurei from Touhou Project in a cow onesie looking at the viewer, anime, cartoon, no human characteristics, high quality, adult";
+    const MOOGAN_PROMPT: &str = "a solo no-text photo of Reimu Hakurei from Touhou Project in a cow onesie looking at the viewer, anime, anime style, cartoon, brown hair, Hakurei Reimu cosplay, no human characteristics, high quality, high quality shading, soft coloring, adult";
 
     let body = DallERequest {
+        model: "dall-e-3".to_string(),
         prompt: MOOGAN_PROMPT.to_string(),
         n: 1,
         size: "1024x1024".to_string()
@@ -101,7 +103,7 @@ pub async fn moogan(ctx: CowContext<'_>) -> Result<(), Error> {
             e
                 .title("Live Moogan Reaction")
                 .attachment("moogan_live_reaction.png")
-        ).attachment(AttachmentType::Bytes { data: Cow::from(bytes.as_ref()), filename: "moogan_live_reaction.png".to_string() })).await?;
+        ).attachment(CreateAttachment::bytes(Cow::from(bytes.as_ref()), "moogan_live_reaction.png"))).await?;
     } else {
         error!("Failed to generate image, no URL returned");
         ctx.say("I couldn't generate an image...").await?;

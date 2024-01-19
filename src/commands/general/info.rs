@@ -1,4 +1,6 @@
-use sysinfo::{CpuExt, System, SystemExt};
+use sysinfo::{
+    System,
+};
 use crate::{CowContext, Error};
 
 #[poise::command(

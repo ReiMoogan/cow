@@ -1,6 +1,8 @@
 use tracing::error;
 use crate::{CowContext, Error};
 use scraper::{Html, Selector};
+use poise::CreateReply;
+use serenity::all::CreateEmbed;
 
 fn process_hours(data: &str) -> Vec<(String, String)> {
     let mut output: Vec<(String, String)> = Vec::new();
@@ -62,11 +64,11 @@ fn extractor(output: &mut Vec<(String, String)>, temporary_name: &Option<String>
 pub async fn gym(ctx: CowContext<'_>) -> Result<(), Error> {
     const TITLE: &str = "Recreation and Athletic Facility Hours";
 
-    let sent_msg = ctx.send(|m| m.embed(|e| {
-        e
+    let sent_msg = ctx.send(CreateReply::default().embed(
+        CreateEmbed::new()
             .title(TITLE)
             .description("Now loading, please wait warmly...")
-    })).await?;
+    )).await?;
 
     const URL: &str = "https://recreation.ucmerced.edu/Facility-Hours";
     const EMPTY: &str = "\u{200b}";
@@ -78,48 +80,28 @@ pub async fn gym(ctx: CowContext<'_>) -> Result<(), Error> {
                     let hours = process_hours(&data);
 
                     if !hours.is_empty() {
-                        sent_msg.edit(ctx, |m| {
-                            m.embeds.clear();
-                            m.embed(|e| {
-                                e.title(TITLE).fields(hours.iter().map(|o| {
-                                    let (name, value) = o;
+                        sent_msg.edit(ctx, CreateReply::default().embed(CreateEmbed::new().title(TITLE).fields(hours.iter().map(|o| {
+                            let (name, value) = o;
 
-                                    if value.is_empty() {
-                                        (name.as_str(), EMPTY, false)
-                                    } else {
-                                        (name.as_str(), value.as_str(), false)
-                                    }
-                                }))
-                            })
-                        }).await?;
+                            if value.is_empty() {
+                                (name.as_str(), EMPTY, false)
+                            } else {
+                                (name.as_str(), value.as_str(), false)
+                            }
+                        })))).await?;
                     } else {
-                        sent_msg.edit(ctx, |m| {
-                            m.embeds.clear();
-                            m.embed(|e| {
-                                e.title(TITLE).description("Could not get any hours... Did the website change layout?")
-                            })
-                        }).await?;
+                        sent_msg.edit(ctx, CreateReply::default().embed(CreateEmbed::new().title(TITLE).description("Could not get any hours... Did the website change layout?"))).await?;
                         error!("Unable to read athletics website");
                     }
                 }
                 Err(ex) => {
-                    sent_msg.edit(ctx, |m| {
-                        m.embeds.clear();
-                        m.embed(|e| {
-                            e.title(TITLE).description("UC Merced gave us weird data, try again later?")
-                        })
-                    }).await?;
+                    sent_msg.edit(ctx, CreateReply::default().embed(CreateEmbed::new().title(TITLE).description("UC Merced gave us weird data, try again later?"))).await?;
                     error!("Failed to process hours: {}", ex);
                 }
             }
         }
         Err(ex) => {
-            sent_msg.edit(ctx, |m| {
-                m.embeds.clear();
-                m.embed(|e| {
-                    e.title(TITLE).description("Failed to connect to the UC Merced website, try again later?")
-                })
-            }).await?;
+            sent_msg.edit(ctx, CreateReply::default().embed(CreateEmbed::new().title(TITLE).description("Failed to connect to the UC Merced website, try again later?"))).await?;
             error!("Failed to get athletics hours: {}", ex);
         }
     }

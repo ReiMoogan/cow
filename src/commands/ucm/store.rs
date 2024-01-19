@@ -3,6 +3,8 @@ use crate::{CowContext, Error};
 use serde::Deserialize;
 use tracing::error;
 use std::error;
+use poise::CreateReply;
+use serenity::all::CreateEmbed;
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all="camelCase")]
@@ -72,32 +74,21 @@ fn read_hours(config: &StoreHours) -> Vec<(String, String)> {
 )]
 pub async fn store(ctx: CowContext<'_>) -> Result<(), Error> {
     const TITLE: &str = "UC Merced University Store Hours";
-    let loading_message = ctx.send(|m|
-        m.embed(|e| e.title(TITLE).description("Now loading, please wait warmly..."))
-    ).await?;
+    let loading_message = ctx.send(CreateReply::default().embed(CreateEmbed::new().title(TITLE).description("Now loading, please wait warmly..."))).await?;
 
     let client = Client::new();
     match fetch_hours(&client).await {
         Ok(hours) => {
             let schedules = read_hours(&hours.store_hours);
-            loading_message.edit(ctx, |m|
-                {
-                    m.embeds.clear();
-                    m.embed(|e| e.title(TITLE).fields(schedules.iter().map(|o| {
-                        let (description, hours) = o;
-                        (description, hours, false)
-                    })))
-                }
-            ).await?;
+
+            loading_message.edit(ctx, CreateReply::default().embed(CreateEmbed::new().title(TITLE).fields(schedules.iter().map(|o| {
+                let (description, hours) = o;
+                (description, hours, false)
+            })))).await?;
         }
         Err(ex) => {
             error!("Failed to load UCM store hours: {}", ex);
-            loading_message.edit(ctx, |m|
-                {
-                    m.embeds.clear();
-                    m.embed(|e| e.title(TITLE).description("Failed to load store hours. Try again later?"))
-                }
-            ).await?;
+            loading_message.edit(ctx, CreateReply::default().embed(CreateEmbed::new().title(TITLE).description("Failed to load store hours. Try again later?"))).await?;
         }
     }
 

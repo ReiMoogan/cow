@@ -9,7 +9,7 @@ use crate::Database;
 impl Database {
     pub async fn has_gpt4_enabled(&self, user_id: UserId) -> Result<bool, Box<dyn std::error::Error + Send + Sync>> {
         let mut conn = self.pool.get().await?;
-        let user = Decimal::from_u64(*user_id.as_u64()).unwrap();
+        let user = Decimal::from_u64(user_id.get()).unwrap();
         let res = conn.query(
             "SELECT gpt4_enabled FROM [Ranking].[User] WHERE id = @P1;",
             &[&user])

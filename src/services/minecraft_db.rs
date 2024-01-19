@@ -10,7 +10,7 @@ use crate::models::minecraft_db_models::*;
 impl Database {
     pub async fn get_minecraft_channel(&self, channel_id: ChannelId) -> Result<Option<Feed>, Box<dyn std::error::Error + Send + Sync>> {
         let mut conn = self.pool.get().await?;
-        let server = Decimal::from_u64(*channel_id.as_u64()).unwrap();
+        let server = Decimal::from_u64(channel_id.get()).unwrap();
         let res = conn.query(
             "SELECT host, password FROM [Minecraft].[Feed] WHERE channel_id = @P1;",
             &[&server])

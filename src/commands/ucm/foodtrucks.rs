@@ -1,8 +1,10 @@
 use chrono::{Datelike, Duration, Local};
+use poise::CreateReply;
 use tracing::error;
 use crate::{CowContext, Error};
 use scraper::{Html, Selector};
 use regex::Regex;
+use serenity::all::CreateEmbed;
 
 fn process_schedules(data: &str) -> Option<String> {
     let now = Local::now();
@@ -69,14 +71,7 @@ fn process_schedules(data: &str) -> Option<String> {
 pub async fn foodtrucks(ctx: CowContext<'_>) -> Result<(), Error> {
     const TITLE: &str = "Food Truck Schedule";
 
-    let sent_msg = ctx.send(|m| {
-        m.embeds.clear();
-        m.embed(|e| {
-            e
-                .title(TITLE)
-                .description("Now loading, please wait warmly...")
-        })
-    }).await?;
+    let sent_msg = ctx.send(CreateReply::default().embed(CreateEmbed::new().title(TITLE).description("Now loading, please wait warmly..."))).await?;
 
     const URL: &str = "https://dining.ucmerced.edu/food-trucks";
     match reqwest::get(URL).await {
@@ -86,12 +81,7 @@ pub async fn foodtrucks(ctx: CowContext<'_>) -> Result<(), Error> {
                     let image_url = process_schedules(&data);
 
                     if let Some(schedule) = image_url {
-                        sent_msg.edit(ctx, |m| {
-                            m.embeds.clear();
-                            m.embed(|e| {
-                                e.title(TITLE).image(schedule)
-                            })
-                        }).await?;
+                        sent_msg.edit(ctx, CreateReply::default().embed(CreateEmbed::new().title(TITLE).image(schedule))).await?;
                     } else {
                         sent_msg.edit(ctx, |m| {
                             m.embeds.clear();
@@ -103,23 +93,14 @@ pub async fn foodtrucks(ctx: CowContext<'_>) -> Result<(), Error> {
                     }
                 }
                 Err(ex) => {
-                    sent_msg.edit(ctx, |m| {
-                        m.embeds.clear();
-                        m.embed(|e| {
-                            e.title(TITLE).description("UC Merced gave us weird data, try again later?")
-                        })
-                    }).await?;
+
+                    sent_msg.edit(ctx, CreateReply::default().embed(CreateEmbed::new().title(TITLE).description("UC Merced gave us weird data, try again later?"))).await?;
                     error!("Failed to process calendar: {}", ex);
                 }
             }
         }
         Err(ex) => {
-            sent_msg.edit(ctx, |m| {
-                m.embeds.clear();
-                m.embed(|e| {
-                    e.title(TITLE).description("Failed to connect to the UC Merced website, try again later?")
-                })
-            }).await?;
+            sent_msg.edit(ctx, CreateReply::default().embed(CreateEmbed::new().title(TITLE).description("Failed to connect to the UC Merced website, try again later?"))).await?;
             error!("Failed to get food truck schedule: {}", ex);
         }
     }

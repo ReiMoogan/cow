@@ -35,17 +35,13 @@ pub async fn rcon(
             if let Err(ex) = client.connect().await {
                 error!("Failed to connect to the server: {}", ex);
 
-                ctx.send(|msg| {
-                    msg.content("Failed to connect to the server. Is it online?").ephemeral(true)
-                }).await?;
+                ctx.send(CreateReply::default().content("Failed to connect to the server. Is it online?").ephemeral(true)).await?;
             }
 
             if let Err(ex) = client.login().await {
                 error!("Failed to login: {}", ex);
 
-                ctx.send(|msg| {
-                    msg.content("Failed to login. Is the password correct?").ephemeral(true)
-                }).await?;
+                ctx.send(CreateReply::default().content("Failed to login. Is the password correct?").ephemeral(true)).await?;
             }
 
             match client.send(&command).await {

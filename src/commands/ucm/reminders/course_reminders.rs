@@ -77,7 +77,7 @@ pub async fn add(
     let term = year * 100 + semester;
 
     let reminder = Reminder {
-        user_id: ctx.author().id.0,
+        user_id: ctx.author().id.get(),
         class_id: course_reference_number + term * 10000,
         min_trigger,
         for_waitlist: for_waitlist.unwrap_or(false),

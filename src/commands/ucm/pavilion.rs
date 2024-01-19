@@ -3,10 +3,10 @@ use crate::{CowContext, Error};
 use crate::commands::ucm::pav_models::*;
 use tracing::error;
 use std::error;
+use poise::CreateReply;
 use serenity::builder::CreateEmbed;
 use serenity::client::Context;
-use serenity::model::application::component::ButtonStyle;
-use serenity::model::application::interaction::message_component::MessageComponentInteraction;
+use serenity::all::{ButtonStyle, ComponentInteraction};
 
 // Probably can be hard-coded to be 61bd7ecd8c760e0011ac0fac.
 async fn fetch_pavilion_company_info(client: &Client) -> Result<Company, Box<dyn error::Error + Send + Sync>> {
@@ -159,13 +159,15 @@ pub async fn pavilion(
         title = format!("{meal} at the Pavilion/Yablokoff for {day}");
     }
 
-    let message = ctx.send(|m| m.embed(|e| {
-        e
+    let message = ctx.send(CreateReply::default().embed(
+        CreateEmbed::new()
             .title(&title)
             .description("Loading data, please wait warmly...")
-    })).await?;
+    )).await?;
 
     let menus = process_bigzpoon(&day, &meal).await;
+
+    let new_message =
 
     message.edit(ctx, |m| {
         m.embeds.clear();
@@ -201,7 +203,7 @@ pub async fn pavilion(
     Ok(())
 }
 
-pub async fn print_full_menu(ctx: &Context, interaction: &MessageComponentInteraction) -> Result<(), Error> {
+pub async fn print_full_menu(ctx: &Context, interaction: &ComponentInteraction) -> Result<(), Error> {
     let data = interaction.data.custom_id.split(':').collect::<Vec<_>>();
     if data.len() != 3 {
         interaction.create_followup_message(&ctx, |r| {
@@ -316,11 +318,7 @@ async fn print_pavilion_times(ctx: CowContext<'_>) -> Result<(), Error> {
 
 async fn print_announcements(ctx: CowContext<'_>) -> Result<(), Box<dyn error::Error + Send + Sync>> {
     const TITLE: &str = "Pavilion/Yablokoff Announcements";
-    let message = ctx.send(|m| m.embed(|e| {
-        e
-            .title(TITLE)
-            .description("Loading data, please wait warmly...")
-    })).await?;
+    let message = ctx.send(CreateReply::embed(CreateEmbed::new().title(TITLE).description("Loading data, please wait warmly..."))).await?;
 
     let pav_announcement = process_announcement("pav").await;
     let wydc_announcement = process_announcement("ywdc").await;

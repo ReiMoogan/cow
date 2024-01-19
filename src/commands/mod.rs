@@ -14,8 +14,7 @@ use serenity::{
         id::UserId,
     }
 };
-
-use poise::Event::Message;
+use serenity::all::Message;
 
 use crate::Error;
 use crate::commands::general::*;
@@ -63,9 +62,9 @@ pub async fn get_framework(pref: &str, _app_id: UserId, owners: HashSet<UserId>)
         },
         event_handler: |ctx, event, _other_ctx, _bruh| {
             Box::pin(async move {
-                if let Message { new_message } = event {
-                    crate::message_handler::non_command(ctx, new_message).await?;
-                }
+                // if let Message { new_message } = event {
+                //     crate::message_handler::non_command(ctx, new_message).await?;
+                // }
 
                 Ok(())
             })

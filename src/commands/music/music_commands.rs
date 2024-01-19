@@ -1,4 +1,3 @@
-use lavalink_rs::model::{TrackQueue};
 use tracing::error;
 use regex::Regex;
 use serenity::utils::MessageBuilder;
@@ -41,7 +40,7 @@ pub async fn join_interactive(ctx: &CowContext<'_>) -> Result<(), Error> {
     let serenity = ctx.serenity_context();
     let manager = songbird::get(serenity).await.unwrap().clone();
 
-    let (_, handler) = manager.join_gateway(guild_id, connect_to).await;
+    let (_, handler) = manager.join_gateway(guild_id, connect_to).await.expect("Error joining voice channel");
 
     match handler {
         Ok(connection_info) => {
@@ -97,7 +96,7 @@ pub async fn leave(ctx: CowContext<'_>) -> Result<(), Error> {
             // Free up the LavaLink client.
             let data = serenity.data.read().await;
             let lava_client = data.get::<Lavalink>().unwrap().clone();
-            lava_client.destroy(guild_id.0).await?;
+            lava_client.destroy(guild_id.get()).await?;
         }
 
         ctx.say("Disconnected from VC. Goodbye!").await?;
@@ -152,7 +151,7 @@ pub async fn play(
                 return Ok(());
             }
 
-            if let Err(why) = &lava_client.play(guild_id.0, query_information.tracks[0].clone()).queue()
+            if let Err(why) = &lava_client.play(guild_id.get(), query_information.tracks[0].clone()).queue()
                 .await
             {
                 error!("Failed to queue: {}", why);
@@ -253,14 +252,14 @@ pub async fn pause(ctx: CowContext<'_>) -> Result<(), Error> {
             data.get::<Lavalink>().unwrap().clone()
         };
 
-        if let Some(node) = lava_client.nodes().await.get(&guild_id.0) {
+        if let Some(node) = lava_client.nodes().await.get(&guild_id.get()) {
             if node.is_paused {
-                if let Err(ex) = lava_client.set_pause(guild_id.0, false).await {
+                if let Err(ex) = lava_client.set_pause(guild_id.get(), false).await {
                     error!("Failed to unpause music: {}", ex);
                 } else {
                     ctx.say("Unpaused the player.").await?;
                 }
-            } else if let Err(ex) = lava_client.pause(guild_id.0).await {
+            } else if let Err(ex) = lava_client.pause(guild_id.get()).await {
                 error!("Failed to pause music: {}", ex);
             } else {
                 ctx.say("Paused the player.").await?;
@@ -285,7 +284,7 @@ pub async fn now_playing(ctx: CowContext<'_>) -> Result<(), Error> {
         data.get::<Lavalink>().unwrap().clone()
     };
 
-    if let Some(node) = lava_client.nodes().await.get(&ctx.guild_id().unwrap().0) {
+    if let Some(node) = lava_client.nodes().await.get(&ctx.guild_id().unwrap().get()) {
         if let Some(track) = &node.now_playing {
             let info = track.track.info.as_ref().unwrap();
             let re = Regex::new(r#"(?:youtube\.com/(?:[^/]+/.+/|(?:v|e(?:mbed)?)/|.*[?&]v=)|youtu\.be/)([^"&?/\s]{11})"#).unwrap();
@@ -348,7 +347,7 @@ pub async fn skip(ctx: CowContext<'_>) -> Result<(), Error> {
         ctx.say(MessageBuilder::new().push("Skipped: ").push_mono_line_safe(&track.track.info.as_ref().unwrap().title).build()).await?;
 
         // Need to check if it's empty, so we can stop playing (can crash if we don't check)
-        if let Some(node) = lava_client.nodes().await.get(&ctx.guild_id().unwrap().0) {
+        if let Some(node) = lava_client.nodes().await.get(&ctx.guild_id().unwrap().get()) {
             if node.now_playing.is_none() {
                 if let Err(ex) = lava_client.stop(ctx.guild_id().unwrap()).await {
                     error!("Failed to stop music: {}", ex);
@@ -430,7 +429,7 @@ pub async fn queue(
     };
 
     let guild_id = ctx.guild_id().unwrap();
-    if let Some(node) = lava_client.nodes().await.get(&guild_id.0) {
+    if let Some(node) = lava_client.nodes().await.get(&guild_id.get()) {
         let queue = &node.queue;
         let pages = generate_queue(queue);
 

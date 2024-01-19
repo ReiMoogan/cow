@@ -1,9 +1,10 @@
 use std::path::Path;
 use std::error;
+use serenity::all::{AttachmentType, CreateAttachment, CreateEmbed, CreateEmbedAuthor, CreateEmbedFooter, CreateMessage, EditMessage, EditWebhookMessage, ExecuteWebhook};
 use tokio::fs::File;
 use tracing::error;
 use serenity::client::Context;
-use serenity::model::channel::{Embed, Message, Reaction, ReactionType, AttachmentType};
+use serenity::model::channel::{Embed, Message, Reaction, ReactionType};
 use serenity::model::id::{ChannelId, GuildId, MessageId, UserId};
 use tokio::io::AsyncWriteExt;
 use crate::{Database, db};
@@ -14,7 +15,7 @@ async fn count_reactions(ctx: &Context, message: &Message, config: &Cowboard) ->
     let matched_reaction = message.reactions.iter().find(|o|o.reaction_type.eq(&config_emote));
     if let Some(reaction) = matched_reaction {
         let count = reaction.count;
-        let people = message.reaction_users(&ctx.http, config_emote, None, UserId::from(message.author.id.0 - 2)).await?;
+        let people = message.reaction_users(&ctx.http, config_emote, None, UserId::from(message.author.id.get() - 2)).await?;
         if people.iter().any(|o| o.id == message.author.id) {
             return Ok(count - 1);
         }
@@ -45,7 +46,7 @@ pub async fn add_reaction(ctx: &Context, added_reaction: &Reaction) {
                             if count >= config.add_threshold as u64 {
                                 let post_message = db.get_cowboard_message(message.id, message.channel_id, guild_id).await;
                                 if let Ok(Some(post)) = post_message {
-                                    match ctx.http.get_message(post.post_channel_id, post.post_id).await {
+                                    match ctx.http.get_message(post.post_channel_id.into(), post.post_id.into()).await {
                                         Ok(mut post) => {
                                             update_moo(ctx, &message, &mut post, &mut config).await;
                                         }
@@ -118,33 +119,20 @@ async fn send_bot_message(ctx: &Context, message: &Message, config: &Cowboard) -
     let reacts = count_reactions(ctx, message, config).await?;
     let link = message.link_ensured(&ctx.http).await;
 
-    let message_output = channel.send_message(&ctx.http, |m|
-        {
-            let execution = m
-                .content(format!("{} {} | <#{}>\n{}", reacts, &config.emote, message.channel_id, link))
-                .embed(|e| {
-                    let temp = e
-                        .author(|a|
-                            a.name(&output_username).icon_url(message.author.face()))
-                        .description(&safe_content)
-                        .timestamp(message.timestamp)
-                        .footer(|f| f.text(format!("Message ID: {} / User ID: {}", message.id, message.author.id)));
+    let mut embed = CreateEmbed::new()
+        .author(CreateEmbedAuthor::new(&output_username).icon_url(message.author.face()))
+        .description(&safe_content)
+        .timestamp(message.timestamp)
+        .footer(CreateEmbedFooter::new(format!("Message ID: {} / User ID: {}", message.id, message.author.id)));
 
-                    if !attachments.is_empty() {
-                        let (name, _) = &attachments[0];
-                        temp.attachment(name);
-                    }
+    if !attachments.is_empty() {
+        let (name, _) = &attachments[0];
+        embed = embed.attachment(name);
+    }
 
-                    temp
-                });
+    let new_message = CreateMessage::new().content(format!("{} {} | <#{}>\n{}", reacts, &config.emote, message.channel_id, link)).embed(embed);
 
-            for (_, path) in &attachments {
-                execution.add_file(AttachmentType::Path(Path::new(path)));
-            }
-
-            execution
-        }
-    ).await;
+    let message_output = channel.send_message(&ctx.http, new_message).await;
 
     delete_image_attachments(message).await;
     match message_output {
@@ -161,8 +149,7 @@ async fn update_bot_message(ctx: &Context, message: &Message, post_message: &mut
     match count_reactions(ctx, message, config).await {
         Ok(reacts) => {
             let link = message.link_ensured(&ctx.http).await;
-            if let Err(ex) = post_message.edit(&ctx.http,
-                                                  |m| m.content(format!("{} {} | <#{}>\n{}", reacts, &config.emote, message.channel_id, link))).await {
+            if let Err(ex) = post_message.edit(&ctx.http, EditMessage::new().content(format!("{} {} | <#{}>\n{}", reacts, &config.emote, message.channel_id, link))).await {
                 error!("Failed to edit post message??? {}", ex);
             }
         }
@@ -174,49 +161,38 @@ async fn update_bot_message(ctx: &Context, message: &Message, post_message: &mut
 
 async fn send_webhook_message(ctx: &Context, message: &Message, config: &mut Cowboard) -> Result<Message, Box<dyn error::Error + Send + Sync>> {
     let token = config.webhook_token.clone().unwrap();
-    if let Ok(webhook) = ctx.http.get_webhook_with_token(config.webhook_id.unwrap(), &token).await {
+    if let Ok(webhook) = ctx.http.get_webhook_with_token(config.webhook_id.unwrap().into(), &token).await {
         let output_username = format_username(ctx, message).await;
         let safe_content = message.content_safe(ctx);
 
         let attachments = download_image_attachments(message).await;
 
-        let embeds = vec![
-            Embed::fake(|e|
-                {
-                    let temp = e
-                        .author(|a|
-                            a.name(&output_username).icon_url(message.author.face()))
-                        .description(&safe_content)
-                        .timestamp(message.timestamp)
-                        .footer(|f| f.text(format!("Message ID: {} / User ID: {}", message.id, message.author.id)));
-
-                    if !attachments.is_empty() {
-                        let (name, _) = &attachments[0];
-                        temp.attachment(name);
-                    }
-
-                    temp
-                }
-            )
-        ];
-
         let reacts = count_reactions(ctx, message, config).await?;
         let link = message.link_ensured(&ctx.http).await;
-        if let Ok(Some(webhook_message)) = webhook.execute(&ctx.http, true, |m|
-            {
-                let execution = m
-                    .content(format!("{} {} | <#{}>\n{}", reacts, &config.emote, message.channel_id, link))
-                    .embeds(embeds)
-                    .avatar_url(message.author.face())
-                    .username(output_username);
 
-                for (_, path) in &attachments {
-                    execution.add_file(AttachmentType::Path(Path::new(path)));
-                }
+        let mut embed = CreateEmbed::new()
+            .author(CreateEmbedAuthor::new(&output_username).icon_url(message.author.face()))
+            .description(&safe_content)
+            .timestamp(message.timestamp)
+            .footer(CreateEmbedFooter::new(format!("Message ID: {} / User ID: {}", message.id, message.author.id)));
 
-                execution
+        if !attachments.is_empty() {
+            let (name, _) = &attachments[0];
+            embed = embed.attachment(name);
+        }
+
+        let mut execution = ExecuteWebhook::new().content(format!("{} {} | <#{}>\n{}", reacts, &config.emote, message.channel_id, link)).embed(embed);
+
+        for (_, path) in &attachments {
+            let path = CreateAttachment::path(path).await;
+            if let Ok(path) = path {
+                execution = execution.add_file(path);
+            } else {
+                error!("Failed to add attachment via webhook: {}", path.unwrap_err());
             }
-        ).await {
+        }
+
+        if let Ok(Some(webhook_message)) = webhook.execute(&ctx.http, true, execution).await {
             delete_image_attachments(message).await;
             return Ok(webhook_message);
         }
@@ -237,7 +213,7 @@ async fn download_image_attachments(message: &Message) -> Vec<(String, String)> 
         return out;
     }
 
-    let mut size_limit: u64 = 8 * 1024 * 1024;
+    let mut size_limit: u32 = 8 * 1024 * 1024;
 
     for item in message.attachments.iter() {
         if item.dimensions().is_some() && size_limit >= item.size {
@@ -281,7 +257,12 @@ async fn delete_image_attachments(message: &Message) {
 }
 
 async fn format_username(ctx: &Context, message: &Message) -> String {
-    let username = format!("{}#{:04}", message.author.name, message.author.discriminator);
+    let username = if let Some(discriminator) = message.author.discriminator {
+        format!("{}#{:04}", message.author.name, discriminator)
+    } else {
+        message.author.name.clone()
+    };
+
     let nickname = message.author_nick(&ctx.http).await;
 
     if let Some(nick) = nickname {
@@ -293,12 +274,11 @@ async fn format_username(ctx: &Context, message: &Message) -> String {
 
 async fn update_webhook_message(ctx: &Context, message: &Message, post_message: &Message, config: &mut Cowboard) {
     let token = config.webhook_token.clone().unwrap();
-    if let Ok(webhook) = ctx.http.get_webhook_with_token(config.webhook_id.unwrap(), &token).await {
+    if let Ok(webhook) = ctx.http.get_webhook_with_token(config.webhook_id.unwrap().into(), &token).await {
         match count_reactions(ctx, message, config).await {
             Ok(reacts) => {
                 let link = message.link_ensured(&ctx.http).await;
-                if let Err(ex) = webhook.edit_message(&ctx.http, post_message.id,
-                                                      |m| m.content(format!("{} {} | <#{}>\n{}", reacts, &config.emote, message.channel_id, link))).await {
+                if let Err(ex) = webhook.edit_message(&ctx.http, post_message.id, EditWebhookMessage::new().content(format!("{} {} | <#{}>\n{}", reacts, &config.emote, message.channel_id, link))).await {
                     error!("Failed to edit post message??? {}", ex);
                 }
             }
@@ -340,7 +320,7 @@ pub async fn remove_reaction(ctx: &Context, removed_reaction: &Reaction) {
                                 // Unmoo that thing!
                                 remove_moo(ctx, guild_id, removed_reaction.channel_id, removed_reaction.message_id).await;
                             } else if let Ok(Some(post)) = post_message {
-                                if let Ok(mut post) = ctx.http.get_message(post.post_channel_id, post.post_id).await {
+                                if let Ok(mut post) = ctx.http.get_message(post.post_channel_id.into(), post.post_id.into()).await {
                                     update_moo(ctx, &message, &mut post, &mut config).await;
                                 }
                             }
@@ -374,7 +354,7 @@ async fn remove_moo(ctx: &Context, guild_id: GuildId, channel_id: ChannelId, mes
     match db.get_cowboard_message(message, channel_id, guild_id).await {
         Ok(message_info) => {
             if let Some(cowboard_message) = message_info {
-                if let Err(ex) = ctx.http.delete_message(cowboard_message.post_channel_id, cowboard_message.post_id).await {
+                if let Err(ex) = ctx.http.delete_message(cowboard_message.post_channel_id.into(), cowboard_message.post_id.into(), None).await {
                     error!("Failed to delete message: {} {} {}", ex, cowboard_message.post_channel_id, cowboard_message.post_id);
                 }
             }

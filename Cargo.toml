@@ -1,55 +1,57 @@
 [package]
 name = "cow"
 description = "moo"
-version = "0.2.50"
+version = "0.2.51"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 # JSON parsing
-serde = { version = "1.0.147", features = ["derive"] }
-serde_json = "1.0.87"
+serde = { version = "1.0.195", features = ["derive"] }
+serde_json = "1.0.111"
 # HTML parsing
 scraper = "0.18.1"
 # Async
-tokio = { version = "1.21.2", features = ["macros", "rt-multi-thread"] }
+tokio = { version = "1.35.1", features = ["macros", "rt-multi-thread"] }
 # Logging
-tracing = "0.1.37"
-tracing-subscriber = "0.3.16"
-tracing-appender = "0.2.2"
+tracing = "0.1.40"
+tracing-subscriber = "0.3.18"
+tracing-appender = "0.2.3"
 # Time
-chrono = "0.4.22"
+chrono = "0.4.31"
 # SQL Server
-bb8 = "0.8.0"
+bb8 = "0.8.1"
 bb8-tiberius = "0.15.0"
 # Decimal data type (for SQL Server)
-rust_decimal = "1.26.1"
-rust_decimal_macros = "1.26.1"
+rust_decimal = "1.33.1"
+rust_decimal_macros = "1.33.1"
 # HTTP Requests (for many of the UCM commarnds)
-reqwest = { version = "0.11.12", features = ["json", "cookies"] }
+reqwest = { version = "0.11.23", features = ["json", "cookies"] }
 # Primitive derivation
-num-traits = "0.2.15"
-num-derive = "0.4.0"
+num-traits = "0.2.17"
+num-derive = "0.4.1"
 # Music stuff
-songbird = { version = "0.3.0", default-features = false, features = ["serenity-rustls", "gateway"] }
-lavalink-rs = { git = "https://github.com/DoggySazHi/lavalink-rs-moogan", branch = "master", features = ["rustls", "serenity", "songbird"] }
+songbird = { version = "0.4.0", default-features = false, features = ["serenity", "rustls", "gateway"] }
+lavalink-rs = { git = "https://github.com/DoggySazHi/lavalink-rs-moogan", branch = "main", features = ["rustls", "serenity", "songbird"] }
 # lavalink-rs = { path = "../lavalink-rs", features = ["rustls", "serenity", "songbird"] }
 # Literally in the name
-regex = "1.7.0"
+regex = "1.10.2"
 # Wait bruh enums can't be bits?
-bitflags = "2.2.1"
+bitflags = "2.4.2"
 # Traits aren't async?
-async-trait = "0.1.58"
+async-trait = "0.1.77"
 # Slash command framework
-poise = { git = "https://github.com/DoggySazHi/poise-moogan", branch = "develop" }
+poise = "0.6.1"
 # poise = { path = "../poise" }
 # System info lol
-sysinfo = "0.29.8"
+sysinfo = "0.30.5"
 # Minecraft protocols
 proto-mc = { git = "https://github.com/DoggySazHi/proto-mc" }
 # RNG
 rand = "0.8.5"
+# Wtf serenity
+secrecy = { version = "0.8.0", features = ["serde"] }
 
 # Discord API
 [dependencies.serenity]
@@ -66,11 +68,11 @@ features = [
     "unstable_discord_api", # For slash commands/components
     "voice"
 ]
-version = "0.11.5"
+version = "0.12.0"
 
 # SQL Server
 [dependencies.tiberius]
-version = "0.12.1"
+version = "0.12.2"
 default-features = false
 features = [
     "tds73",

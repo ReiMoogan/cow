@@ -1,9 +1,12 @@
+use poise::CreateReply;
+use serenity::all::{CreateEmbed, CreateWebhook};
 use tracing::error;
 use crate::{CowContext, cowdb, Error};
 use serenity::model::channel::ReactionType;
 use serenity::model::id::ChannelId;
 use serenity::utils::MessageBuilder;
 use crate::{Database, db};
+use secrecy::ExposeSecret;
 
 #[poise::command(
     prefix_command,
@@ -21,20 +24,17 @@ pub async fn info_code(ctx: CowContext<'_>) -> Result<(), Error> {
 
     if let Some(guild_id) = ctx.guild_id() {
         if let Ok(config) = db.get_cowboard_config(guild_id).await {
-            ctx.send(|m| {
-                m.embeds.clear();
-                m.embed(|e|
-                    e
-                        .title("Cowboard Settings")
-                        .description("If the emote doesn't display properly below, you probably want to use a different one!")
-                        .field("Emote", &config.emote, true)
-                        .field("Raw Emote", MessageBuilder::new().push_mono(&config.emote).build(), true)
-                        .field("Channel", config.channel.map(|o| format!("<#{o}>")).unwrap_or_else(|| "No Cowboard Channel".to_string()), true)
-                        .field("Add Threshold", MessageBuilder::new().push_mono(config.add_threshold).build(), true)
-                        .field("Remove Threshold", MessageBuilder::new().push_mono(config.remove_threshold).build(), true)
-                        .field("Webhook", if config.webhook_id.is_some() && config.webhook_token.is_some() { "Enabled" } else { "Disabled" }, true)
-                )
-            }).await?;
+            let embed = CreateEmbed::new()
+                .title("Cowboard Settings")
+                .description("If the emote doesn't display properly below, you probably want to use a different one!")
+                .field("Emote", &config.emote, true)
+                .field("Raw Emote", MessageBuilder::new().push_mono(&config.emote).build(), true)
+                .field("Channel", config.channel.map(|o| format!("<#{o}>")).unwrap_or_else(|| "No Cowboard Channel".to_string()), true)
+                .field("Add Threshold", MessageBuilder::new().push_mono(format!("{}", config.add_threshold)).build(), true)
+                .field("Remove Threshold", MessageBuilder::new().push_mono(format!("{}", config.remove_threshold)).build(), true)
+                .field("Webhook", if config.webhook_id.is_some() && config.webhook_token.is_some() { "Enabled" } else { "Disabled" }, true);
+
+            ctx.send(CreateReply::default().embed(embed)).await?;
         } else {
             ctx.say("Failed to fetch Cowboard settings for this server...").await?;
         }
@@ -198,7 +198,7 @@ pub async fn channel(
 
         match db.get_cowboard_config(guild_id).await {
             Ok(mut config) => {
-                config.channel = Some(cowboard_channel.0);
+                config.channel = Some(cowboard_channel.get());
                 config.webhook_id = None;
                 config.webhook_token = None;
 
@@ -246,10 +246,10 @@ pub async fn webhook(ctx: CowContext<'_>) -> Result<(), Error> {
                         if let Some(guild_channel) = guild_channels.get(&channel)
                         {
                             if config.webhook_id.is_none() {
-                                match guild_channel.create_webhook(&ctx, "MooganCowboard").await {
+                                match guild_channel.create_webhook(&ctx, CreateWebhook::new("MooganCowboard")).await {
                                     Ok(webhook) => {
-                                        config.webhook_id = Some(webhook.id.0);
-                                        config.webhook_token = Some(webhook.token.unwrap())
+                                        config.webhook_id = Some(webhook.id.get());
+                                        config.webhook_token = Some(webhook.token.unwrap().expose_secret().clone())
                                     }
                                     Err(ex) => {
                                         ctx.say(format!("Failed to add webhook; maybe I do not have permissions for the channel <#{guild_channel}>?")).await?;
