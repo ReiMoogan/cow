@@ -1,4 +1,5 @@
-use poise::{Command};
+use poise::{Command, CreateReply};
+use serenity::builder::CreateEmbed;
 use serenity::utils::MessageBuilder;
 use crate::{CowContext, Error};
 
@@ -63,33 +64,31 @@ async fn help_single_command(
         }
     }
 
-    ctx.send(|m| m.embed(|e| {
-        e.title(&command_help.name).description(&command_help.description);
+    let mut embed = CreateEmbed::new().title(&command_help.name).description(&command_help.description);
 
-        if let Some(prefix) = command_help.prefix.as_ref() {
-            e.field("Prefix", format!("`{prefix}`"), true);
-        }
+    if let Some(prefix) = command_help.prefix.as_ref() {
+        embed = embed.field("Prefix", format!("`{prefix}`"), true);
+    }
 
-        if !command_help.aliases.is_empty() {
-            let aliases = command_help.aliases.iter()
-                .map(|o| format!("`{o}`"))
-                .reduce(|a, b| format!("{a}, {b}"))
-                .unwrap();
+    if !command_help.aliases.is_empty() {
+        let aliases = command_help.aliases.iter()
+            .map(|o| format!("`{o}`"))
+            .reduce(|a, b| format!("{a}, {b}"))
+            .unwrap();
 
-            e.field("Aliases", aliases, true);
-        }
+        embed = embed.field("Aliases", aliases, true);
+    }
 
-        if !command_help.subcommands.is_empty() {
-            let subcommands = command_help.subcommands.iter()
-                .map(|o| format!("`{}`", o.prefix.as_ref().unwrap_or(&o.name)))
-                .reduce(|a, b| format!("{a}, {b}"))
-                .unwrap();
+    if !command_help.subcommands.is_empty() {
+        let subcommands = command_help.subcommands.iter()
+            .map(|o| format!("`{}`", o.prefix.as_ref().unwrap_or(&o.name)))
+            .reduce(|a, b| format!("{a}, {b}"))
+            .unwrap();
 
-            e.field("Subcommands", subcommands, false);
-        }
+        embed = embed.field("Subcommands", subcommands, false);
+    }
 
-        e
-    })).await?;
+    ctx.send(CreateReply::default().embed(embed)).await?;
 
     Ok(())
 }
@@ -98,47 +97,45 @@ async fn help_single_command(
 async fn help_all_commands(ctx: &CowContext<'_>) -> Result<(), Error> {
     let help = get_help_hierachy(ctx);
 
-    ctx.send(|b| b.embed(|e| {
-        e
-            .title("Moogan Command Help")
-            .description("You can fetch help for a specific command by passing the full command as a parameter.")
-            .colour(0xF6DBD8);
+    let mut embed = CreateEmbed::new()
+        .title("Moogan Command Help")
+        .description("You can fetch help for a specific command by passing the full command as a parameter.")
+        .colour(0xF6DBD8);
 
-        for base_command in help {
-            let prefix = if let Some(prefix) = base_command.prefix {
-                format!("\nPrefix: `{prefix}`")
-            } else {
-                "".to_string()
-            };
+    for base_command in help {
+        let prefix = if let Some(prefix) = base_command.prefix {
+            format!("\nPrefix: `{prefix}`")
+        } else {
+            "".to_string()
+        };
 
-            let command_list = base_command.subcommands.iter()
-                .map(|cmd| {
-                    // Hope there's no sub-subcommands.
-                    if cmd.subcommands.is_empty() {
-                        format!("`{}`", cmd.name)
+        let command_list = base_command.subcommands.iter()
+            .map(|cmd| {
+                // Hope there's no sub-subcommands.
+                if cmd.subcommands.is_empty() {
+                    format!("`{}`", cmd.name)
+                } else {
+                    let subprefix = if let Some(prefix) = cmd.prefix.as_ref() {
+                        format!("\nPrefix: `{prefix}`")
                     } else {
-                        let subprefix = if let Some(prefix) = cmd.prefix.as_ref() {
-                            format!("\nPrefix: `{prefix}`")
-                        } else {
-                            "".to_string()
-                        };
+                        "".to_string()
+                    };
 
-                        let subcommand_list = cmd.subcommands.iter()
-                            .map(|subcmd| format!("- `{}`", subcmd.name))
-                            .reduce(|a, b| format!("{a}\n{b}"))
-                            .unwrap_or_default();
+                    let subcommand_list = cmd.subcommands.iter()
+                        .map(|subcmd| format!("- `{}`", subcmd.name))
+                        .reduce(|a, b| format!("{a}\n{b}"))
+                        .unwrap_or_default();
 
-                        format!("- __**{}**__{}\n\n{}", cmd.name, subprefix, subcommand_list)
-                    }
-                })
-                .reduce(|a, b| format!("{a}\n{b}"))
-                .unwrap_or_default();
+                    format!("- __**{}**__{}\n\n{}", cmd.name, subprefix, subcommand_list)
+                }
+            })
+            .reduce(|a, b| format!("{a}\n{b}"))
+            .unwrap_or_default();
 
-            e.field(base_command.name, format!("_{}_{}\n\n{}", base_command.description, prefix, command_list), true);
-        }
+        embed = embed.field(base_command.name, format!("_{}_{}\n\n{}", base_command.description, prefix, command_list), true);
+    }
 
-        e
-    })).await?;
+    ctx.send(CreateReply::default().embed(embed)).await?;
 
     Ok(())
 }
@@ -160,8 +157,8 @@ impl PartialEq for CommandHelp {
 impl Eq for CommandHelp {}
 
 fn generate_command_help(cmd: &Command<(), Error>) -> CommandHelp {
-    let description = if let Some(help_text) = cmd.help_text {
-        help_text()
+    let description = if let Some(help_text) = &cmd.help_text {
+        help_text.clone()
     } else if let Some(description) = cmd.description_localizations.get("en-US") {
         description.clone()
     } else if let Some(description) = cmd.description.as_ref() {

@@ -1,4 +1,5 @@
 use std::collections::{HashMap, HashSet};
+use poise::CreateReply;
 use tracing::error;
 use crate::{CowContext, cowdb, Error};
 use serenity::{
@@ -9,6 +10,7 @@ use serenity::{
     },
     utils::MessageBuilder
 };
+use serenity::all::CreateEmbed;
 use crate::{Database, db};
 
 #[poise::command(
@@ -25,13 +27,7 @@ pub async fn scan(ctx: CowContext<'_>) -> Result<(), Error> {
     if let Some(guild_id) = ctx.guild_id() {
         let mut message = MessageBuilder::new();
 
-        let discord_message = ctx.send(|m| {
-            m.embeds.clear();
-            m.embed(|e| e
-                .title("Member Scan")
-                .description("Now processing, please wait warmly...")
-            )
-        }).await?;
+        let discord_message = ctx.send(CreateReply::default().embed(CreateEmbed::new().title("Member Scan").description("Now processing, please wait warmly..."))).await?;
 
         let roles = db.get_roles(guild_id).await?;
         let role_set = roles.into_iter().filter_map(|r| r.role_id).collect::<HashSet<_>>();
@@ -45,7 +41,7 @@ pub async fn scan(ctx: CowContext<'_>) -> Result<(), Error> {
                         continue; // Correct: one role and it's the expected one
                     }
                     // Either doesn't have the role, wrong role, or too many roles
-                    message.push("<@").push(u.user).push("> should have ").role(expected_role);
+                    message.mention(&u.user).push(" should have ").role(expected_role);
                     if intersection.is_empty() {
                         message.push(" but doesn't");
                     } else {
@@ -58,7 +54,7 @@ pub async fn scan(ctx: CowContext<'_>) -> Result<(), Error> {
                         continue; // Correct: no roles
                     }
                     // Has a role, when they shouldn't
-                    message.push("<@").push(u.user).push("> has excess roles: ");
+                    message.mention(&u.user).push(" has excess roles: ");
                     intersection.into_iter().for_each(|r| { message.push(" ").role(r).push(" "); });
                     message.push("\n");
                 }
@@ -70,13 +66,7 @@ pub async fn scan(ctx: CowContext<'_>) -> Result<(), Error> {
             content = "There were no discrepancies between our database and the server members.".to_string();
         }
 
-        discord_message.edit(ctx, |m| {
-            m.embeds.clear();
-            m.embed(|e| e
-                .title("Member Scan")
-                .description(content)
-            )
-        }).await?;
+        discord_message.edit(ctx, CreateReply::default().embed(CreateEmbed::new().title("Member Scan").description(content))).await?;
     } else {
         ctx.say("This command can only be run in a server.").await?;
     }
@@ -116,13 +106,7 @@ pub async fn fix(
 
         let (mut count_trivial, mut count_multiple, mut count_remove, mut count_demote, mut count_error, mut total_error, mut total) = (0, 0, 0, 0, 0, 0, 0);
 
-        let discord_message = ctx.send(|m| {
-            m.embeds.clear();
-            m.embed(|e| e
-                .title("Role Auto-fix")
-                .description("Now fixing roles, please wait warmly...")
-            )
-        }).await?;
+        let discord_message = ctx.send(CreateReply::default().embed(CreateEmbed::new().title("Role Auto-fix").description("Now fixing roles, please wait warmly..."))).await?;
         
         let roles = db.get_roles(guild_id).await?;
         let role_map = roles.into_iter().filter(|r| r.role_id.is_some()).map(|r| (r.role_id.unwrap(), r.min_level)).collect::<HashMap<_, _>>();
@@ -207,18 +191,16 @@ pub async fn fix(
             }
         }
 
-        discord_message.edit(ctx, |m| {
-            m.embeds.clear();
-            m.embed(|e| e
-                .title("Role Auto-fix")
-                .description(format!("Processed {total} members in the database with {total_error} errors found:\n\
+        let out_embed = CreateEmbed::new()
+            .title("Role Auto-fix")
+            .description(format!("Processed {total} members in the database with {total_error} errors found:\n\
             - Trivial fixes: {count_trivial}\n\
             - Fixes for multiple roles: {count_multiple}\n\
             - Members with their roles fully revoked: {count_remove}\n\
             - Members demoted: {count_demote}\n\
-            - Errors adding/removing roles: {count_error}"))
-            )
-        }).await?;
+            - Errors adding/removing roles: {count_error}"));
+
+        discord_message.edit(ctx, CreateReply::default().embed(out_embed)).await?;
     } else {
         ctx.say("This command can only be run in a server.").await?;
     }

@@ -1,9 +1,11 @@
+use poise::CreateReply;
 use tracing::error;
 // Fun with stupid APIs!
 use tokio::fs;
 use crate::{Config, CowContext, Error};
 use serde::{Serialize, Deserialize};
 use regex::Regex;
+use serenity::all::CreateEmbed;
 use serenity::utils::MessageBuilder;
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -280,13 +282,8 @@ async fn fetch_by_tag(ctx: CowContext<'_>, tag: &str, original: Option<Vec<Strin
                         .push_safe(post.tag_string_artist.clone().unwrap_or_else(|| "<unknown>".to_string()))
                         .build();
 
-                    let _ = ctx.send(|m|
-                        m.embed(|e|
-                            e.title(title)
-                                .url(post.file_url.clone().unwrap())
-                                //.attachment(file_name);
-                                .image(post.file_url.unwrap())
-                        )
+                    let _ = ctx.send(CreateReply::default()
+                        .embed(CreateEmbed::new().title(title).url(post.file_url.clone().unwrap()).image(post.file_url.unwrap()))
                     ).await;
                 },
                 Err(ex) => {

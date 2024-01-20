@@ -60,7 +60,7 @@ pub async fn courses_old(
             // TODO: add pagination for courses
             match response.json::<CourseList>().await {
                 Ok(course_list) => {
-                    let embed = CreateEmbed::new()
+                    let mut embed = CreateEmbed::new()
                         .title("Course List")
                         .description(format!("For major: {major}"));
 

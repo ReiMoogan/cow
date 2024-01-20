@@ -12,9 +12,11 @@ use crate::{CowContext, Error};
 pub async fn info(ctx: CowContext<'_>) -> Result<(), Error> {
     const VERSION: Option<&str> = option_env!("CARGO_PKG_VERSION");
 
-    System::refresh_cpu();
+    let mut system = System::new_all();
+
+    system.refresh_cpu();
     tokio::time::sleep(std::time::Duration::from_millis(500)).await;
-    System::refresh_cpu(); // Twice to get a CPU reading.
+    system.refresh_cpu(); // Twice to get a CPU reading.
     let uptime = System::uptime();
 
     let message = format!("\
@@ -29,9 +31,9 @@ pub async fn info(ctx: CowContext<'_>) -> Result<(), Error> {
     VERSION.unwrap_or("<unknown>"),
     System::host_name().unwrap_or_default(),
     uptime / 60 / 60 / 24, (uptime / 60 / 60) % 24, (uptime / 60) % 60, uptime % 60,
-    System::global_cpu_info().cpu_usage(),
-    System::used_memory() / 1024 / 1024, System::total_memory() / 1024 / 1024,
-    System::used_swap() / 1024 / 1024, System::total_swap() / 1024 / 1024);
+    system.global_cpu_info().cpu_usage(),
+    system.used_memory() / 1024 / 1024, system.total_memory() / 1024 / 1024,
+    system.used_swap() / 1024 / 1024, system.total_swap() / 1024 / 1024);
 
     ctx.say(message).await?;
     Ok(())

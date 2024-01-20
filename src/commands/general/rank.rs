@@ -1,3 +1,4 @@
+use poise::CreateReply;
 use serenity::{
     model::{
         id::{
@@ -8,6 +9,8 @@ use serenity::{
     },
     utils::MessageBuilder
 };
+use serenity::all::CreateEmbed;
+use serenity::builder::CreateEmbedFooter;
 use crate::{Database, db, cowdb, Error, CowContext};
 use tracing::{error};
 
@@ -55,24 +58,21 @@ async fn rank_embed(ctx: &CowContext<'_>, server_id: &GuildId, user: &User) {
         rank_str = format!("#{rank}");
     }
 
-    if let Err(ex) = ctx.send(|m| {
-        m.embeds.clear();
-        m.embed(|e| {
-            e
-                .title(
-                    MessageBuilder::new()
-                        .push_safe(user.name.as_str())
-                        .push("#")
-                        .push(user.discriminator)
-                        .push("'s Ranking")
-                        .build()
-                )
-                .description(current_role_str)
-                .field("Level", level, true)
-                .field("XP", format!("{xp}/{next_level_xp}"), true)
-                .field("Rank", rank_str, true)
-                .thumbnail(pfp_url)
-    })}).await {
+    let title = if let Some(discriminator) = user.discriminator {
+        format!("{}#{:04}'s Ranking", user.name, discriminator)
+    } else {
+        format!("{}'s Ranking", user.name)
+    };
+
+    let embed = CreateEmbed::new()
+        .title(title)
+        .description(current_role_str)
+        .field("Level", format!("{}", level), true)
+        .field("XP", format!("{xp}/{next_level_xp}"), true)
+        .field("Rank", rank_str, true)
+        .thumbnail(pfp_url);
+
+    if let Err(ex) = ctx.send(CreateReply::default().embed(embed)).await {
         error!("Failed to send embed: {}", ex);
     }
 }
@@ -136,14 +136,13 @@ pub async fn levels(
                     })
                     .reduce(|a, b| {format!("{a}\n{b}")})
                     .unwrap_or_else(|| "There is nothing on this page.".to_string());
-                ctx.send(|m| {
-                    m.embeds.clear();
-                    m.embed(|e|
-                        e
-                            .title("Top Users")
-                            .description(content)
-                            .footer(|e| e.text(format!("Page {}/{}", level_page, pagination.last_page)))
-                    )}).await?;
+
+                let embed = CreateEmbed::new()
+                    .title("Top Users")
+                    .description(content)
+                    .footer(CreateEmbedFooter::new(format!("Page {}/{}", level_page, pagination.last_page)));
+
+                ctx.send(CreateReply::default().embed(embed)).await?;
             },
             Err(ex) => {
                 ctx.say("Failed to get rankings.".to_string()).await?;
@@ -178,7 +177,7 @@ pub async fn disablexp(ctx: CowContext<'_>) -> Result<(), Error> {
                 } else {
                     content = "Enabled".to_string();
                 }
-                content += &format!(" collecting experience in <#{}>.", channel.as_u64());
+                content += &format!(" collecting experience in <#{}>.", channel.get());
             },
             Err(ex) => {
                 content = "Failed to toggle channel xp status.".to_string();
@@ -217,7 +216,7 @@ pub async fn disableserverxp(ctx: CowContext<'_>) -> Result<(), Error> {
                 }
 
                 content.push(" collecting experience and ranking commands in ");
-                content.push_safe(guild.name);
+                content.push_safe(&guild.name);
                 content.push(".");
             },
             Err(ex) => {

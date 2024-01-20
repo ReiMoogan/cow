@@ -1,5 +1,6 @@
 use std::borrow::Cow;
 use std::time::Duration;
+use poise::CreateReply;
 use reqwest::Client;
 use tokio::fs;
 use crate::{CowContext, Error, models::config::Config};
@@ -7,6 +8,7 @@ use tracing::error;
 
 use serde::{Serialize, Deserialize};
 use serenity::all::CreateAttachment;
+use serenity::builder::CreateEmbed;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct DallERequest {
@@ -42,11 +44,11 @@ pub async fn moogan(ctx: CowContext<'_>) -> Result<(), Error> {
         if response.status().is_success() {
             let bytes = response.bytes().await?;
 
-            ctx.send(|m| m.embed(|e|
-                e
-                    .title("Live Moogan Reaction")
-                    .attachment("moogan_live_reaction.png")
-            ).attachment(CreateAttachment::bytes(bytes.as_ref(), "moogan_live_reaction.png"))).await?;
+            let reply = CreateReply::default()
+                .embed(CreateEmbed::new().title("Live Moogan Reaction").attachment("moogan_live_reaction.png"))
+                .attachment(CreateAttachment::bytes(bytes.as_ref(), "moogan_live_reaction.png"));
+
+            ctx.send(reply).await?;
             return Ok(());
         }
     }
@@ -99,11 +101,11 @@ pub async fn moogan(ctx: CowContext<'_>) -> Result<(), Error> {
         let response = client.get(url).send().await?;
         let bytes = response.bytes().await?;
 
-        ctx.send(|m| m.embed(|e|
-            e
-                .title("Live Moogan Reaction")
-                .attachment("moogan_live_reaction.png")
-        ).attachment(CreateAttachment::bytes(Cow::from(bytes.as_ref()), "moogan_live_reaction.png"))).await?;
+        let reply = CreateReply::default()
+            .embed(CreateEmbed::new().title("Live Moogan Reaction").attachment("moogan_live_reaction.png"))
+            .attachment(CreateAttachment::bytes(bytes.as_ref(), "moogan_live_reaction.png"));
+
+        ctx.send(reply).await?;
     } else {
         error!("Failed to generate image, no URL returned");
         ctx.say("I couldn't generate an image...").await?;

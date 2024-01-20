@@ -2,6 +2,8 @@ use chrono::{Datelike, DateTime, Local, TimeZone, Utc};
 use tracing::error;
 use crate::{CowContext, cowdb, Error};
 use std::error;
+use poise::CreateReply;
+use serenity::all::{CreateEmbed, CreateEmbedFooter};
 use crate::commands::ucm::courses_db_models::*;
 use crate::{Database, db};
 
@@ -51,61 +53,57 @@ async fn course_embed(ctx: &CowContext<'_>, class: &Class) -> Result<(), Error> 
 
     const ENROLL_HELP: &str = "Enrollment and Waitlist are in terms of seats available/seats taken/max seats.";
 
-    ctx.send(|m| {
-        m.embeds.clear();
-        m.embed(|e| {
-            e.title(format!("{}: {}", &class.course_number, class.course_title.clone().unwrap_or_else(|| "<unknown class name>".to_string())));
-            e.description(ENROLL_HELP);
-            e.field("CRN", class.course_reference_number, true);
-            e.field("Credit Hours", class.credit_hours, true);
-            e.field("Term", format_term(class.term), true);
-            e.field("Enrollment", format!("{}/{}/{}", class.seats_available, class.enrollment, class.maximum_enrollment), true);
-            e.field("Waitlist", format!("{}/{}/{}", class.wait_available, class.wait_capacity - class.wait_available, class.wait_capacity), true);
+    let mut embed = CreateEmbed::new()
+        .title(format!("{}: {}", &class.course_number, class.course_title.clone().unwrap_or_else(|| "<unknown class name>".to_string())))
+        .description(ENROLL_HELP)
+        .field("CRN", format!("{}", class.course_reference_number), true)
+        .field("Credit Hours", format!("{}", class.credit_hours), true)
+        .field("Term", format_term(class.term), true)
+        .field("Enrollment", format!("{}/{}/{}", class.seats_available, class.enrollment, class.maximum_enrollment), true)
+        .field("Waitlist", format!("{}/{}/{}", class.wait_available, class.wait_capacity - class.wait_available, class.wait_capacity), true);
 
-            if let Ok(Some(description)) = description {
-                e.description(format!("{description}\n\n{ENROLL_HELP}"));
-            }
+    if let Ok(Some(description)) = description {
+        embed = embed.description(format!("{description}\n\n{ENROLL_HELP}"));
+    }
 
-            if let Ok(professors) = professors {
-                e.field("Professor(s)",
-                        professors.iter()
-                            .map(|o| format!("- {}", o.full_name.clone()))
-                            .reduce(|a, b| format!("{a}\n{b}"))
-                            .unwrap_or_else(|| "No professors are assigned to this course.".to_string()),
-                        false);
-            }
+    if let Ok(professors) = professors {
+        embed = embed.field("Professor(s)",
+                professors.iter()
+                    .map(|o| format!("- {}", o.full_name.clone()))
+                    .reduce(|a, b| format!("{a}\n{b}"))
+                    .unwrap_or_else(|| "No professors are assigned to this course.".to_string()),
+                false);
+    }
 
-            if let Ok(meetings) = meetings {
-                e.field("Meeting(s)",
-                        meetings.iter()
-                            .map(|o| {
-                                let output = format!("- {}: {} {}",
-                                                     o.meeting_type, o.building_description.clone().unwrap_or_else(|| "<no building>".to_string()), o.room.clone().unwrap_or_else(|| "<no room>".to_string()));
-                                if o.begin_time.is_some() && o.end_time.is_some() {
-                                    let begin_time = o.begin_time.clone().unwrap();
-                                    let end_time = o.end_time.clone().unwrap();
-                                    return format!("{} ({} - {}) from {} to {} on {}", output, o.begin_date, o.end_date, fix_time(&begin_time), fix_time(&end_time), o.in_session);
-                                }
+    if let Ok(meetings) = meetings {
+        embed = embed.field("Meeting(s)",
+                meetings.iter()
+                    .map(|o| {
+                        let output = format!("- {}: {} {}",
+                                             o.meeting_type, o.building_description.clone().unwrap_or_else(|| "<no building>".to_string()), o.room.clone().unwrap_or_else(|| "<no room>".to_string()));
+                        if o.begin_time.is_some() && o.end_time.is_some() {
+                            let begin_time = o.begin_time.clone().unwrap();
+                            let end_time = o.end_time.clone().unwrap();
+                            return format!("{} ({} - {}) from {} to {} on {}", output, o.begin_date, o.end_date, fix_time(&begin_time), fix_time(&end_time), o.in_session);
+                        }
 
-                                output
-                            })
-                            .reduce(|a, b| format!("{a}\n{b}"))
-                            .unwrap_or_else(|| "No meetings are assigned to this course.".to_string()),
-                        false);
-            }
+                        output
+                    })
+                    .reduce(|a, b| format!("{a}\n{b}"))
+                    .unwrap_or_else(|| "No meetings are assigned to this course.".to_string()),
+                false);
+    }
 
-            if let Ok(stats) = stats {
-                if let Some(class_update) = stats.get("class") {
-                    let local_time: DateTime<Local> = Local.from_local_datetime(class_update).unwrap();
-                    let utc_time: DateTime<Utc> = DateTime::from(local_time);
-                    e.footer(|f| f.text("Last updated at"));
-                    e.timestamp(utc_time);
-                }
-            }
+    if let Ok(stats) = stats {
+        if let Some(class_update) = stats.get("class") {
+            let local_time: DateTime<Local> = Local.from_local_datetime(class_update).unwrap();
+            let utc_time: DateTime<Utc> = DateTime::from(local_time);
+            embed = embed.footer(CreateEmbedFooter::new("Last updated at"));
+            embed = embed.timestamp(utc_time);
+        }
+    }
 
-            e
-        })
-    }).await?;
+    ctx.send(CreateReply::default().embed(embed)).await?;
 
     Ok(())
 }
@@ -319,21 +317,19 @@ async fn print_matches(ctx: &CowContext<'_>, classes: &[PartialClass]) -> Result
         let class = db.get_class(classes[0].course_reference_number, to_term(classes[0].id)).await?.unwrap();
         course_embed(ctx, &class).await?;
     } else {
-        ctx.send(|m| {
-            m.embeds.clear();
-            m.embed(|e| {
-                e.title("Class Search").description("Multiple results were found for your query. Search again using the CRN for a particular class.");
-                e.field(format!("Classes Matched (totalling {})", classes.len()),
-                        classes
-                            .iter()
-                            .take(10)
-                            .map(|o| format!("`{}` - {}: {}", o.course_reference_number, o.course_number, o.course_title.clone().unwrap_or_else(|| "<unknown class name>".to_string())))
-                            .reduce(|a, b| format!("{a}\n{b}"))
-                            .unwrap(),
-                        false);
-                e
-            })
-        }).await?;
+        let embed = CreateEmbed::new()
+            .title("Class Search")
+            .description("Multiple results were found for your query. Search again using the CRN for a particular class.")
+            .field(format!("Classes Matched (totalling {})", classes.len()),
+                classes
+                    .iter()
+                    .take(10)
+                    .map(|o| format!("`{}` - {}: {}", o.course_reference_number, o.course_number, o.course_title.clone().unwrap_or_else(|| "<unknown class name>".to_string())))
+                    .reduce(|a, b| format!("{a}\n{b}"))
+                    .unwrap(),
+                false);
+
+        ctx.send(CreateReply::default().embed(embed)).await?;
     }
 
     Ok(())

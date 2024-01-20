@@ -1,3 +1,4 @@
+use poise::CreateReply;
 use crate::{CowContext, cowdb, Error};
 use serenity::{
     model::{
@@ -6,6 +7,7 @@ use serenity::{
         }
     },
 };
+use serenity::all::CreateEmbed;
 use crate::{Database, db};
 use tracing::{error};
 use serenity::model::guild::Role;
@@ -30,7 +32,7 @@ pub async fn add(
         match db.add_role(guild.id, &role.name, role.id, min_level).await {
             Ok(success) => {
                 if success {
-                    ctx.say(format!("Successfully added <@&{}> with minimum level {}.", role.id.as_u64(), min_level)).await?;
+                    ctx.say(format!("Successfully added <@&{}> with minimum level {}.", role.id.get(), min_level)).await?;
                 } else {
                     ctx.say(format!("There is a duplicate role with minimum level {min_level}.")).await?;
                 }
@@ -64,7 +66,7 @@ pub async fn remove(
         match db.remove_role(guild.id, role_id).await {
             Ok(success) => {
                 if success {
-                    ctx.say(format!("Successfully removed <@&{}>.", role_id.as_u64())).await?;
+                    ctx.say(format!("Successfully removed <@&{}>.", role_id.get())).await?;
                 } else {
                     ctx.say("A rank didn't exist for this role.".to_string()).await?;
                 }
@@ -98,22 +100,22 @@ pub async fn list_code(ctx: CowContext<'_>) -> Result<(), Error> {
     if let Some(guild_id) = ctx.guild_id() {
         match db.get_roles(guild_id).await {
             Ok(items) => {
-                if let Err(ex) = ctx.send(|m| {
-                    m.embeds.clear();
-                    m.embed(|e| {
-                        e.title("Rank to Level Mapping")
-                            .description(
-                                items.into_iter()
-                                    .map(|i| {
-                                        let mut content = format!("{}: <no role> at level {}", i.name, i.min_level);
-                                        if let Some(role_id) = i.role_id {
-                                            content = format!("{}: <@&{}> at level {}", i.name, role_id, i.min_level);
-                                        }
-                                        content
-                                    })
-                                    .reduce(|a, b| {format!("{a}\n{b}")})
-                                    .unwrap_or_else(|| "No roles are registered on this server.".to_string())
-                        )})}).await {
+                let embed = CreateEmbed::new()
+                    .title("Rank to Level Mapping")
+                    .description(
+                        items.into_iter()
+                            .map(|i| {
+                                let mut content = format!("{}: <no role> at level {}", i.name, i.min_level);
+                                if let Some(role_id) = i.role_id {
+                                    content = format!("{}: <@&{}> at level {}", i.name, role_id, i.min_level);
+                                }
+                                content
+                            })
+                            .reduce(|a, b| {format!("{a}\n{b}")})
+                            .unwrap_or_else(|| "No roles are registered on this server.".to_string())
+                    );
+                
+                if let Err(ex) = ctx.send(CreateReply::default().embed(embed)).await {
                     error!("Failed to send message to server: {}", ex);
                 }
             },

@@ -1,3 +1,5 @@
+use poise::CreateReply;
+use serenity::all::CreateEmbed;
 use tracing::error;
 use crate::{CowContext, cowdb, Error};
 
@@ -20,26 +22,21 @@ pub async fn list_code(ctx: CowContext<'_>) -> Result<(), Error> {
 
     match db.get_user_reminders(ctx.author().id).await {
         Ok(reminders) => {
-            ctx.send(|m| {
-                m.embeds.clear();
-                m.embed(|e| {
-                    e.title("Your Course Reminders");
+            let mut embed = CreateEmbed::new().title("Your Course Reminders");
 
-                    if reminders.is_empty() {
-                        e.description("You do not have any reminders set. Add some using `reminders add`.");
-                    } else {
-                        for reminder in reminders {
-                            let course_reference_number = to_crn(reminder.class_id);
-                            let term = to_term(reminder.class_id);
-                            e.field(format!("CRN {} for {}", course_reference_number, format_term(term)),
-                                    format!("Minimum Trigger: `{}`\nFor Waitlist: `{}`\nTriggered: `{}`", reminder.min_trigger, reminder.for_waitlist, reminder.triggered),
-                                    false);
-                        }
-                    }
+            if reminders.is_empty() {
+                embed = embed.description("You do not have any reminders set. Add some using `reminders add`.");
+            } else {
+                for reminder in reminders {
+                    let course_reference_number = to_crn(reminder.class_id);
+                    let term = to_term(reminder.class_id);
+                    embed = embed.field(format!("CRN {} for {}", course_reference_number, format_term(term)),
+                            format!("Minimum Trigger: `{}`\nFor Waitlist: `{}`\nTriggered: `{}`", reminder.min_trigger, reminder.for_waitlist, reminder.triggered),
+                            false);
+                }
+            }
 
-                    e
-                })
-            }).await?;
+            ctx.send(CreateReply::default().embed(embed)).await?;
         }
         Err(ex) => {
             error!("Failed to get reminders for user: {}", ex);

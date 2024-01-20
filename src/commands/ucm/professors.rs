@@ -1,4 +1,7 @@
 use chrono::{Datelike, DateTime, Local, TimeZone, Utc};
+use poise::CreateReply;
+use serenity::all::CreateEmbedFooter;
+use serenity::builder::CreateEmbed;
 use tracing::error;
 use crate::{CowContext, Database, db, cowdb, Error};
 use crate::commands::ucm::courses_db_models::*;
@@ -13,36 +16,36 @@ async fn professor_embed(ctx: &CowContext<'_>, professor: &Professor) -> Result<
 
     let classes = db.get_classes_for_professor(&professor.email, term).await;
     let stats = db.get_stats().await;
-    ctx.send(|m| m.embed(|e| {
-        e.title(&professor.full_name);
-        e.description("Note: this uses Rate My Professor, which may be off at times~");
-        e.field("Rating Score", format!("{}/5", professor.rating), true);
-        e.field("Difficulty Score", format!("{}/5", professor.difficulty), true);
-        e.field("Take Again Percentage", format!("{}%", professor.would_take_again_percent), true);
-        e.field("Number of Ratings", professor.num_ratings, true);
-        e.field("Email", &professor.email, true);
+
+    let mut embed = CreateEmbed::new()
+        .title(&professor.full_name)
+        .description("Note: this uses Rate My Professor, which may be off at times~")
+        .field("Rating Score", format!("{}/5", professor.rating), true)
+        .field("Difficulty Score", format!("{}/5", professor.difficulty), true)
+        .field("Take Again Percentage", format!("{}%", professor.would_take_again_percent), true)
+        .field("Number of Ratings", format!("{}", professor.num_ratings), true)
+        .field("Email", &professor.email, true);
 
 
-        if let Ok(classes) = classes {
-            e.field(format!("Classes for {} (totalling {})", crate::commands::ucm::format_term(term), classes.len()),
-                    classes.iter()
-                        .map(|o| format!("- {} (`{}`): {}", &o.course_number, o.course_reference_number, o.course_title.clone().unwrap_or_else(|| "<unknown class name>".to_string())))
-                        .reduce(|a, b| if a.len() < 1000 { format!("{a}\n{b}") } else {a})
-                        .unwrap_or_else(|| "This person is not teaching any classes for this term.".to_string()),
-                    false);
+    if let Ok(classes) = classes {
+        embed = embed.field(format!("Classes for {} (totalling {})", crate::commands::ucm::format_term(term), classes.len()),
+                classes.iter()
+                    .map(|o| format!("- {} (`{}`): {}", &o.course_number, o.course_reference_number, o.course_title.clone().unwrap_or_else(|| "<unknown class name>".to_string())))
+                    .reduce(|a, b| if a.len() < 1000 { format!("{a}\n{b}") } else {a})
+                    .unwrap_or_else(|| "This person is not teaching any classes for this term.".to_string()),
+                false);
+    }
+
+    if let Ok(stats) = stats {
+        if let Some(class_update) = stats.get("professor") {
+            let local_time: DateTime<Local> = Local.from_local_datetime(class_update).unwrap();
+            let utc_time: DateTime<Utc> = DateTime::from(local_time);
+            embed = embed.footer(CreateEmbedFooter::new("Last updated at"));
+            embed = embed.timestamp(utc_time);
         }
+    }
 
-        if let Ok(stats) = stats {
-            if let Some(class_update) = stats.get("professor") {
-                let local_time: DateTime<Local> = Local.from_local_datetime(class_update).unwrap();
-                let utc_time: DateTime<Utc> = DateTime::from(local_time);
-                e.footer(|f| f.text("Last updated at"));
-                e.timestamp(utc_time);
-            }
-        }
-
-        e
-    })).await?;
+    ctx.send(CreateReply::default().embed(embed)).await?;
 
     Ok(())
 }
@@ -94,18 +97,18 @@ async fn print_matches(ctx: &CowContext<'_>, professors: &[Professor]) -> Result
     } else if professors.len() == 1 {
         professor_embed(ctx, professors.first().unwrap()).await?;
     } else {
-        ctx.send(|m| m.embed(|e| {
-            e.title("Professor Search").description("Multiple results were found for your query. Try refining your input.");
-            e.field(format!("Professors Matched (totalling {})", professors.len()),
-                    professors
-                        .iter()
-                        .take(10)
-                        .map(|o| format!("`{}` - {}", o.full_name, o.department.clone().unwrap_or_else(|| "<unknown department>".to_string())))
-                        .reduce(|a, b| format!("{a}\n{b}"))
-                        .unwrap(),
-                    false);
-            e
-        })).await?;
+        let embed = CreateEmbed::new()
+            .title("Professor Search").description("Multiple results were found for your query. Try refining your input.")
+            .field(format!("Professors Matched (totalling {})", professors.len()),
+                professors
+                    .iter()
+                    .take(10)
+                    .map(|o| format!("`{}` - {}", o.full_name, o.department.clone().unwrap_or_else(|| "<unknown department>".to_string())))
+                    .reduce(|a, b| format!("{a}\n{b}"))
+                    .unwrap(),
+                false);
+
+        ctx.send(CreateReply::default().embed(embed)).await?;
     }
 
     Ok(())

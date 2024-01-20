@@ -1,6 +1,14 @@
+use std::collections::VecDeque;
+use lavalink_rs::model::track::{TrackData, TrackInfo};
+use lavalink_rs::player_context::QueueMessage;
+use lavalink_rs::prelude::{SearchEngines, TrackInQueue, TrackLoadData};
+use poise::CreateReply;
 use tracing::error;
 use regex::Regex;
+use serenity::all::CreateEmbed;
+use serenity::builder::CreateEmbedAuthor;
 use serenity::utils::MessageBuilder;
+use songbird::error::JoinResult;
 use crate::{Error, Lavalink};
 use crate::commands::music::spotify;
 use crate::CowContext;
@@ -40,21 +48,24 @@ pub async fn join_interactive(ctx: &CowContext<'_>) -> Result<(), Error> {
     let serenity = ctx.serenity_context();
     let manager = songbird::get(serenity).await.unwrap().clone();
 
-    let (_, handler) = manager.join_gateway(guild_id, connect_to).await.expect("Error joining voice channel");
+    let lava_client = {
+        let data = serenity.data.read().await;
+        data.get::<Lavalink>().unwrap().clone()
+    };
 
-    match handler {
-        Ok(connection_info) => {
-            let lava_client = {
-                let data = serenity.data.read().await;
-                data.get::<Lavalink>().unwrap().clone()
-            };
+    if lava_client.get_player_context(guild_id).is_some() {
+        ctx.say("I'm already in a VC...").await?;
+        return Ok(());
+    }
 
-            lava_client.create_session_with_songbird(&connection_info).await?;
+    match manager.join_gateway(guild_id, connect_to).await {
+        Ok((connection, _)) => {
+            lava_client.create_player_context(guild_id, connection).await?;
             ctx.say(format!("Joined <#{connect_to}>")).await?;
         }
         Err(ex) => {
-            ctx.say("Failed to join your VC...").await?;
-            error!("Error joining the channel: {}", ex)
+            ctx.say("Failed to connect to voice channel; maybe I don't have permissions?").await?;
+            error!("Failed to connect to VC: {}", ex);
         }
     }
 
@@ -87,16 +98,16 @@ pub async fn leave(ctx: CowContext<'_>) -> Result<(), Error> {
     let manager = songbird::get(serenity).await.unwrap().clone();
     let has_handler = manager.get(guild_id).is_some();
 
+    {
+        // Free up the LavaLink client.
+        let data = serenity.data.read().await;
+        let lava_client = data.get::<Lavalink>().unwrap().clone();
+        lava_client.delete_player(guild_id.get()).await?;
+    }
+
     if has_handler {
         if let Err(ex) = manager.remove(guild_id).await {
             error!("Failed to disconnect: {}", ex);
-        }
-
-        {
-            // Free up the LavaLink client.
-            let data = serenity.data.read().await;
-            let lava_client = data.get::<Lavalink>().unwrap().clone();
-            lava_client.destroy(guild_id.get()).await?;
         }
 
         ctx.say("Disconnected from VC. Goodbye!").await?;
@@ -118,60 +129,7 @@ pub async fn play(
     ctx: CowContext<'_>,
     #[description = "A YouTube URL or name."] #[rest] query: Option<String>)
 -> Result<(), Error> {
-    if let Some(query) = query {
-        let guild_id = match ctx.guild_id() {
-            Some(channel) => channel,
-            None => {
-                ctx.say("Error finding channel info").await?;
-                return Ok(());
-            }
-        };
-
-        let serenity = ctx.serenity_context();
-        let lava_client = {
-            let data = serenity.data.read().await;
-            data.get::<Lavalink>().unwrap().clone()
-        };
-
-        let manager = songbird::get(serenity).await.unwrap().clone();
-
-        if manager.get(guild_id).is_none() {
-            if let Err(ex) = join_interactive(&ctx).await {
-                ctx.say("Failed to connect to voice channel; maybe I don't have permissions?").await?;
-                error!("Failed to connect to VC: {}", ex);
-                return Ok(());
-            }
-        }
-
-        if let Some(_handler) = manager.get(guild_id) {
-            let query_information = lava_client.auto_search_tracks(&query).await?;
-
-            if query_information.tracks.is_empty() {
-                ctx.say("Could not find any video of the search query.").await?;
-                return Ok(());
-            }
-
-            if let Err(why) = &lava_client.play(guild_id.get(), query_information.tracks[0].clone()).queue()
-                .await
-            {
-                error!("Failed to queue: {}", why);
-                return Ok(());
-            };
-
-            let message = MessageBuilder::new().push("Added to queue: ").push_mono_safe(&query_information.tracks[0].info.as_ref().unwrap().title).build();
-            if let Ok(tracks) = lava_client.get_tracks(query).await {
-                if tracks.tracks.len() > 1 {
-                    ctx.say("Note: This seems to be a playlist. If you want to add all tracks at once, use `playlist` instead of `play`.\n".to_string() + &message).await?;
-                    return Ok(())
-                }
-            }
-            ctx.say(message).await?;
-        }
-    } else {
-        ctx.send(|msg| msg.ephemeral(true).content("Please provide a search query.")).await?;
-    }
-
-    Ok(())
+    player_command(ctx, query, false).await
 }
 
 #[poise::command(
@@ -185,7 +143,11 @@ pub async fn playlist(
     ctx: CowContext<'_>,
     #[description = "A YouTube URL or query to a playlist."] #[rest] query: Option<String>)
 -> Result<(), Error> {
-    if let Some(query) = query {
+    player_command(ctx, query, true).await
+}
+
+async fn player_command(ctx: CowContext<'_>, query: Option<String>, load_playlist: bool) -> Result<(), Error> {
+    if let Some(mut query) = query {
         if let Some(guild_id) = ctx.guild_id() {
             let serenity = ctx.serenity_context();
             let lava_client = {
@@ -203,36 +165,71 @@ pub async fn playlist(
                 }
             }
 
-            if let Some(_handler) = manager.get(guild_id) {
-                match lava_client.get_tracks(&query).await {
-                    Ok(tracks) => {
-                        for track in &tracks.tracks {
-                            if let Err(why) = &lava_client.play(guild_id, track.clone()).queue()
-                                .await
-                            {
-                                error!("Failed to queue from playlist: {}", why);
-                            };
+            let Some(player) = lava_client.get_player_context(guild_id) else {
+                ctx.say("Am I not in a VC? This shouldn't happen, disconnect me maybe?").await?;
+                return Ok(());
+            };
+
+            if !query.starts_with("http") {
+                // Could also use Spotify::to_query
+                query = SearchEngines::YouTube.to_query(&query)?;
+            }
+
+            match lava_client.load_tracks(guild_id, &query).await {
+                Ok(track) => {
+                    let mut playlist_info = None;
+
+                    let tracks: Vec<TrackInQueue> = match track.data {
+                        Some(TrackLoadData::Track(x)) => vec![x.into()],
+                        Some(TrackLoadData::Search(x)) => vec![x[0].clone().into()],
+                        Some(TrackLoadData::Playlist(x)) => {
+                            if load_playlist || x.tracks.len() == 0 {
+                                playlist_info = Some(x.info);
+                                x.tracks.iter().map(|x| x.into()).collect()
+                            } else {
+                                ctx.say("Note: only the first track will be played - use the `playlist` subcommand to load the full playlist.").await?;
+                                vec![x.tracks[0].clone().into()]
+                            }
                         }
 
-                        if let Some(info) = &tracks.playlist_info {
-                            if let Some(name) = &info.name {
-                                ctx.say(MessageBuilder::new().push("Added to the queue ").push(tracks.tracks.len()).push(" tracks from ").push_mono_safe(name).push(".").build()).await?;
-                            } else {
-                                ctx.say(format!("Added to the queue {} tracks.", tracks.tracks.len())).await?;
-                            }
+                        _ => {
+                            ctx.say("Could not load any tracks from the given input.").await?;
+                            error!("Failed to load tracks: {:?}", track);
+                            return Ok(());
+                        }
+                    };
+
+                    if let Some(info) = playlist_info {
+                        ctx.say(format!("Added playlist to queue: {} ({} songs)", info.name, tracks.len())).await?;
+                    } else {
+                        let track = &tracks[0].track;
+
+                        if let Some(uri) = &track.info.uri {
+                            ctx.say(format!("Added to queue: [{} - {}](<{}>)", track.info.author, track.info.title, uri)).await?;
                         } else {
-                            ctx.say(format!("Added to the queue {} tracks.", tracks.tracks.len())).await?;
+                            ctx.say(format!("Added to queue: {} - {}", track.info.author, track.info.title)).await?;
                         }
                     }
-                    Err(ex) => {
-                        error!("Failed to load tracks: {}", ex);
-                        ctx.say("Could not load any tracks from the given input.").await?;
+
+                    player.set_queue(QueueMessage::Append(tracks.into()))?;
+
+                    if let Ok(player_data) = player.get_player().await {
+                        if player_data.track.is_none() && player.get_queue().await.is_ok_and(|x| !x.is_empty()) {
+                            player.skip()?;
+                        }
                     }
                 }
+                Err(ex) => {
+                    error!("Failed to load tracks: {:?}", ex);
+                    ctx.say("Could not load any tracks from the given input.").await?;
+                    return Ok(());
+                }
             }
+
+            if let Some(_handler) = manager.get(guild_id) {}
         }
     } else {
-        ctx.send(|msg| msg.ephemeral(true).content("Please provide a search query.")).await?;
+        ctx.send(CreateReply::default().ephemeral(true).content("Please provide a search query.")).await?;
     }
 
     Ok(())
@@ -252,18 +249,17 @@ pub async fn pause(ctx: CowContext<'_>) -> Result<(), Error> {
             data.get::<Lavalink>().unwrap().clone()
         };
 
-        if let Some(node) = lava_client.nodes().await.get(&guild_id.get()) {
-            if node.is_paused {
-                if let Err(ex) = lava_client.set_pause(guild_id.get(), false).await {
-                    error!("Failed to unpause music: {}", ex);
-                } else {
-                    ctx.say("Unpaused the player.").await?;
-                }
-            } else if let Err(ex) = lava_client.pause(guild_id.get()).await {
-                error!("Failed to pause music: {}", ex);
+        if let Some(player) = lava_client.get_player_context(guild_id) {
+            let paused = player.get_player().await?.paused;
+            player.set_pause(!paused).await?;
+
+            if paused {
+                ctx.say("Resumed playback.").await?;
             } else {
-                ctx.say("Paused the player.").await?;
+                ctx.say("Paused playback.").await?;
             }
+        } else {
+            ctx.say("I'm not in a VC...").await?;
         }
     }
 
@@ -284,42 +280,34 @@ pub async fn now_playing(ctx: CowContext<'_>) -> Result<(), Error> {
         data.get::<Lavalink>().unwrap().clone()
     };
 
-    if let Some(node) = lava_client.nodes().await.get(&ctx.guild_id().unwrap().get()) {
-        if let Some(track) = &node.now_playing {
-            let info = track.track.info.as_ref().unwrap();
+    if let Some(node) = lava_client.get_player_context(ctx.guild_id().unwrap()) {
+        if let Some(track) = &node.get_player().await?.track {
+            let info = &track.info;
             let re = Regex::new(r#"(?:youtube\.com/(?:[^/]+/.+/|(?:v|e(?:mbed)?)/|.*[?&]v=)|youtu\.be/)([^"&?/\s]{11})"#).unwrap();
-            let youtube_id = re.captures(&info.uri).and_then(|caps| caps.get(1).map(|m| m.as_str()));
-            let spotify_thumbail = spotify::get_thumbnail(&info.uri).await;
-            let server_name = ctx.guild().map(|o| o.name);
+            let youtube_id = if let Some(uri) = &info.uri { re.captures(uri).and_then(|caps| caps.get(1).map(|m| m.as_str())) } else { None };
+            let spotify_thumbail = if let Some(uri) = &info.uri { spotify::get_thumbnail(uri).await } else { None };
+            let server_name = ctx.guild().map(|o| o.name.clone());
 
-            ctx.send(|m| {
-                m.embeds.clear();
-                m.embed(|e| {
-                    e
-                        .author(|a| a.name(match server_name {
-                            Some(name) => format!("Now Playing in {name}"),
-                            None => "Now Playing".to_string()
-                        }))
-                        .title(&info.title)
-                        .url(&info.uri)
-                        .field("Artist", &info.author, true)
-                        .field("Duration", format!("{}/{}", crate::util::from_ms(info.position), crate::util::from_ms(info.length)), true);
+            let mut embed = CreateEmbed::new()
+                .author(CreateEmbedAuthor::new(match server_name {
+                    Some(name) => format!("Now Playing in {name}"),
+                    None => "Now Playing".to_string()
+                }))
+                .title(&info.title)
+                .field("Artist", &info.author, true)
+                .field("Duration", format!("{}/{}", crate::util::from_ms(info.position), crate::util::from_ms(info.length)), true);
 
+            if let Some(id) = youtube_id {
+                embed = embed.thumbnail(format!("https://img.youtube.com/vi/{id}/maxresdefault.jpg"));
+            } else if let Some(url) = spotify_thumbail {
+                embed = embed.thumbnail(url);
+            }
 
-                    if let Some(requester) = track.requester {
-                        e.field("Requested By", format!("<@{requester}>"), true);
-                    }
+            if let Some(uri) = &info.uri {
+                embed = embed.url(uri);
+            }
 
-                    if let Some(id) = youtube_id {
-                        e.thumbnail(format!("https://img.youtube.com/vi/{id}/maxresdefault.jpg"));
-                    } else if let Some(url) = spotify_thumbail {
-                        e.thumbnail(url);
-                    }
-
-                    e
-                }
-                )
-            }).await?;
+            ctx.send(CreateReply::default().embed(embed)).await?;
         } else {
             ctx.say("Nothing is playing at the moment.").await?;
         }
@@ -343,17 +331,14 @@ pub async fn skip(ctx: CowContext<'_>) -> Result<(), Error> {
         data.get::<Lavalink>().unwrap().clone()
     };
 
-    if let Some(track) = lava_client.skip(ctx.guild_id().unwrap()).await {
-        ctx.say(MessageBuilder::new().push("Skipped: ").push_mono_line_safe(&track.track.info.as_ref().unwrap().title).build()).await?;
+    let Some(player) = lava_client.get_player_context(ctx.guild_id().unwrap()) else {
+        ctx.say("I'm not in a VC...").await?;
+        return Ok(());
+    };
 
-        // Need to check if it's empty, so we can stop playing (can crash if we don't check)
-        if let Some(node) = lava_client.nodes().await.get(&ctx.guild_id().unwrap().get()) {
-            if node.now_playing.is_none() {
-                if let Err(ex) = lava_client.stop(ctx.guild_id().unwrap()).await {
-                    error!("Failed to stop music: {}", ex);
-                }
-            }
-        }
+    if let Some(track) = player.get_player().await?.track {
+        player.skip()?;
+        ctx.say(MessageBuilder::new().push("Skipped: ").push_mono_line_safe(&track.info.title).build()).await?;
     } else {
         ctx.say("There is nothing to skip.").await?;
     }
@@ -361,17 +346,12 @@ pub async fn skip(ctx: CowContext<'_>) -> Result<(), Error> {
     Ok(())
 }
 
-fn generate_line(song: &TrackQueue) -> String {
-    let info = song.track.info.as_ref().unwrap();
+fn generate_line(info: &TrackInfo) -> String {
 
-    if let Some(person) = song.requester {
-        format!("{} - {} | ``{}`` Requested by: <@{}>\n\n", info.title, info.author, crate::util::from_ms(info.length), person)
-    } else {
-        format!("{} - {} | ``{}``\n\n", info.title, info.author, crate::util::from_ms(info.length))
-    }
+    format!("{} - {} | ``{}``\n\n", info.title, info.author, crate::util::from_ms(info.length))
 }
 
-fn generate_queue(queue: &[TrackQueue]) -> Vec<String> {
+fn generate_queue(queue: VecDeque<TrackInQueue>) -> Vec<String> {
     let mut output: Vec<String> = Vec::new();
 
     if queue.is_empty() {
@@ -390,7 +370,7 @@ fn generate_queue(queue: &[TrackQueue]) -> Vec<String> {
 
             let song = &queue[index];
             index += 1;
-            let next_line = format!("``{}.`` {}", index, generate_line(song));
+            let next_line = format!("``{}.`` {}", index, generate_line(&song.track.info));
 
             if page.len() + next_line.len() > 1024 {
                 index -= 1;
@@ -429,48 +409,41 @@ pub async fn queue(
     };
 
     let guild_id = ctx.guild_id().unwrap();
-    if let Some(node) = lava_client.nodes().await.get(&guild_id.get()) {
-        let queue = &node.queue;
-        let pages = generate_queue(queue);
+    let Some(context) = lava_client.get_player_context(guild_id) else {
+        ctx.say("Currently not connected to a voice channel.").await?;
+        return Ok(());
+    };
 
-        if page_num > pages.len() {
-            page_num = pages.len();
-        } else if page_num == 0 {
-            page_num = 1;
-        }
+    let queue = context.get_queue().await?;
+    let pages = generate_queue(queue);
 
-        let page = &pages[page_num - 1];
-        let server_name = guild_id.name(ctx.serenity_context());
-
-        ctx.send(|m| {
-            m.embeds.clear();
-            m.embed(|e| {
-                e
-                    .author(|a| {
-                        if let Some(server) = server_name {
-                            a.name(format!("Player Queue | Page {}/{} | Playing in {}", page_num, pages.len(), server));
-                        } else {
-                            a.name(format!("Player Queue | Page {}/{}", page_num, pages.len()));
-                        }
-
-                        a
-                    })
-                    .title("Now Playing")
-                    .field("Queued", page, false);
-
-                if let Some(now_playing) = &node.now_playing {
-                    e.description(generate_line(now_playing));
-                } else {
-                    e.description("Nothing is playing.");
-                }
-
-                e
-            })
-        }).await?;
-
-    } else {
-        ctx.say("Nothing is playing at the moment.").await?;
+    if page_num > pages.len() {
+        page_num = pages.len();
+    } else if page_num == 0 {
+        page_num = 1;
     }
+
+    let page = &pages[page_num - 1];
+    let server_name = guild_id.name(ctx.serenity_context());
+
+    let mut embed = CreateEmbed::new()
+        .title("Now Playing")
+        .field("Queued", page, false)
+        .author(CreateEmbedAuthor::new(
+            if let Some(server) = server_name {
+                format!("Player Queue | Page {}/{} | Playing in {}", page_num, pages.len(), server)
+            } else {
+                format!("Player Queue | Page {}/{}", page_num, pages.len())
+            }
+        ));
+
+    if let Some(now_playing) = &context.get_player().await.unwrap().track {
+        embed = embed.description(generate_line(&now_playing.info));
+    } else {
+        embed = embed.description("Nothing is playing.");
+    }
+
+    ctx.send(CreateReply::default().embed(embed)).await?;
 
     Ok(())
 }

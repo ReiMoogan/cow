@@ -1,4 +1,6 @@
 use chrono::Datelike;
+use poise::CreateReply;
+use serenity::all::CreateEmbed;
 use tracing::error;
 use crate::{CowContext, Error};
 use crate::commands::ucm::libcal_models::Calendar;
@@ -17,23 +19,21 @@ pub async fn library(ctx: CowContext<'_>) -> Result<(), Error> {
         Ok(response) => {
             match response.json::<Calendar>().await {
                 Ok(data) => {
-                    ctx.send(|m| {
-                        let library = &data.locations[0].weeks[0];
-                        let start_date = chrono::NaiveDate::parse_from_str(&library.sunday.date, "%Y-%m-%d").unwrap();
-                        m.embeds.clear();
-                        m.embed(|e| {
-                            e
-                                .title("Kolligian Library Hours")
-                                .description(format!("For the week of {}", start_date.format("%B %d, %Y")))
-                                .field("Sunday", &library.sunday.rendered, false)
-                                .field("Monday", &library.monday.rendered, false)
-                                .field("Tuesday", &library.tuesday.rendered, false)
-                                .field("Wednesday", &library.wednesday.rendered, false)
-                                .field("Thursday", &library.thursday.rendered, false)
-                                .field("Friday", &library.friday.rendered, false)
-                                .field("Saturday", &library.saturday.rendered, false)
-                        })
-                    }).await?;
+                    let library = &data.locations[0].weeks[0];
+                    let start_date = chrono::NaiveDate::parse_from_str(&library.sunday.date, "%Y-%m-%d").unwrap();
+
+                    let embed = CreateEmbed::new()
+                        .title("Kolligian Library Hours")
+                        .description(format!("For the week of {}", start_date.format("%B %d, %Y")))
+                        .field("Sunday", &library.sunday.rendered, false)
+                        .field("Monday", &library.monday.rendered, false)
+                        .field("Tuesday", &library.tuesday.rendered, false)
+                        .field("Wednesday", &library.wednesday.rendered, false)
+                        .field("Thursday", &library.thursday.rendered, false)
+                        .field("Friday", &library.friday.rendered, false)
+                        .field("Saturday", &library.saturday.rendered, false);
+
+                    ctx.send(CreateReply::default().embed(embed)).await?;
                 }
                 Err(ex) => {
                     ctx.say("The library gave us weird data, try again later?").await?;

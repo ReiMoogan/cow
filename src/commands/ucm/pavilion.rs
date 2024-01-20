@@ -6,7 +6,7 @@ use std::error;
 use poise::CreateReply;
 use serenity::builder::CreateEmbed;
 use serenity::client::Context;
-use serenity::all::{ButtonStyle, ComponentInteraction};
+use serenity::all::{ButtonStyle, ComponentInteraction, CreateActionRow, CreateButton, CreateInteractionResponseFollowup};
 
 // Probably can be hard-coded to be 61bd7ecd8c760e0011ac0fac.
 async fn fetch_pavilion_company_info(client: &Client) -> Result<Company, Box<dyn error::Error + Send + Sync>> {
@@ -165,40 +165,26 @@ pub async fn pavilion(
             .description("Loading data, please wait warmly...")
     )).await?;
 
-    let menus = process_bigzpoon(&day, &meal).await;
+    let mut menus = process_bigzpoon(&day, &meal).await;
 
-    let new_message =
+    let mut embed = CreateEmbed::new().title(&title);
 
-    message.edit(ctx, |m| {
-        m.embeds.clear();
+    if menus.is_empty() {
+        embed = embed.field("No menu data!!", "Could not find the given group, please check your query.", false);
+    } else {
+        embed = menu_filter(&mut menus, embed, print_full_menu);
+    }
 
-        if !menus.is_empty() && !print_full_menu {
-            m.components(|c| {
-                c.create_action_row(|r| {
-                    r.create_button(|b| {
-                        let mut data = format!("full_menu:{}:{}", <Day as Into<String>>::into(day), <Meal as Into<String>>::into(meal));
-                        data.truncate(100);
+    let mut new_message = CreateReply::default().embed(embed);
 
-                        b.style(ButtonStyle::Primary)
-                            .label("Show Full Menu")
-                            .custom_id(data)
-                    })
-                })
-            });
-        }
+    if !menus.is_empty() && !print_full_menu {
+        let mut data = format!("full_menu:{}:{}", <Day as Into<String>>::into(day), <Meal as Into<String>>::into(meal));
+        data.truncate(100);
 
-        m.embed(|e| {
-            e.title(&title);
+        new_message = new_message.components(vec![CreateActionRow::Buttons(vec![CreateButton::new(data).label("Show Full Menu")])]);
+    }
 
-            if menus.is_empty() {
-                e.field("No menu data!!", "Could not find the given group, please check your query.", false);
-            } else {
-                menu_filter(menus, e, print_full_menu);
-            }
-
-            e
-        })
-    }).await?;
+    message.edit(ctx, new_message).await?;
 
     Ok(())
 }
@@ -206,9 +192,7 @@ pub async fn pavilion(
 pub async fn print_full_menu(ctx: &Context, interaction: &ComponentInteraction) -> Result<(), Error> {
     let data = interaction.data.custom_id.split(':').collect::<Vec<_>>();
     if data.len() != 3 {
-        interaction.create_followup_message(&ctx, |r| {
-            r.ephemeral(true).content("Failed to decode component data... please try using the \"full\" parameter with the command.")
-        }).await?;
+        interaction.create_followup(&ctx, CreateInteractionResponseFollowup::new().ephemeral(true).content("Failed to decode component data... please try using the \"full\" parameter with the command.")).await?;
 
         return Ok(());
     }
@@ -223,21 +207,17 @@ pub async fn print_full_menu(ctx: &Context, interaction: &ComponentInteraction) 
         format!("Custom Category at the Pavilion/Yablokoff for {day}")
     };
 
-    let menus = process_bigzpoon(&day, &meal).await;
+    let mut menus = process_bigzpoon(&day, &meal).await;
 
-    interaction.create_followup_message(&ctx, |r| {
-        r.ephemeral(true)
-            .embed(|e| {
-                e.title(&title);
-                menu_filter(menus, e, true);
-                e
-            })
-    }).await?;
+    let mut embed = CreateEmbed::new().title(&title);
+    embed = menu_filter(&mut menus, embed, true);
+
+    interaction.create_followup(&ctx, CreateInteractionResponseFollowup::new().ephemeral(true).embed(embed)).await?;
 
     Ok(())
 }
 
-fn menu_filter(mut menus: Vec<(String, String)>, e: &mut CreateEmbed, print_all: bool) {
+fn menu_filter(mut menus: &Vec<(String, String)>, mut e: CreateEmbed, print_all: bool) -> CreateEmbed {
     if !print_all {
         let mut yab_items = String::new();
         let mut yab_late_items = String::new();
@@ -290,48 +270,49 @@ fn menu_filter(mut menus: Vec<(String, String)>, e: &mut CreateEmbed, print_all:
         if menu_truncated.is_empty() {
             menu_truncated = "This menu is empty.".to_string();
         }
-        e.field(group_name, menu_truncated, false);
+        e = e.field(group_name, menu_truncated, false);
     }
+
+    e
 }
 
 async fn print_pavilion_times(ctx: CowContext<'_>) -> Result<(), Error> {
-    ctx.send(|m| m.embed(|e| e
+    let embed = CreateEmbed::new()
         .title("Dining Services Hours")
         .field("Pavilion on Weekdays", format!("Breakfast: {} - {}\nLunch: {} - {}\nDinner: {} - {}",
-            PavilionTime::breakfast_weekday_start().format("%l:%M %p"), PavilionTime::breakfast_end().format("%l:%M %p"),
-            PavilionTime::lunch_start().format("%l:%M %p"), PavilionTime::lunch_end().format("%l:%M %p"),
-            PavilionTime::dinner_start().format("%l:%M %p"), PavilionTime::dinner_end().format("%l:%M %p")), false)
+                                               PavilionTime::breakfast_weekday_start().format("%l:%M %p"), PavilionTime::breakfast_end().format("%l:%M %p"),
+                                               PavilionTime::lunch_start().format("%l:%M %p"), PavilionTime::lunch_end().format("%l:%M %p"),
+                                               PavilionTime::dinner_start().format("%l:%M %p"), PavilionTime::dinner_end().format("%l:%M %p")), false)
         .field("Pavilion on Weekends", format!("Breakfast: {} - {}\nLunch: {} - {}\nDinner: {} - {}",
-            PavilionTime::breakfast_weekend_start().format("%l:%M %p"), PavilionTime::breakfast_end().format("%l:%M %p"),
-            PavilionTime::lunch_start().format("%l:%M %p"), PavilionTime::lunch_end().format("%l:%M %p"),
-            PavilionTime::dinner_start().format("%l:%M %p"), PavilionTime::dinner_end().format("%l:%M %p")), false)
+                                               PavilionTime::breakfast_weekend_start().format("%l:%M %p"), PavilionTime::breakfast_end().format("%l:%M %p"),
+                                               PavilionTime::lunch_start().format("%l:%M %p"), PavilionTime::lunch_end().format("%l:%M %p"),
+                                               PavilionTime::dinner_start().format("%l:%M %p"), PavilionTime::dinner_end().format("%l:%M %p")), false)
         .field("Yablokoff on Weekdays", format!("Lunch: {} - {}\nDinner: {} - {}\nLate Night: {} - {}",
-            YablokoffTime::lunch_start().format("%l:%M %p"), YablokoffTime::lunch_end().format("%l:%M %p"),
-            YablokoffTime::dinner_start().format("%l:%M %p"), YablokoffTime::dinner_end().format("%l:%M %p"),
-            YablokoffTime::late_night_start().format("%l:%M %p"), YablokoffTime::late_night_end().format("%l:%M %p")), false)
+                                                YablokoffTime::lunch_start().format("%l:%M %p"), YablokoffTime::lunch_end().format("%l:%M %p"),
+                                                YablokoffTime::dinner_start().format("%l:%M %p"), YablokoffTime::dinner_end().format("%l:%M %p"),
+                                                YablokoffTime::late_night_start().format("%l:%M %p"), YablokoffTime::late_night_end().format("%l:%M %p")), false)
         .field("Lantern Cafe", "Weekdays: 8:00 AM - 7:00 PM\nSaturday: 9:00 AM - 3:00 PM", false)
-        .field("Bobcat Snack Shop", "Monday/Wednesday: 8:00 AM - 10:00 PM\nTuesday/Thursday/Friday: 8:00 AM - 6:00 PM", false)
-    )).await?;
+        .field("Bobcat Snack Shop", "Monday/Wednesday: 8:00 AM - 10:00 PM\nTuesday/Thursday/Friday: 8:00 AM - 6:00 PM", false);
+
+    ctx.send(CreateReply::default().embed(embed)).await?;
 
     Ok(())
 }
 
 async fn print_announcements(ctx: CowContext<'_>) -> Result<(), Box<dyn error::Error + Send + Sync>> {
     const TITLE: &str = "Pavilion/Yablokoff Announcements";
-    let message = ctx.send(CreateReply::embed(CreateEmbed::new().title(TITLE).description("Loading data, please wait warmly..."))).await?;
+    let message = ctx.send(CreateReply::default().embed(CreateEmbed::new().title(TITLE).description("Loading data, please wait warmly..."))).await?;
 
     let pav_announcement = process_announcement("pav").await;
     let wydc_announcement = process_announcement("ywdc").await;
 
-    message.edit(ctx, |m| {
-        m.embeds.clear();
-        m.embed(|e| {
-            e
-                .title(TITLE)
-                .field("Pavilion Announcements", pav_announcement, false)
-                .field("Yablokoff Announcements", wydc_announcement, false)
-        })
-    }).await?;
+    message.edit(ctx, CreateReply::default()
+        .embed(CreateEmbed::new()
+            .title(TITLE)
+            .field("Pavilion Announcements", pav_announcement, false)
+            .field("Yablokoff Announcements", wydc_announcement, false)
+        )
+    ).await?;
 
     Ok(())
 }
