@@ -1,3 +1,5 @@
+use poise::CreateReply;
+
 mod library;
 mod libcal_models;
 mod courses;
@@ -34,6 +36,6 @@ use crate::{CowContext, Error};
     identifying_name = "UC Merced"
 )]
 pub async fn ucm(ctx: CowContext<'_>) -> Result<(), Error> {
-    ctx.send(|m| m.ephemeral(true).content("Please invoke a subcommand. To list them, try `!help ucm` or `/help ucm`.")).await?;
+    ctx.send(CreateReply::default().ephemeral(true).content("Please invoke a subcommand. To list them, try `!help ucm` or `/help ucm`.")).await?;
     Ok(())
 }

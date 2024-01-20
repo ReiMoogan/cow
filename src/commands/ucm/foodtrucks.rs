@@ -83,12 +83,7 @@ pub async fn foodtrucks(ctx: CowContext<'_>) -> Result<(), Error> {
                     if let Some(schedule) = image_url {
                         sent_msg.edit(ctx, CreateReply::default().embed(CreateEmbed::new().title(TITLE).image(schedule))).await?;
                     } else {
-                        sent_msg.edit(ctx, |m| {
-                            m.embeds.clear();
-                            m.embed(|e| {
-                                e.title(TITLE).description("Could not get any valid schedules... either the school didn't update their website, or they changed their layout. If you see a valid schedule on https://dining.ucmerced.edu/food-trucks, please ping DoggySazHi!")
-                            })
-                        }).await?;
+                        sent_msg.edit(ctx, CreateReply::default().embed(CreateEmbed::new().title(TITLE).description("Could not get any valid schedules... either the school didn't update their website, or they changed their layout. If you see a valid schedule on https://dining.ucmerced.edu/food-trucks, please ping DoggySazHi!"))).await?;
                         error!("Unable to read food truck website");
                     }
                 }

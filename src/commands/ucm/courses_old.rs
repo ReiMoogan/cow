@@ -1,6 +1,8 @@
 use tracing::error;
 use crate::{CowContext, Error};
 use chrono::Datelike;
+use poise::CreateReply;
+use serenity::all::CreateEmbed;
 use crate::commands::ucm::course_models::{CourseList};
 
 #[poise::command(
@@ -58,22 +60,17 @@ pub async fn courses_old(
             // TODO: add pagination for courses
             match response.json::<CourseList>().await {
                 Ok(course_list) => {
-                    ctx.send(|m| {
-                        m.embeds.clear();
-                        m.embed(|e| {
-                            e
-                                .title("Course List")
-                                .description(format!("For major: {major}"));
+                    let embed = CreateEmbed::new()
+                        .title("Course List")
+                        .description(format!("For major: {major}"));
 
-                            for course in course_list.data {
-                                let title = course.course_title.unwrap_or_else(|| "No Title".into());
-                                e.field(format!("{} {}-{}", major, course.course_number.unwrap_or_else(|| "000".into()), title),
-                                    course.course_description.unwrap_or_else(|| "No description".into())+"...", false);
-                            }
+                    for course in course_list.data {
+                        let title = course.course_title.unwrap_or_else(|| "No Title".into());
+                        embed = embed.field(format!("{} {}-{}", major, course.course_number.unwrap_or_else(|| "000".into()), title),
+                                course.course_description.unwrap_or_else(|| "No description".into()) + "...", false);
+                    }
 
-                            e
-                        })
-                    }).await?;
+                    ctx.send(CreateReply::default().embed(embed)).await?;
                 }
                 Err(ex) => {
                     ctx.say("The course search gave us weird data, try again later?").await?;

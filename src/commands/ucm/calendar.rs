@@ -1,7 +1,9 @@
 use chrono::{Datelike, Local};
+use poise::CreateReply;
 use tracing::error;
 use crate::{CowContext, Error};
 use scraper::{Html, Selector};
+use serenity::all::CreateEmbed;
 
 pub struct Semester {
     pub name: String,
@@ -69,26 +71,21 @@ fn process_calendar(data: &str) -> Option<AcademicCalendar> {
 }
 
 async fn print_schedule(ctx: &CowContext<'_>, schedule: &AcademicCalendar) -> Result<(), Error> {
-    ctx.send(|m| {
-        m.embeds.clear();
-        m.embed(|e| {
-            e.title(&schedule.name);
+    let mut embed = CreateEmbed::new().title(&schedule.name);
 
-            for semester in &schedule.semesters {
-                let output = semester.dates.iter()
-                    .map(|o| {
-                        let (l, r) = o;
-                        format!("{l} - {r}")
-                    })
-                    .reduce(|a, b| format!("{a}\n{b}"))
-                    .unwrap_or_else(|| "Nothing was written...".to_string());
+    for semester in &schedule.semesters {
+        let output = semester.dates.iter()
+            .map(|o| {
+                let (l, r) = o;
+                format!("{l} - {r}")
+            })
+            .reduce(|a, b| format!("{a}\n{b}"))
+            .unwrap_or_else(|| "Nothing was written...".to_string());
 
-                e.field(&semester.name, output, false);
-            }
+        embed = embed.field(&semester.name, output, false);
+    }
 
-            e
-        })
-    }).await?;
+    ctx.send(CreateReply::default().embed(embed)).await?;
 
     Ok(())
 }

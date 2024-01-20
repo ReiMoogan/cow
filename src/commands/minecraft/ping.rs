@@ -28,13 +28,13 @@ pub async fn ping(
                     let mut embed = CreateEmbed::new().title(format!("Minecraft Query of {connection}"));
 
                     if let Some(description) = response.description {
-                        embed.field("MOTD", description.text, true);
+                        embed = embed.field("MOTD", description.text, true);
                     }
 
-                    embed.field("Version", response.version.name, true);
+                    embed = embed.field("Version", response.version.name, true);
 
                     if let Some(ping) = response.ping {
-                        embed.field("Ping", format!("{ping}"), true);
+                        embed = embed.field("Ping", format!("{ping}"), true);
                     }
 
                     if let Some(player_list) = response.players.sample {
@@ -44,11 +44,11 @@ pub async fn ping(
                             .reduce(|a, b| format!("{a}\n{b}"))
                             .unwrap_or_else(|| "\u{200b}".to_string());
 
-                        embed.field(
+                        embed = embed.field(
                             format!("Players ({}/{})", response.players.online, response.players.max),
                             player_list, false);
                     } else {
-                        embed.field(
+                        embed = embed.field(
                             format!("Players ({}/{})", response.players.online, response.players.max),
                             "\u{200b}", true);
                     }

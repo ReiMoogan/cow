@@ -2,6 +2,7 @@ use tracing::error;
 use crate::{CowContext, Error};
 use super::parse_input;
 use proto_mc::rcon::RCONClient;
+use poise::CreateReply;
 
 #[poise::command(
     prefix_command,
@@ -46,25 +47,20 @@ pub async fn rcon(
 
             match client.send(&command).await {
                 Ok(result) => {
-                    ctx.send(|msg| {
-                        let mut str = result.payload;
-                        str.truncate(2000);
-                        msg.content(str).ephemeral(true)
-                    }).await?;
+                    let mut str = result.payload;
+                    str.truncate(2000);
+
+                    ctx.send(CreateReply::default().content(str).ephemeral(true)).await?;
                 }
                 Err(ex) => {
                     error!("Failed to execute commmand: {}", ex);
 
-                    ctx.send(|msg| {
-                        msg.content("Failed to execute command. Did the server crash?").ephemeral(true)
-                    }).await?;
+                    ctx.send(CreateReply::default().content("Failed to execute command. Did the server crash?").ephemeral(true)).await?;
                 }
             }
         }
         Err(ex) => {
-            ctx.send(|msg| {
-                msg.content(ex.to_string()).ephemeral(true)
-            }).await?;
+            ctx.send(CreateReply::default().content(ex.to_string()).ephemeral(true)).await?;
         }
     }
 
