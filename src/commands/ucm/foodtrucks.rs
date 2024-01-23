@@ -13,7 +13,7 @@ fn process_schedules(data: &str) -> Option<String> {
         now - Duration::days(now.weekday().num_days_from_monday() as i64) // days before to monday
     };
 
-    let monday_date = format!("{}-{}", monday.month(), monday.day());
+    let monday_date = format!("{}.{}", monday.month(), monday.day());
 
     let page = Html::parse_document(data);
     let image = Selector::parse("img").unwrap();
@@ -24,32 +24,13 @@ fn process_schedules(data: &str) -> Option<String> {
         .filter(|o| !o.contains("svg") && !o.contains("logo") && !o.contains("translate") && !o.contains("food_trucks_20211006-4"))
         .collect::<Vec<String>>();
 
-    // let day = links.iter().find(|o| o.contains(&monday_date));
-    //
-    // if day.is_some() {
-    //     error!("Found exact");
-    //     return day.map(|o| o.to_string());
-    // }
+    let day = links.iter().find(|o| o.contains(&monday_date));
 
-    // ok so they probably changed their naming scheme :reimudizzy:
-    // regex to match numbers from the link https://dining.ucmerced.edu/sites/dining.ucmerced.edu/files/page/images/llh-ucm_9-18-10-13_002_page_1.png
-    let re = Regex::new(r"(\d+).*?(\d+).*(\d+)").unwrap();
-    // first two numbers are a date, last number is the page number
-    // Also absolutely poor programming with unwraps everywhere
-    error!("Checking dates");
-    let day = links.iter().find(|o| {
-        if let Some(captures) = re.captures(o) {
-            let date = format!("{}-{}-{}", now.year(), captures.get(1).unwrap().as_str(), captures.get(2).unwrap().as_str());
-            let page = captures.get(3).unwrap().as_str();
-            let chrono_date = chrono::NaiveDate::parse_from_str(&date, "%Y-%m-%d").unwrap();
-            let chrono_date_with_page = chrono_date + Duration::days((page.parse::<i64>().unwrap() - 1) * 7);
-            let formatted_final_date = format!("{}-{}", chrono_date_with_page.month(), chrono_date_with_page.day());
-            error!("Checking dates {} {} {}", date, page, formatted_final_date);
-            formatted_final_date == monday_date
-        } else {
-            false
-        }
-    });
+    // Returning back to the old way lol
+    if day.is_some() {
+        // error!("Found exact");
+        return day.map(|o| o.to_string());
+    }
 
     if day.is_some() {
         day.map(|o| o.to_string())
