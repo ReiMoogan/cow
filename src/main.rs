@@ -65,7 +65,7 @@ impl EventHandler for Handler {
     }
 
     async fn interaction_create(&self, ctx: Context, interaction: Interaction) {
-        if let Some(component) = interaction.message_component() {
+        if let Some(mut component) = interaction.message_component() {
             if component.data.custom_id.starts_with("full_menu") {
                 if let Err(ex) = component.defer(&ctx).await {
                     error!("Failed to defer component: {}", ex);
@@ -74,6 +74,15 @@ impl EventHandler for Handler {
 
                 if let Err(ex) = commands::ucm::pavilion::print_full_menu(&ctx, &component).await {
                     error!("Failed to print full menu: {}", ex);
+                }
+            } else if component.data.custom_id.starts_with("map_next_floor") {
+                if let Err(ex) = component.defer(&ctx).await {
+                    error!("Failed to defer component: {}", ex);
+                    return;
+                }
+
+                if let Err(ex) = commands::ucm::map::map_next_floor(&ctx, &mut component).await {
+                    error!("Failed to get next map floor: {}", ex);
                 }
             }
         }
@@ -205,6 +214,9 @@ async fn main() -> Result<(), Box<dyn error::Error>>  {
             error!("Failed to create slash commands: {}", ex);
         }
     }
+
+    // download ucm maps and save them in this directory
+    let _ = tokio::task::spawn(services::map_download::dl_and_convert_all_maps());
 
     if let Err(ex) = poise.start().await {
         error!("Discord bot client error: {:?}", ex);

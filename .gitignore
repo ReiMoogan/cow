@@ -41,3 +41,7 @@ Cow.sqlproj.user
 obj/
 Cow.jfm
 gpt/
+ucm_maps/
+
+# vscode
+.vscode

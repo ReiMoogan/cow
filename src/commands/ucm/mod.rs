@@ -13,6 +13,7 @@ mod foodtrucks;
 mod calendar;
 mod gym;
 mod store;
+pub(crate) mod map;
 
 use library::*;
 use courses::*;
@@ -24,10 +25,11 @@ use calendar::*;
 use gym::*;
 use store::*;
 use reminders::*;
+use map::*;
 use crate::{CowContext, Error};
 
 #[poise::command(prefix_command, slash_command,
-    subcommands("library", "courses", "courses_old", "pavilion", "professors", "foodtrucks", "calendar", "gym", "store", "reminders"),
+    subcommands("library", "courses", "courses_old", "pavilion", "professors", "foodtrucks", "calendar", "gym", "store", "reminders", "map"),
     discard_spare_arguments,
     description_localized("en-US", "Get information about UC Merced's services and facilities."),
     aliases("ucmerced"),
