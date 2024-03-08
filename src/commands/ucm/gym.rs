@@ -6,11 +6,21 @@ fn process_hours(data: &str) -> Vec<(String, String)> {
     let mut output: Vec<(String, String)> = Vec::new();
 
     let page = Html::parse_document(data);
-    let text = Selector::parse(".content .field-item h4, .content .field-item div, .content .field-item p").unwrap();
+    let text = Selector::parse(".content .field-item div h4, .content .field-item div :not(div:empty), .content .field-item div p").unwrap();
 
     let mut temporary_name: Option<String> = None;
     let mut temporary_values: Vec<String> = Vec::new();
     for text in page.select(&text) {
+        // Check if element has a text node
+        let mut counter: u16 = 0;
+        for _x in text.children() {
+            counter += 1;
+        }
+        
+        if counter == 0 || counter > 1 {
+            continue;
+        }
+        
         let text_data = text
             .text()
             .map(|o| o.trim())
@@ -18,6 +28,9 @@ fn process_hours(data: &str) -> Vec<(String, String)> {
             .map(|o| o.to_string())
             .reduce(|a, b| format!("{a}\n{b}"))
             .unwrap_or_default();
+
+        error!("text_data: {}", text_data);
+        error!("text.value().name(): {}", text.value().name());
 
         if text.value().name() == "h4" {
             // New header, push values.
