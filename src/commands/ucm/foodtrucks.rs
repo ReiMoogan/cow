@@ -13,7 +13,7 @@ fn process_schedules(data: &str) -> Option<String> {
         now - Duration::days(now.weekday().num_days_from_monday() as i64) // days before to monday
     };
 
-    let monday_date = format!("{}.{}", monday.month(), monday.day());
+    let regex = Regex::new(&*format!(r"{}[-.]{}", monday.month(), monday.day())).unwrap();
 
     let page = Html::parse_document(data);
     let image = Selector::parse("img").unwrap();
@@ -24,7 +24,7 @@ fn process_schedules(data: &str) -> Option<String> {
         .filter(|o| !o.contains("svg") && !o.contains("logo") && !o.contains("translate") && !o.contains("food_trucks_20211006-4"))
         .collect::<Vec<String>>();
 
-    let day = links.iter().find(|o| o.contains(&monday_date));
+    let day = links.iter().find(|o| regex.is_match(o));
 
     // Returning back to the old way lol
     if day.is_some() {
