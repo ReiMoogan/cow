@@ -1,5 +1,4 @@
 use std::borrow::Cow;
-use std::time::Duration;
 use reqwest::Client;
 use tokio::fs;
 use crate::{CowContext, Error, models::config::Config};
