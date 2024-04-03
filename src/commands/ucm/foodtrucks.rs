@@ -13,8 +13,9 @@ fn process_schedules(data: &str) -> Option<String> {
         now - Duration::days(now.weekday().num_days_from_monday() as i64) // days before to monday
     };
 
-    let regex = Regex::new(&*format!(r"{}[-.]{}", monday.month(), monday.day())).unwrap();
+    let regex = Regex::new(&format!(r"{}[-.]{}[^0-9]", monday.month(), monday.day())).unwrap();
 
+    // error!("Monday: {}", monday);
     let page = Html::parse_document(data);
     let image = Selector::parse("img").unwrap();
 
@@ -46,6 +47,7 @@ fn process_schedules(data: &str) -> Option<String> {
             let chrono_date = chrono::NaiveDate::parse_from_str(&date, "%Y-%m-%d").unwrap();
             let chrono_date_with_page = chrono_date + Duration::days((page.parse::<i64>().unwrap() - 1) * 7);
             let formatted_final_date = format!("{}.{}", chrono_date_with_page.month(), chrono_date_with_page.day());
+            error!("{} == {}", formatted_final_date, monday_date);
             formatted_final_date == monday_date
         } else {
             false
