@@ -36,6 +36,7 @@ fn process_schedules(data: &str) -> Option<String> {
     // https://dining.ucmerced.edu/sites/dining.ucmerced.edu/files/page/images/llh-ucm_schedule_3-25_-_5-6_page_7.png
     // regex to match numbers from the link https://dining.ucmerced.edu/sites/dining.ucmerced.edu/files/page/images/llh-ucm_9-18-10-13_002_page_1.png
     let re = Regex::new(r"(\d+).*?(\d+).*?\d+.*?\d+.*(\d+)").unwrap();
+    let monday_date = format!("{}.{}", monday.month(), monday.day());
     // first two numbers are a date, last number is the page number
     // Also absolutely poor programming with unwraps everywhere
     let day = links.iter().find(|o| {
