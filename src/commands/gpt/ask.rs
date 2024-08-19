@@ -11,15 +11,17 @@ const CONVERSATION_PATH: &str = "gpt";
 async fn new_conversation(ctx: CowContext<'_>) -> ChatCompletionRequest {
     let db = cowdb!(ctx);
 
-    let model = if let Ok(status) = db.has_gpt4_enabled(ctx.author().id).await {
-        if status {
-            "gpt-4"
-        } else {
-            "gpt-3.5-turbo-16k"
-        }
-    } else {
-        "gpt-3.5-turbo-16k"
-    };
+    // let model = if let Ok(status) = db.has_gpt4_enabled(ctx.author().id).await {
+    //     if status {
+    //         "gpt-4"
+    //     } else {
+    //         "gpt-3.5-turbo-16k"
+    //     }
+    // } else {
+    //     "gpt-3.5-turbo-16k"
+    // };
+    
+    let model = "gpt-4o";
 
     let mut request = ChatCompletionRequest {
         model: model.to_string(),
